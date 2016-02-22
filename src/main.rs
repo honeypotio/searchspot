@@ -86,8 +86,8 @@ fn main() {
                  .ok()
                  .unwrap();
 
-  /* Actually ES returns lots of stuff here.
-     We could consider to fetch very few fields from the database */
+  // Actually ES returns lots of stuff here.
+  // We could consider to fetch very few fields from the database */
   for hit in result.hits.hits {
     let talent: TalentsSearchResult = hit.source().unwrap();
 
