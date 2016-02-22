@@ -27,34 +27,34 @@ fn main() {
   let mut es = Client::new("localhost", 9200);
   let     pg = Connection::connect(PG_URL, SslMode::None).unwrap();
 
-  let roles:         Vec<&'static str> = vec!["Frontend", "Backend"];
-  let languages:     Vec<&'static str> = vec![];
-  let experience:    Vec<&'static str> = vec![];
-  let locations:     Vec<&'static str> = vec![];
-  let authorization: Vec<&'static str> = vec![];
-  let company_ids:   Vec<i32>          = vec![];
+  let roles:         Vec<&str> = vec!["Frontend", "Backend"];
+  let languages:     Vec<&str> = vec![];
+  let experience:    Vec<&str> = vec![];
+  let locations:     Vec<&str> = vec![];
+  let authorization: Vec<&str> = vec![];
+  let company_ids:   Vec<i32>  = vec![];
 
   let query = Query::build_filtered(
                 Filter::build_bool()
                        .with_must(
                           vec![
-                            <Filter as VectorOfTerms<&'static str>>::build_terms(
+                            <Filter as VectorOfTerms<&str>>::build_terms(
                               "work_roles", &roles
                             ),
 
-                            <Filter as VectorOfTerms<&'static str>>::build_terms(
+                            <Filter as VectorOfTerms<&str>>::build_terms(
                               "work_languages", &languages
                             ),
 
-                            <Filter as VectorOfTerms<&'static str>>::build_terms(
+                            <Filter as VectorOfTerms<&str>>::build_terms(
                               "work_experience", &experience
                             ),
 
-                            <Filter as VectorOfTerms<&'static str>>::build_terms(
+                            <Filter as VectorOfTerms<&str>>::build_terms(
                               "work_locations", &locations
                             ),
 
-                            <Filter as VectorOfTerms<&'static str>>::build_terms(
+                            <Filter as VectorOfTerms<&str>>::build_terms(
                               "work_authorization", &authorization
                             )
                           ].into_iter()

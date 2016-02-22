@@ -7,7 +7,7 @@ macro_rules! build_vector_of_terms_impl {
       /// Extract all given items into multiple filters
       /// i.e. build_terms("field", vec![1, 2]) => vec![Filter(1), Filter(2)]
       /// This enable us to operate on these values with boolean values
-      fn build_terms(key: &'static str, values: &Vec<$t>) -> Vec<Filter> {
+      fn build_terms(key: &str, values: &Vec<$t>) -> Vec<Filter> {
         // Skip empty vectors
         if values.is_empty() {
           return vec![];
@@ -31,7 +31,7 @@ macro_rules! build_vector_of_terms_impl {
 }
 
 pub trait VectorOfTerms<T> {
-  fn build_terms(key: &'static str, values: &Vec<T>) -> Vec<Filter>;
+  fn build_terms(key: &str, values: &Vec<T>) -> Vec<Filter>;
 }
 
 build_vector_of_terms_impl!(i32);
