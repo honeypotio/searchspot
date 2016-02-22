@@ -1,11 +1,14 @@
 use rs_es::query::*;
 use rs_es::units::JsonVal;
 
-macro_rules! build_terms_of_array_impl {
+macro_rules! build_vector_of_terms_impl {
   ($t:ty) => {
-    impl BuildTermsOfArray<$t> for Filter {
+    impl VectorOfTerms<$t> for Filter {
+      /// Extract all given items into multiple filters
+      /// i.e. build_terms("field", vec![1, 2]) => vec![Filter(1), Filter(2)]
+      /// This enable us to operate on these values with boolean values
       fn build_terms(key: &'static str, values: &Vec<$t>) -> Vec<Filter> {
-        // An empty `values` does nothing so that you don't need to assert its presence
+        // Skip empty vectors
         if values.is_empty() {
           return vec![];
         }
@@ -27,9 +30,9 @@ macro_rules! build_terms_of_array_impl {
   }
 }
 
-pub trait BuildTermsOfArray<T> {
+pub trait VectorOfTerms<T> {
   fn build_terms(key: &'static str, values: &Vec<T>) -> Vec<Filter>;
 }
 
-build_terms_of_array_impl!(i32);
-build_terms_of_array_impl!(&'static str);
+build_vector_of_terms_impl!(i32);
+build_vector_of_terms_impl!(&'static str);
