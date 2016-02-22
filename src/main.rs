@@ -13,7 +13,7 @@ mod user;
 use user::User;
 
 mod filters;
-use filters::BuildTermsOfArray;
+use filters::VectorOfTerms;
 
 #[derive(Debug, RustcDecodable)]
 struct TalentsSearchResult {
@@ -38,23 +38,23 @@ fn main() {
                 Filter::build_bool()
                        .with_must(
                           vec![
-                            <Filter as BuildTermsOfArray<&'static str>>::build_terms(
+                            <Filter as VectorOfTerms<&'static str>>::build_terms(
                               "work_roles", &roles
                             ),
 
-                            <Filter as BuildTermsOfArray<&'static str>>::build_terms(
+                            <Filter as VectorOfTerms<&'static str>>::build_terms(
                               "work_languages", &languages
                             ),
 
-                            <Filter as BuildTermsOfArray<&'static str>>::build_terms(
+                            <Filter as VectorOfTerms<&'static str>>::build_terms(
                               "work_experience", &experience
                             ),
 
-                            <Filter as BuildTermsOfArray<&'static str>>::build_terms(
+                            <Filter as VectorOfTerms<&'static str>>::build_terms(
                               "work_locations", &locations
                             ),
 
-                            <Filter as BuildTermsOfArray<&'static str>>::build_terms(
+                            <Filter as VectorOfTerms<&'static str>>::build_terms(
                               "work_authorization", &authorization
                             )
                           ].into_iter()
@@ -63,11 +63,11 @@ fn main() {
                         )
                        .with_must_not(
                           vec![
-                            <Filter as BuildTermsOfArray<i32>>::build_terms(
+                            <Filter as VectorOfTerms<i32>>::build_terms(
                               "company_ids", &company_ids
                             ),
 
-                            <Filter as BuildTermsOfArray<i32>>::build_terms(
+                            <Filter as VectorOfTerms<i32>>::build_terms(
                               "blocked_companies", &company_ids
                             )
                           ].into_iter()
@@ -87,7 +87,7 @@ fn main() {
                  .unwrap();
 
   // Actually ES returns lots of stuff here.
-  // We could consider to fetch very few fields from the database */
+  // We could consider to fetch very few fields from the database
   for hit in result.hits.hits {
     let talent: TalentsSearchResult = hit.source().unwrap();
 
