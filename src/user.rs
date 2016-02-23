@@ -4,13 +4,13 @@ use postgres_array::Array;
 #[derive(Debug)]
 pub struct User {
   pub id:              i32,
-  pub first_name:      String,
-  pub last_name:       String,
-  pub headline:        String,
+  pub first_name:      Option<String>,
+  pub last_name:       Option<String>,
+  pub headline:        Option<String>,
   pub work_roles:      Vec<String>,
   pub work_languages:  Vec<String>,
-  pub work_experience: String,
-  pub avatar_url:      String
+  pub work_experience: Option<String>,
+  pub avatar_url:      Option<String>
 }
 
 impl User {
