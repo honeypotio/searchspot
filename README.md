@@ -1,5 +1,11 @@
 Honeysearch
 ===========
+This service will be the endpoint responsible for Honeypot's ElasticSearch data.
 
-This service will be the Honeypot endpoint responsible for the ElasticSearch data.
-Currently very WIP. Just [biliv](https://just-believe.in).
+Currently a really WIP. Just [biliv](https://just-believe.in).
+
+Setup
+-----
+Install the latest stable release of Rust using the [official installer](https://www.rust-lang.org/downloads.html) or your package manager.
+
+Then clone locally this repository and run the executable with `$ cargo run` (you can produce an optimized executable just appending `--release`, but the compile time will be longer).
