@@ -39,56 +39,48 @@ fn main() {
   let company_ids:   Vec<i32>    = vec![];
   let company_id:    Option<i32> = None;
 
-  let query = Query::build_filtered(
-                Filter::build_bool()
-                       .with_must(
-                          vec![
-                            <Filter as VectorOfTerms<&str>>::build_terms(
-                              "work_roles", &roles
-                            ),
+  let query = Query::build_filtered(Filter::build_bool()
+                                           .with_must(
+                                             vec![
+                                               <Filter as VectorOfTerms<&str>>::build_terms(
+                                                 "work_roles", &roles),
 
-                            <Filter as VectorOfTerms<&str>>::build_terms(
-                              "work_languages", &languages
-                            ),
+                                               <Filter as VectorOfTerms<&str>>::build_terms(
+                                                 "work_languages", &languages),
 
-                            <Filter as VectorOfTerms<&str>>::build_terms(
-                              "work_experience", &experience
-                            ),
+                                               <Filter as VectorOfTerms<&str>>::build_terms(
+                                                 "work_experience", &experience),
 
-                            <Filter as VectorOfTerms<&str>>::build_terms(
-                              "work_locations", &locations
-                            ),
+                                               <Filter as VectorOfTerms<&str>>::build_terms(
+                                                 "work_locations", &locations),
 
-                            <Filter as VectorOfTerms<&str>>::build_terms(
-                              "work_authorization", &authorization
-                            ),
+                                               <Filter as VectorOfTerms<&str>>::build_terms(
+                                                "work_authorization", &authorization),
 
-                            visibility_filters(&pg, &company_id)
-                          ].into_iter()
-                           .flat_map(|x| x)
-                           .collect::<Vec<Filter>>()
-                        )
-                       .with_must_not(
-                          vec![
-                            <Filter as VectorOfTerms<i32>>::build_terms(
-                              "company_ids", &company_ids
-                            ),
+                                               visibility_filters(&pg, &company_id)
+                                             ].into_iter()
+                                              .flat_map(|x| x)
+                                              .collect::<Vec<Filter>>())
+                                           .with_must_not(
+                                             vec![
+                                               <Filter as VectorOfTerms<i32>>::build_terms(
+                                                 "company_ids", &company_ids),
 
-                            <Filter as VectorOfTerms<i32>>::build_terms(
-                              "blocked_companies", &company_ids
-                            )
-                          ].into_iter()
-                           .flat_map(|x| x)
-                           .collect::<Vec<Filter>>()
-                        ).build()
-              ).build();
+                                               <Filter as VectorOfTerms<i32>>::build_terms(
+                                                 "blocked_companies", &company_ids)
+                                             ].into_iter()
+                                              .flat_map(|x| x)
+                                              .collect::<Vec<Filter>>())
+                                           .build())
+                    .build();
 
   let result = es.search_query()
                  .with_indexes(ES_INDEXES)
                  .with_query(&query)
-                 .with_sort(&Sort::new(vec![
-                   SortField::new("updated_at", Some(Order::Desc)).build()
-                 ]))
+                 .with_sort(&Sort::new(
+                   vec![
+                     SortField::new("updated_at", Some(Order::Desc)).build()
+                   ]))
                  .send()
                  .ok()
                  .unwrap();
