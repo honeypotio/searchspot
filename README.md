@@ -8,4 +8,10 @@ Setup
 -----
 Install the latest stable release of Rust using the [official installer](https://www.rust-lang.org/downloads.html) or your package manager.
 
-Then clone locally this repository and run the executable with `$ cargo run` (you can produce an optimized executable just appending `--release`, but the compile time will be longer).
+Then clone locally this repository and run the executable with
+
+```sh
+$ cargo run
+````
+
+You can produce an optimized executable just appending `--release`, but the compile time will be longer.
