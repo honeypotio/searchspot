@@ -1,0 +1,17 @@
+dependencies:
+  post:
+    - git config --global user.email webmaster@giovannicapuano.net
+    - git config --global user.name RoxasShadow
+    - curl -sf -L https://static.rust-lang.org/rustup.sh | sh /dev/stdin --channel=nightly --yes
+    - "if [[ ! -e elasticsearch-2.1.0 ]]; then wget https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-2.1.0.tar.gz && tar -xvf elasticsearch-2.1.0.tar.gz; fi"
+    - sudo chmod 777 /var/log/elasticsearch
+
+  cache_directories:
+    - "elasticsearch-2.1.0"
+test:
+  override:
+    - cargo test
+
+machine:
+  environment:
+    PATH: ${PATH}:${HOME}/${CIRCLE_PROJECT_REPONAME}/elasticsearch-2.1.0/bin
