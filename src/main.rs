@@ -17,7 +17,7 @@ extern crate router;
 extern crate urlencoded;
 use iron::prelude::*;
 use iron::status;
-use iron::mime::{Mime, TopLevel, SubLevel, Attr, Value};
+use iron::mime::Mime;
 use router::Router;
 use urlencoded::UrlEncodedQuery;
 
@@ -122,13 +122,6 @@ fn talents(req: &mut Request) -> IronResult<Response> {
                                  })
                                  .collect::<Vec<User>>();
 
-  let mut response = Response::with((status::Ok, json::encode(&user_ids).unwrap()));
-  response.set_mut(Mime(
-                    TopLevel::Application,
-                    SubLevel::Json,
-                    vec![
-                      (Attr::Charset, Value::Utf8)
-                    ]
-                  ));
-  Ok(response)
+  let content_type = "application/json".parse::<Mime>().unwrap();
+  Ok(Response::with((content_type, status::Ok, json::encode(&user_ids).unwrap())))
 }
