@@ -1,7 +1,7 @@
 use postgres::Connection;
 use postgres_array::Array;
 
-#[derive(Debug)]
+#[derive(Debug, RustcEncodable)]
 pub struct User {
   pub id:              i32,
   pub first_name:      Option<String>,
