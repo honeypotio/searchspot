@@ -14,7 +14,7 @@ pub fn visibility_filters(conn: &Connection, company_id: &Option<i32>) -> Vec<Fi
   let visibility_rules = Filter::build_bool()
                                 .with_must(
                                   vec![
-                                    Filter::build_term("accepted", "true")
+                                    Filter::build_term("accepted", true)
                                            .build(),
                                     Filter::build_range("batch_starts_at")
                                            .with_lt(JsonVal::from(now))
