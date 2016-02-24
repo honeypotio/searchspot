@@ -70,7 +70,7 @@ macro_rules! build_vector_of_terms_impl {
 
         vec![
           Filter::build_terms(key, values.iter()
-                                         .map(|v| JsonVal::from(*v))
+                                         .map(|v| JsonVal::from(v.clone()))
                                          .collect::<Vec<JsonVal>>()).build()
         ]
       }
@@ -79,4 +79,4 @@ macro_rules! build_vector_of_terms_impl {
 }
 
 build_vector_of_terms_impl!(i32);
-build_vector_of_terms_impl!(&'static str);
+build_vector_of_terms_impl!(String);
