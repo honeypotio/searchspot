@@ -57,31 +57,35 @@ fn talents(req: &mut Request) -> IronResult<Response> {
   let mut es = Client::new("localhost", 9200);
   let     pg = Connection::connect(PG_URL, SslMode::None).unwrap();
 
-  let roles:         Vec<&str>   = vec!["Frontend", "Backend"];
-  let languages:     Vec<&str>   = vec![];
-  let experience:    Vec<&str>   = vec![];
-  let locations:     Vec<&str>   = vec![];
-  let authorization: Vec<&str>   = vec![];
-  let company_ids:   Vec<i32>    = vec![];
-  let company_id:    Option<i32> = None;
+  // TODO: How to deal with this two private parameters?
+  let company_ids: Vec<i32>    = vec![];
+  let company_id:  Option<i32> = None;
+
+  let params = req.get_ref::<UrlEncodedQuery>().ok().unwrap();
+  let empty_vec: Vec<String> = vec![];
 
   let query = Query::build_filtered(Filter::build_bool()
                                            .with_must(
                                              vec![
-                                               <Filter as VectorOfTerms<&str>>::build_terms(
-                                                 "work_roles", &roles),
+                                               <Filter as VectorOfTerms<String>>::build_terms(
+                                                 "work_roles", params.get("work_roles")
+                                                                     .unwrap_or(&empty_vec)),
 
-                                               <Filter as VectorOfTerms<&str>>::build_terms(
-                                                 "work_languages", &languages),
+                                               <Filter as VectorOfTerms<String>>::build_terms(
+                                                 "work_languages", params.get("work_languages")
+                                                                        .unwrap_or(&empty_vec)),
 
-                                               <Filter as VectorOfTerms<&str>>::build_terms(
-                                                 "work_experience", &experience),
+                                               <Filter as VectorOfTerms<String>>::build_terms(
+                                                 "work_experience", params.get("work_experience")
+                                                                        .unwrap_or(&empty_vec)),
 
-                                               <Filter as VectorOfTerms<&str>>::build_terms(
-                                                 "work_locations", &locations),
+                                               <Filter as VectorOfTerms<String>>::build_terms(
+                                                 "work_locations", params.get("work_locations")
+                                                                        .unwrap_or(&empty_vec)),
 
-                                               <Filter as VectorOfTerms<&str>>::build_terms(
-                                                "work_authorization", &authorization),
+                                               <Filter as VectorOfTerms<String>>::build_terms(
+                                                "work_authorization", params.get("work_authorization")
+                                                                        .unwrap_or(&empty_vec)),
 
                                                visibility_filters(&pg, &company_id)
                                              ].into_iter()
