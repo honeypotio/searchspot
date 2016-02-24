@@ -1,6 +1,7 @@
 extern crate chrono;
 
 extern crate rustc_serialize;
+use rustc_serialize::json;
 
 extern crate rs_es;
 use rs_es::Client;
@@ -10,6 +11,13 @@ use rs_es::query::{Filter, Query};
 extern crate postgres;
 extern crate postgres_array;
 use postgres::{Connection, SslMode};
+
+extern crate hyper;
+use hyper::Server;
+use hyper::server::Request;
+use hyper::server::Response;
+use hyper::header::ContentType;
+use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
 
 mod user;
 use user::User;
@@ -28,6 +36,19 @@ const PG_URL: &'static str = "postgres://lando@localhost/lando_development";
 const ES_INDEXES: &'static [&'static str] = &["honeypot_dev_talents"];
 
 fn main() {
+  println!("Listening on http://127.0.0.1:3000");
+  Server::http("127.0.0.1:3000").unwrap().handle(listener).unwrap();
+}
+
+fn listener(_: Request, mut res: Response) {
+  res.headers_mut().set(ContentType(Mime(
+                          TopLevel::Application,
+                          SubLevel::Json,
+                          vec![
+                            (Attr::Charset, Value::Utf8)
+                          ]
+                        )));
+
   let mut es = Client::new("localhost", 9200);
   let     pg = Connection::connect(PG_URL, SslMode::None).unwrap();
 
@@ -85,14 +106,12 @@ fn main() {
                  .ok()
                  .unwrap();
 
-  // Actually ES returns lots of stuff here.
-  // We could consider to fetch very few fields from the database
-  for hit in result.hits.hits {
-    let talent: TalentsSearchResult = hit.source().unwrap();
+  let user_ids = result.hits.hits.into_iter()
+                                 .filter_map(|hit| {
+                                   let talent: TalentsSearchResult = hit.source().unwrap();
+                                   User::find(&pg, &talent.id)
+                                 })
+                                 .collect::<Vec<User>>();
 
-    match User::find(&pg, &talent.id) {
-      Some(user) => println!("{:#?}", user),
-      None       => {}
-    }
-  }
+  res.send(&json::encode(&user_ids).unwrap().into_bytes()).unwrap();
 }
