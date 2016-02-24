@@ -12,12 +12,14 @@ extern crate postgres;
 extern crate postgres_array;
 use postgres::{Connection, SslMode};
 
-extern crate hyper;
-use hyper::Server;
-use hyper::server::Request;
-use hyper::server::Response;
-use hyper::header::ContentType;
-use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
+extern crate iron;
+extern crate router;
+extern crate urlencoded;
+use iron::prelude::*;
+use iron::status;
+use iron::mime::{Mime, TopLevel, SubLevel, Attr, Value};
+use router::Router;
+use urlencoded::UrlEncodedQuery;
 
 mod user;
 use user::User;
@@ -27,28 +29,31 @@ mod company;
 mod filters;
 use filters::{visibility_filters, VectorOfTerms};
 
+use std::env;
+
 #[derive(Debug, RustcDecodable)]
 struct TalentsSearchResult {
   id: i32
 }
 
-const PG_URL: &'static str = "postgres://lando@localhost/lando_development";
+const PG_URL:     &'static str            = "postgres://lando@localhost/lando_development";
 const ES_INDEXES: &'static [&'static str] = &["honeypot_dev_talents"];
+const VERSION:    &'static str            = env!("CARGO_PKG_VERSION");
 
 fn main() {
-  println!("Listening on http://127.0.0.1:3000");
-  Server::http("127.0.0.1:3000").unwrap().handle(listener).unwrap();
+  let port = env::args().nth(1).unwrap_or(String::from("3000"));
+  let host = format!("127.0.0.1:{}", port);
+
+  println!("Honeysearch v{}", VERSION);
+  println!("Listening on http://{}...", host);
+
+  let mut router = Router::new();
+  router.get("/talents", talents);
+
+  Iron::new(router).http(&*host).unwrap();
 }
 
-fn listener(_: Request, mut res: Response) {
-  res.headers_mut().set(ContentType(Mime(
-                          TopLevel::Application,
-                          SubLevel::Json,
-                          vec![
-                            (Attr::Charset, Value::Utf8)
-                          ]
-                        )));
-
+fn talents(req: &mut Request) -> IronResult<Response> {
   let mut es = Client::new("localhost", 9200);
   let     pg = Connection::connect(PG_URL, SslMode::None).unwrap();
 
@@ -113,5 +118,13 @@ fn listener(_: Request, mut res: Response) {
                                  })
                                  .collect::<Vec<User>>();
 
-  res.send(&json::encode(&user_ids).unwrap().into_bytes()).unwrap();
+  let mut response = Response::with((status::Ok, json::encode(&user_ids).unwrap()));
+  response.set_mut(Mime(
+                    TopLevel::Application,
+                    SubLevel::Json,
+                    vec![
+                      (Attr::Charset, Value::Utf8)
+                    ]
+                  ));
+  Ok(response)
 }

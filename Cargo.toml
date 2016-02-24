@@ -9,4 +9,6 @@ postgres = "0.11"
 postgres_array = "0.6"
 rs-es = { git = "https://github.com/RoxasShadow/rs-es", branch = "features/patch-2" }
 chrono = "0.2"
-hyper="0.7"
+iron = "0.2"
+router = "0.1"
+urlencoded="0.2"
