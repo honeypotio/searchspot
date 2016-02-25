@@ -1,7 +1,9 @@
 [package]
 name    = "honeysearch"
 version = "0.1.0"
+
 authors = ["Giovanni Capuano <webmaster@giovannicapuano.net>"]
+license = "BSD-2-Clause"
 
 [dependencies]
 rustc-serialize = "0.3"
