@@ -57,12 +57,15 @@ fn talents(req: &mut Request) -> IronResult<Response> {
   let mut es = Client::new("localhost", 9200);
   let     pg = Connection::connect(PG_URL, SslMode::None).unwrap();
 
-  // TODO: How to deal with this two private parameters?
-  let company_ids: Vec<i32>    = vec![];
-  let company_id:  Option<i32> = None;
-
   let params = req.get_ref::<UrlEncodedQuery>().ok().unwrap();
   let empty_vec: Vec<String> = vec![];
+
+  let company_id = match params.clone().get_mut("company_id") {
+    Some(company_id) => company_id[0].parse::<i32>()
+                                     .map(|x| vec![x])
+                                     .unwrap_or(vec![]),
+    None => vec![]
+  };
 
   let query = Query::build_filtered(Filter::build_bool()
                                            .with_must(
@@ -73,31 +76,34 @@ fn talents(req: &mut Request) -> IronResult<Response> {
 
                                                <Filter as VectorOfTerms<String>>::build_terms(
                                                  "work_languages", params.get("work_languages")
-                                                                        .unwrap_or(&empty_vec)),
+                                                                         .unwrap_or(&empty_vec)),
 
                                                <Filter as VectorOfTerms<String>>::build_terms(
                                                  "work_experience", params.get("work_experience")
-                                                                        .unwrap_or(&empty_vec)),
+                                                                          .unwrap_or(&empty_vec)),
 
                                                <Filter as VectorOfTerms<String>>::build_terms(
                                                  "work_locations", params.get("work_locations")
-                                                                        .unwrap_or(&empty_vec)),
+                                                                         .unwrap_or(&empty_vec)),
 
                                                <Filter as VectorOfTerms<String>>::build_terms(
                                                 "work_authorization", params.get("work_authorization")
-                                                                        .unwrap_or(&empty_vec)),
+                                                                            .unwrap_or(&empty_vec)),
 
-                                               visibility_filters(&pg, &company_id)
+                                               visibility_filters(&pg, match company_id.is_empty() {
+                                                 true  => None,
+                                                 false => Some(company_id[0]),
+                                               })
                                              ].into_iter()
                                               .flat_map(|x| x)
                                               .collect::<Vec<Filter>>())
                                            .with_must_not(
                                              vec![
                                                <Filter as VectorOfTerms<i32>>::build_terms(
-                                                 "company_ids", &company_ids),
+                                                 "company_ids", &company_id),
 
                                                <Filter as VectorOfTerms<i32>>::build_terms(
-                                                 "blocked_companies", &company_ids)
+                                                 "blocked_companies", &company_id)
                                              ].into_iter()
                                               .flat_map(|x| x)
                                               .collect::<Vec<Filter>>())
