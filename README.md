@@ -15,3 +15,5 @@ $ cargo run
 ````
 
 You can produce an optimized executable just appending `--release`, but the compile time will be longer.
+
+Run `cargo test` to run the tests and `cargo doc` to produce the documentation.
