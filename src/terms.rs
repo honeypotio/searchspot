@@ -41,16 +41,15 @@ mod tests {
 
     {
       let filters = <Filter as VectorOfTerms<String>>::build_terms(
-                      "work_roles", &vec![String::from("Fullstack")]);
+                      "work_roles", &vec!["Fullstack".to_owned()]);
       assert_eq!(filters[0].to_json().to_string(),
-                  String::from("{\"terms\":{\"work_roles\":[\"Fullstack\"]}}"));
+                  "{\"terms\":{\"work_roles\":[\"Fullstack\"]}}".to_owned());
     }
 
     {
       let filters = <Filter as VectorOfTerms<i32>>::build_terms(
                   "work_roles", &vec![1]);
-      assert_eq!(filters[0].to_json().to_string(),
-                  String::from("{\"terms\":{\"work_roles\":[1]}}"));
+      assert_eq!(filters[0].to_json().to_string(), "{\"terms\":{\"work_roles\":[1]}}".to_owned());
     }
   }
 }
