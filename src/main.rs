@@ -137,3 +137,84 @@ fn talents(req: &mut Request) -> IronResult<Response> {
   let content_type = "application/json".parse::<Mime>().unwrap();
   Ok(Response::with((content_type, status::Ok, json::encode(&user_ids).unwrap())))
 }
+
+#[cfg(test)]
+mod tests {
+  use params::*;
+
+  #[test]
+  fn test_vec_from_params() {
+    {
+      let mut params = Map::new();
+      params.assign("work_roles[]", Value::String("Fullstack".into())).unwrap();
+      params.assign("work_roles[]", Value::String("DevOps".into())).unwrap();
+
+      let work_roles: Vec<String> = vec_from_params!(params, "work_roles");
+      assert_eq!(work_roles, vec!["Fullstack", "DevOps"]);
+    }
+
+    {
+      let mut params = Map::new();
+      params.assign("work_roles[]", Value::String("".into())).unwrap();
+
+      let work_roles: Vec<String> = vec_from_params!(params, "work_roles");
+      assert_eq!(work_roles, vec![""]); // vec![]?
+    }
+
+    {
+      let work_roles: Vec<String> = vec_from_params!(Map::new(), "work_roles");
+      assert_eq!(work_roles, Vec::<String>::new());
+    }
+  }
+
+  macro_rules! i32_vec_from_params {
+    ($params:expr, $param:expr) => {
+      match $params.find(&[$param]) {
+        Some(company_id) => i32::from_value(company_id)
+                                .map(|id| vec![id])
+                                .unwrap_or(vec![]),
+        None => vec![]
+      }
+    }
+  }
+
+  #[test]
+  fn test_company_id() {
+    {
+      let mut params = Map::new();
+      params.assign("company_id", Value::String("4".into())).unwrap();
+
+      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert_eq!(company_id, vec![4]);
+    }
+
+    {
+      let mut params = Map::new();
+      params.assign("company_id", Value::String("".into())).unwrap();
+
+      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert_eq!(company_id, vec![]);
+    }
+
+    {
+      let mut params = Map::new();
+      params.assign("company_id", Value::String("madukapls".into())).unwrap();
+
+      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert_eq!(company_id, vec![]);
+    }
+
+    {
+      let mut params = Map::new();
+      params.assign("company_id[]", Value::String("madukapls".into())).unwrap();
+
+      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert_eq!(company_id, vec![]);
+    }
+
+    {
+      let company_id: Vec<i32> = i32_vec_from_params!(Map::new(), "company_id");
+      assert_eq!(company_id, vec![]);
+    }
+  }
+}
