@@ -13,13 +13,15 @@ extern crate postgres_array;
 use postgres::{Connection, SslMode};
 
 extern crate iron;
-extern crate router;
-extern crate urlencoded;
 use iron::prelude::*;
 use iron::status;
 use iron::mime::Mime;
+
+extern crate router;
 use router::Router;
-use urlencoded::UrlEncodedQuery;
+
+extern crate params;
+use params::*;
 
 mod user;
 use user::User;
@@ -53,17 +55,26 @@ fn main() {
   Iron::new(router).http(&*host).unwrap();
 }
 
+macro_rules! vec_from_params {
+  ($params:expr, $param:expr) => {
+    match $params.find(&[$param]) {
+      Some(val) => Vec::from_value(val)
+                       .unwrap_or(vec![]),
+      None => vec![],
+    }
+  }
+}
+
 fn talents(req: &mut Request) -> IronResult<Response> {
   let mut es = Client::new("localhost", 9200);
   let     pg = Connection::connect(PG_URL, SslMode::None).unwrap();
 
-  let params = req.get_ref::<UrlEncodedQuery>().ok().unwrap();
-  let empty_vec: Vec<String> = vec![];
+  let params = req.get_ref::<Params>().ok().unwrap();
 
-  let company_id = match params.clone().get_mut("company_id") {
-    Some(company_id) => company_id[0].parse::<i32>()
-                                     .map(|x| vec![x])
-                                     .unwrap_or(vec![]),
+  let company_id = match params.find(&["company_id"]) {
+    Some(company_id) => i32::from_value(company_id)
+                            .map(|id| vec![id])
+                            .unwrap_or(vec![]),
     None => vec![]
   };
 
@@ -71,24 +82,19 @@ fn talents(req: &mut Request) -> IronResult<Response> {
                                            .with_must(
                                              vec![
                                                <Filter as VectorOfTerms<String>>::build_terms(
-                                                 "work_roles", params.get("work_roles")
-                                                                     .unwrap_or(&empty_vec)),
+                                                 "work_roles", &vec_from_params!(params, "work_roles")),
 
                                                <Filter as VectorOfTerms<String>>::build_terms(
-                                                 "work_languages", params.get("work_languages")
-                                                                         .unwrap_or(&empty_vec)),
+                                                 "work_languages", &vec_from_params!(params, "work_languages")),
 
                                                <Filter as VectorOfTerms<String>>::build_terms(
-                                                 "work_experience", params.get("work_experience")
-                                                                          .unwrap_or(&empty_vec)),
+                                                 "work_experience", &vec_from_params!(params, "work_experience")),
 
                                                <Filter as VectorOfTerms<String>>::build_terms(
-                                                 "work_locations", params.get("work_locations")
-                                                                         .unwrap_or(&empty_vec)),
+                                                 "work_locations", &vec_from_params!(params, "work_locations")),
 
                                                <Filter as VectorOfTerms<String>>::build_terms(
-                                                "work_authorization", params.get("work_authorization")
-                                                                            .unwrap_or(&empty_vec)),
+                                                "work_authorization", &vec_from_params!(params, "work_authorization")),
 
                                                visibility_filters(&pg, match company_id.is_empty() {
                                                  true  => None,
