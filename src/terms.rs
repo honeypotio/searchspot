@@ -2,15 +2,14 @@ use rs_es::query::Filter;
 use rs_es::units::JsonVal;
 
 pub trait VectorOfTerms<T> {
+  /// Extract the elements inside `Vec<T>` into `Vec<Filter>`, if present.
+  /// Every element will be mapped into a `JsonVal`.
   fn build_terms(key: &str, values: &Vec<T>) -> Vec<Filter>;
 }
 
 macro_rules! build_vector_of_terms_impl {
   ($t:ty) => {
     impl VectorOfTerms<$t> for Filter {
-      /// Extract all given items into multiple filters (if present)
-      /// i.e. build_terms("field", vec![1, 2]) => vec![Filter(1), Filter(2)]
-      /// This enable us to operate on these values with boolean values
       fn build_terms(key: &str, values: &Vec<$t>) -> Vec<Filter> {
         if values.is_empty() {
           return vec![];
@@ -42,16 +41,16 @@ mod tests {
 
     {
       let filters = <Filter as VectorOfTerms<String>>::build_terms(
-                  "work_roles", &vec![String::from("Fullstack")]);
+                      "work_roles", &vec![String::from("Fullstack")]);
       assert_eq!(filters[0].to_json().to_string(),
-        String::from("{\"terms\":{\"work_roles\":[\"Fullstack\"]}}"));
+                  String::from("{\"terms\":{\"work_roles\":[\"Fullstack\"]}}"));
     }
 
     {
       let filters = <Filter as VectorOfTerms<i32>>::build_terms(
                   "work_roles", &vec![1]);
       assert_eq!(filters[0].to_json().to_string(),
-        String::from("{\"terms\":{\"work_roles\":[1]}}"));
+                  String::from("{\"terms\":{\"work_roles\":[1]}}"));
     }
   }
 }
