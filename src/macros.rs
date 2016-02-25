@@ -15,21 +15,29 @@
 /// returned `String`s found inside the query string.
 ///
 /// ```
-/// use params::*;
+/// # #[macro_use] extern crate honeysearch;
+/// # extern crate params;
+/// # use params::*;
 ///
+/// # fn main() {
 /// let mut params = Map::new();
 /// params.assign("work_roles[]", Value::String("Fullstack".into())).unwrap();
 /// params.assign("work_roles[]", Value::String("DevOps".into())).unwrap();
 ///
 /// let work_roles: Vec<String> = vec_from_params!(params, "work_roles");
 /// assert_eq!(work_roles, vec!["Fullstack", "DevOps"]);
+/// # }
 /// ```
 ///
 /// ```
-/// use params::*;
+/// # #[macro_use] extern crate honeysearch;
+/// # extern crate params;
+/// # use params::*;
 ///
+/// # fn main() {
 /// let work_roles: Vec<String> = vec_from_params!(Map::new(), "work_roles");
 /// assert_eq!(work_roles, Vec::<String>::new());
+/// # }
 /// ```
 #[macro_export]
 macro_rules! vec_from_params {
