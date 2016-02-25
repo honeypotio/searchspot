@@ -8,6 +8,7 @@ dependencies:
 
   cache_directories:
     - "elasticsearch-2.1.0"
+
 test:
   override:
     - cargo test
