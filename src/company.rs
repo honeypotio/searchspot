@@ -14,12 +14,11 @@ impl Company {
         .unwrap()
         .iter()
         .map(|row| {
-          let presented_talents: Array<String> = row.get("presented_talents");
+          let presented_talents: Array<i32> = row.get("presented_talents");
 
           Company {
             presented_talents: presented_talents.iter()
-                                                .map(|s| s.parse::<i32>()
-                                                          .unwrap())
+                                                .cloned()
                                                 .collect::<Vec<i32>>(),
           }
         })
