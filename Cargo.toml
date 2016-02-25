@@ -13,6 +13,8 @@ chrono          = "0.2"
 iron            = "0.2"
 router          = "0.1"
 params          = "0.0.3"
+toml            = "0.1"
+lazy_static     = "0.1"
 
 [dependencies.rs-es]
 git = "https://github.com/benashford/rs-es"
