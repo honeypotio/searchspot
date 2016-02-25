@@ -1,0 +1,11 @@
+[db]
+uri = "postgres://lando@localhost/lando_development"
+
+[es]
+host    = "localhost"
+port    = 9000
+indexes = ["honeypot_dev_talents"]
+
+[http]
+host = "127.0.0.1"
+port = 1234
