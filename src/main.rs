@@ -1,5 +1,3 @@
-extern crate chrono;
-
 extern crate rustc_serialize;
 use rustc_serialize::json;
 
@@ -8,7 +6,6 @@ use rs_es::Client;
 use rs_es::operations::search::{Sort, SortField, Order};
 
 extern crate postgres;
-extern crate postgres_array;
 use postgres::{Connection, SslMode};
 
 extern crate iron;
@@ -22,13 +19,8 @@ use router::Router;
 extern crate params;
 use params::*;
 
-#[macro_use]
-pub mod macros;
-
-pub mod resources;
-use resources::user::User;
-
-pub mod terms;
+extern crate honeysearch;
+use honeysearch::resources::user::User;
 
 use std::env;
 
