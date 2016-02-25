@@ -8,7 +8,7 @@ use postgres::Connection;
 use rs_es::query::Filter;
 use rs_es::units::JsonVal;
 
-pub fn visibility_filters(conn: &Connection, company_id: &Option<i32>) -> Vec<Filter> {
+pub fn visibility_filters(conn: &Connection, company_id: Option<i32>) -> Vec<Filter> {
   let now = DateTime::timestamp(&UTC::now());
 
   let visibility_rules = Filter::build_bool()
@@ -27,7 +27,7 @@ pub fn visibility_filters(conn: &Connection, company_id: &Option<i32>) -> Vec<Fi
                                   ])
                                 .build();
 
-  let company = match *company_id {
+  let company = match company_id {
     Some(company_id) => Company::find(conn, &company_id),
     None             => None,
   };
