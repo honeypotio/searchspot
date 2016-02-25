@@ -10,7 +10,7 @@ use rs_es::query::{Filter, Query};
 use rs_es::units::JsonVal;
 
 use terms::VectorOfTerms;
-use company::Company;
+use resources::company::Company;
 
 #[derive(Debug, RustcEncodable)]
 pub struct User {
