@@ -1,3 +1,7 @@
+#![allow(non_upper_case_globals)]
+#[macro_use]
+extern crate lazy_static;
+
 extern crate rustc_serialize;
 use rustc_serialize::json;
 
@@ -21,21 +25,20 @@ use params::*;
 
 extern crate honeysearch;
 use honeysearch::resources::user::User;
+use honeysearch::config::*;
 
 use std::env;
 
-#[derive(Debug, RustcDecodable)]
-struct TalentsSearchResult {
-  id: i32
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
+lazy_static! {
+  static ref config: Config = Config::load_config(env::args()
+                                                      .nth(1)
+                                                      .unwrap_or("honeysearch.toml".to_owned()));
 }
 
-const PG_URL:     &'static str            = "postgres://lando@localhost/lando_development";
-const ES_INDEXES: &'static [&'static str] = &["honeypot_dev_talents"];
-const VERSION:    &'static str            = env!("CARGO_PKG_VERSION");
-
 fn main() {
-  let port = env::args().nth(1).unwrap_or(String::from("3000"));
-  let host = format!("127.0.0.1:{}", port);
+  let host = format!("{}:{}", config.http.host, config.http.port);
 
   println!("Honeysearch v{}", VERSION);
   println!("Listening on http://{}...", host);
@@ -46,14 +49,21 @@ fn main() {
   Iron::new(router).http(&*host).unwrap();
 }
 
+#[derive(Debug, RustcDecodable)]
+struct TalentsSearchResult {
+  id: i32
+}
+
 fn talents(req: &mut Request) -> IronResult<Response> {
-  let mut es = Client::new("localhost", 9200);
-  let     pg = Connection::connect(PG_URL, SslMode::None).unwrap();
+  let mut es = Client::new(&*config.es.host, config.es.port);
+  let     pg = Connection::connect(&*config.db.uri, SslMode::None).unwrap();
 
   let params = req.get_ref::<Params>().ok().unwrap();
-
   let result = es.search_query()
-                 .with_indexes(ES_INDEXES)
+                 .with_indexes(&config.es.indexes.clone()
+                                                 .iter()
+                                                 .map(|e| &**e)
+                                                 .collect::<Vec<&str>>())
                  .with_query(&User::search_filters(&pg, params))
                  .with_sort(&Sort::new(
                    vec![
