@@ -23,13 +23,12 @@ extern crate params;
 use params::*;
 
 #[macro_use]
-mod macros;
+pub mod macros;
 
-mod user;
-use user::User;
+pub mod resources;
+use resources::user::User;
 
-mod company;
-mod terms;
+pub mod terms;
 
 use std::env;
 
