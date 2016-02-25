@@ -11,7 +11,7 @@ Install the latest stable release of Rust using the [official installer](https:/
 Then clone locally this repository and run the executable with
 
 ```sh
-$ cargo run
+$ cargo run [examples/config.toml]
 ````
 
 You can produce an optimized executable just appending `--release`, but the compile time will be longer.
