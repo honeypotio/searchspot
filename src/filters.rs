@@ -83,3 +83,35 @@ macro_rules! build_vector_of_terms_impl {
 
 build_vector_of_terms_impl!(i32);
 build_vector_of_terms_impl!(String);
+
+#[cfg(test)]
+mod tests {
+  use filters::*;
+  use rs_es::query::Filter;
+  use rustc_serialize::json::ToJson;
+
+  #[test]
+  fn test_vector_of_terms() {
+    assert!(<Filter as VectorOfTerms<String>>::build_terms("work_roles", &vec![])
+                                              .is_empty());
+
+    {
+      let filters = <Filter as VectorOfTerms<String>>::build_terms(
+                  "work_roles", &vec![String::from("Fullstack")]);
+      assert_eq!(filters[0].to_json().to_string(),
+        String::from("{\"terms\":{\"work_roles\":[\"Fullstack\"]}}"));
+    }
+
+    {
+      let filters = <Filter as VectorOfTerms<i32>>::build_terms(
+                  "work_roles", &vec![1]);
+      assert_eq!(filters[0].to_json().to_string(),
+        String::from("{\"terms\":{\"work_roles\":[1]}}"));
+    }
+  }
+
+  #[test]
+  fn test_visibility_filters() {
+    // TODO
+  }
+}
