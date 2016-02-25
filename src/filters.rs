@@ -34,6 +34,9 @@ pub fn visibility_filters(conn: &Connection, company_id: Option<i32>) -> Vec<Fil
 
   match company {
     Some(company) => {
+      // This could be a little dangerous without a backend validation.
+      // We can leave as it is (but it's bruteforce-able) or otherwise
+      // validating the requester by quering the DB or Honeypot itself.
       let presented_talents = Filter::build_bool()
                                      .with_must(
                                        vec![
