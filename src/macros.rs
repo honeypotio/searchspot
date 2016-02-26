@@ -1,5 +1,5 @@
-/// Given a `BTreeMap<String, Value>`, return a `Vec<_>` that
-/// contains all the items wrapped inside the `Value`s.
+/// Given a `Map`, return a `Vec<_>` that contains all the items
+/// wrapped inside the `Value`s.
 ///
 /// Since `iron/params` returns `Result<Map, ParamsError>` (where
 /// `Map` is defined as `BTreeMap<String, Value>`) and we're asked to
