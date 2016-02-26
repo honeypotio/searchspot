@@ -12,3 +12,4 @@ pub mod macros;
 pub mod resources;
 pub mod terms;
 pub mod config;
+pub mod search;

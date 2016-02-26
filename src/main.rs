@@ -3,7 +3,7 @@
 extern crate lazy_static;
 
 extern crate rustc_serialize;
-use rustc_serialize::json;
+use rustc_serialize::json::{self, ToJson};
 
 extern crate rs_es;
 use rs_es::Client;
@@ -22,6 +22,7 @@ use params::*;
 extern crate honeysearch;
 use honeysearch::resources::user::Talent;
 use honeysearch::config::*;
+use honeysearch::search::SearchResult;
 
 use std::env;
 
@@ -52,8 +53,12 @@ fn talents(req: &mut Request) -> IronResult<Response> {
   let indexes = config.es.indexes.iter()
                                  .map(|e| &**e)
                                  .collect::<Vec<&str>>();
-  let talents = Talent::search(es, params, &indexes);
+
+  let response = SearchResult {
+    results: Talent::search(es, params, &indexes),
+    params:  params.clone()
+  };
 
   let content_type = "application/json".parse::<Mime>().unwrap();
-  Ok(Response::with((content_type, status::Ok, json::encode(&talents).unwrap())))
+  Ok(Response::with((content_type, status::Ok, json::encode(&response.to_json()).unwrap())))
 }
