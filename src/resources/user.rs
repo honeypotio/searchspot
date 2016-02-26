@@ -2,7 +2,6 @@ use chrono::UTC;
 use chrono::datetime::DateTime;
 
 use postgres::Connection;
-use postgres_array::Array;
 
 use params::*;
 
@@ -12,17 +11,7 @@ use rs_es::units::JsonVal;
 use terms::VectorOfTerms;
 use resources::company::Company;
 
-#[derive(Debug, RustcEncodable)]
-pub struct User {
-  pub id:              i32,
-  pub first_name:      Option<String>,
-  pub last_name:       Option<String>,
-  pub headline:        Option<String>,
-  pub work_roles:      Vec<String>,
-  pub work_languages:  Vec<String>,
-  pub work_experience: Option<String>,
-  pub avatar_url:      Option<String>
-}
+pub struct User;
 
 impl User {
   pub fn visibility_filters(conn: &Connection, company_id: Option<i32>) -> Vec<Filter> {
@@ -73,7 +62,7 @@ impl User {
     }
   }
 
-  pub fn search_filters(pg: &Connection, params: &Map) -> Query {
+  pub fn search_filters(conn: &Connection, params: &Map) -> Query {
     let company_id = match params.find(&["company_id"]) {
       Some(company_id) => i32::from_value(company_id)
                               .map(|id| vec![id])
@@ -99,7 +88,7 @@ impl User {
                                      <Filter as VectorOfTerms<String>>::build_terms(
                                       "work_authorization", &vec_from_params!(params, "work_authorization")),
 
-                                     User::visibility_filters(&pg, match company_id.is_empty() {
+                                     User::visibility_filters(&conn, match company_id.is_empty() {
                                        true  => None,
                                        false => Some(company_id[0]),
                                      })
@@ -118,36 +107,6 @@ impl User {
                                     .collect::<Vec<Filter>>())
                                  .build())
           .build()
-  }
-
-  pub fn find(conn: &Connection, id: &i32) -> Option<User> {
-    conn.query("SELECT * FROM users
-                INNER JOIN talents ON users.id = talents.id
-                WHERE users.id = $1
-                LIMIT 1", &[&id])
-        .unwrap()
-        .iter()
-        .map(|row| {
-          let work_roles:     Array<String> = row.get("work_roles");
-          let work_languages: Array<String> = row.get("work_languages");
-
-          User {
-            id:              row.get("id"),
-            first_name:      row.get("firstname"),
-            last_name:       row.get("lastname"),
-            headline:        row.get("headline"),
-            work_roles:      work_roles.iter()
-                                       .cloned()
-                                       .collect::<Vec<String>>(),
-            work_languages:  work_languages.iter()
-                                           .cloned()
-                                           .collect::<Vec<String>>(),
-            work_experience: row.get("work_experience"),
-            avatar_url:      row.get("avatar_url"),
-          }
-        })
-        .collect::<Vec<User>>()
-        .pop()
   }
 }
 
