@@ -5,6 +5,7 @@ use params::*;
 
 use rs_es::query::{Filter, Query};
 use rs_es::units::JsonVal;
+use rs_es::operations::search::{Sort, SortField, Order};
 
 use terms::VectorOfTerms;
 
@@ -89,6 +90,13 @@ impl User {
                                     .collect::<Vec<Filter>>())
                                  .build())
           .build()
+  }
+
+  pub fn sorting_criteria() -> Sort {
+    Sort::new(
+      vec![
+        SortField::new("updated_at", Some(Order::Desc)).build()
+      ])
   }
 }
 
