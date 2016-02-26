@@ -10,15 +10,21 @@ use rs_es::operations::search::{Sort, SortField, Order};
 
 use terms::VectorOfTerms;
 
-pub struct Talent;
-
 #[derive(Debug, RustcDecodable)]
 struct TalentsSearchResult {
   id: u32
 }
 
+pub struct Talent;
+
 impl Talent {
-  pub fn visibility_filters(presented_talents: Vec<i32>) -> Vec<Filter> {
+  /// Return a `Vec<Filter>` with visibility criteria for the talents.
+  /// If `presented_talents` is provided, talents who match the IDs
+  /// contained there skip the standard visibility criteria.
+  ///
+  /// Basically, the talents must be accepted into the platform and must be
+  /// inside a living batch to match the visibility criteria.
+  fn visibility_filters(presented_talents: Vec<i32>) -> Vec<Filter> {
     let now = DateTime::timestamp(&UTC::now());
 
     let visibility_rules = Filter::build_bool()
@@ -58,7 +64,14 @@ impl Talent {
     }
   }
 
-  pub fn search_filters(params: &Map) -> Query {
+  /// Given parameters inside the query string mapped inisde a `Map`,
+  /// return a `Query` for ElasticSearch.
+  ///
+  /// The `VectorOfTerms` are ORred, while `Filter`s are ANDed.
+  /// I.e.: given ["Fullstack", "DevOps"] as `work_roles`, found talents
+  /// will present at least one of these roles), but both `work_roles`
+  /// and `work_languages`, if provided, must not be empty.
+  fn search_filters(params: &Map) -> Query {
     let company_id = i32_vec_from_params!(params, "company_id");
 
     Query::build_filtered(Filter::build_bool()
@@ -98,13 +111,16 @@ impl Talent {
           .build()
   }
 
-  pub fn sorting_criteria() -> Sort {
+  /// Return a `Sort` that makes values be sorted for `updated_at`, descendently.
+  fn sorting_criteria() -> Sort {
     Sort::new(
       vec![
         SortField::new("updated_at", Some(Order::Desc)).build()
       ])
   }
 
+  /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
+  /// the found talents.
   pub fn search(mut es: Client, params: &Map, indexes: &[&str]) -> Vec<u32> {
     let result = es.search_query()
                    .with_indexes(indexes)
