@@ -45,7 +45,7 @@ macro_rules! vec_from_params {
     match $params.find(&[$param]) {
       Some(val) => Vec::from_value(val)
                        .unwrap_or(vec![]),
-      None => vec![],
+      None => vec![]
     }
   }
 }
