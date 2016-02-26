@@ -50,6 +50,20 @@ macro_rules! vec_from_params {
   }
 }
 
+/// Like vec_from_params!, but all the elements are casted
+/// to i32 (or discarded if the type conversion is impossibile).
+#[macro_export]
+macro_rules! i32_vec_from_params {
+  ($params:expr, $param:expr) => {
+    match $params.find(&[$param]) {
+      Some(company_id) => i32::from_value(company_id)
+                              .map(|id| vec![id])
+                              .unwrap_or(vec![]),
+      None => vec![]
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use params::*;
@@ -76,6 +90,46 @@ mod tests {
     {
       let work_roles: Vec<String> = vec_from_params!(Map::new(), "work_roles");
       assert_eq!(work_roles, Vec::<String>::new());
+    }
+  }
+
+  #[test]
+  fn test_i32_vec_from_params() {
+    {
+      let mut params = Map::new();
+      params.assign("company_id", Value::String("4".into())).unwrap();
+
+      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert_eq!(company_id, vec![4]);
+    }
+
+    {
+      let mut params = Map::new();
+      params.assign("company_id", Value::String("".into())).unwrap();
+
+      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert_eq!(company_id, vec![]);
+    }
+
+    {
+      let mut params = Map::new();
+      params.assign("company_id", Value::String("madukapls".into())).unwrap();
+
+      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert_eq!(company_id, vec![]);
+    }
+
+    {
+      let mut params = Map::new();
+      params.assign("company_id[]", Value::String("madukapls".into())).unwrap();
+
+      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert_eq!(company_id, vec![]);
+    }
+
+    {
+      let company_id: Vec<i32> = i32_vec_from_params!(Map::new(), "company_id");
+      assert_eq!(company_id, vec![]);
     }
   }
 }
