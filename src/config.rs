@@ -29,7 +29,7 @@ impl ESConfig {
   pub fn new() -> ESConfig {
     ESConfig {
       host: "localhost".to_owned(),
-      port: 9000,
+      port: 9200,
       indexes: vec!["honeypot_dev_talents".to_owned()]
     }
   }

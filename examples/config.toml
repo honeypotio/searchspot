@@ -3,7 +3,7 @@ uri = "postgres://lando@localhost/lando_development"
 
 [es]
 host    = "localhost"
-port    = 9000
+port    = 9200
 indexes = ["honeypot_dev_talents"]
 
 [http]
