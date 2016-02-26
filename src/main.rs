@@ -34,7 +34,7 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 lazy_static! {
   static ref config: Config = Config::load_config(env::args()
                                                       .nth(1)
-                                                      .unwrap_or("honeysearch.toml".to_owned()));
+                                                      .unwrap_or("config.toml".to_owned()));
 }
 
 fn main() {
@@ -73,13 +73,13 @@ fn talents(req: &mut Request) -> IronResult<Response> {
                  .ok()
                  .unwrap();
 
-  let user_ids = result.hits.hits.into_iter()
-                                 .filter_map(|hit| {
-                                   let talent: TalentsSearchResult = hit.source().unwrap();
-                                   User::find(&pg, &talent.id)
-                                 })
-                                 .collect::<Vec<User>>();
+  let users = result.hits.hits.into_iter()
+                              .map(|hit| {
+                                let talent: TalentsSearchResult = hit.source().unwrap();
+                                talent.id
+                              })
+                              .collect::<Vec<i32>>();
 
   let content_type = "application/json".parse::<Mime>().unwrap();
-  Ok(Response::with((content_type, status::Ok, json::encode(&user_ids).unwrap())))
+  Ok(Response::with((content_type, status::Ok, json::encode(&users).unwrap())))
 }
