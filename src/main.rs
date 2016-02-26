@@ -20,7 +20,7 @@ extern crate params;
 use params::*;
 
 extern crate honeysearch;
-use honeysearch::resources::user::User;
+use honeysearch::resources::user::Talent;
 use honeysearch::config::*;
 
 use std::env;
@@ -54,24 +54,25 @@ fn talents(req: &mut Request) -> IronResult<Response> {
   let mut es = Client::new(&*config.es.host, config.es.port);
 
   let params = req.get_ref::<Params>().ok().unwrap();
+
   let result = es.search_query()
                  .with_indexes(&config.es.indexes.clone()
                                                  .iter()
                                                  .map(|e| &**e)
                                                  .collect::<Vec<&str>>())
-                 .with_query(&User::search_filters(params))
-                 .with_sort(&User::sorting_criteria())
+                 .with_query(&Talent::search_filters(params))
+                 .with_sort(&Talent::sorting_criteria())
                  .send()
                  .ok()
                  .unwrap();
 
-  let users = result.hits.hits.into_iter()
-                              .map(|hit| {
-                                let talent: TalentsSearchResult = hit.source().unwrap();
-                                talent.id
-                              })
-                              .collect::<Vec<i32>>();
+  let talents = result.hits.hits.into_iter()
+                                .map(|hit| {
+                                  let talent: TalentsSearchResult = hit.source().unwrap();
+                                  talent.id
+                                })
+                                .collect::<Vec<i32>>();
 
   let content_type = "application/json".parse::<Mime>().unwrap();
-  Ok(Response::with((content_type, status::Ok, json::encode(&users).unwrap())))
+  Ok(Response::with((content_type, status::Ok, json::encode(&talents).unwrap())))
 }

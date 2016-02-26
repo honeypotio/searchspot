@@ -9,9 +9,9 @@ use rs_es::operations::search::{Sort, SortField, Order};
 
 use terms::VectorOfTerms;
 
-pub struct User;
+pub struct Talent;
 
-impl User {
+impl Talent {
   pub fn visibility_filters(presented_talents: Vec<i32>) -> Vec<Filter> {
     let now = DateTime::timestamp(&UTC::now());
 
@@ -73,7 +73,7 @@ impl User {
                                      <Filter as VectorOfTerms<String>>::build_terms(
                                       "work_authorization", &vec_from_params!(params, "work_authorization")),
 
-                                     User::visibility_filters(
+                                     Talent::visibility_filters(
                                        i32_vec_from_params!(params, "presented_talents"))
                                    ].into_iter()
                                     .flat_map(|x| x)
