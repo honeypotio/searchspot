@@ -3,6 +3,7 @@ use chrono::datetime::DateTime;
 
 use params::*;
 
+use rs_es::Client;
 use rs_es::query::{Filter, Query};
 use rs_es::units::JsonVal;
 use rs_es::operations::search::{Sort, SortField, Order};
@@ -10,6 +11,11 @@ use rs_es::operations::search::{Sort, SortField, Order};
 use terms::VectorOfTerms;
 
 pub struct Talent;
+
+#[derive(Debug, RustcDecodable)]
+struct TalentsSearchResult {
+  id: i32
+}
 
 impl Talent {
   pub fn visibility_filters(presented_talents: Vec<i32>) -> Vec<Filter> {
@@ -98,6 +104,23 @@ impl Talent {
         SortField::new("updated_at", Some(Order::Desc)).build()
       ])
   }
+
+  pub fn search(mut es: Client, params: &Map, indexes: &[&str]) -> Vec<i32> {
+    let result = es.search_query()
+                   .with_indexes(indexes)
+                   .with_query(&Talent::search_filters(params))
+                   .with_sort(&Talent::sorting_criteria())
+                   .send()
+                   .ok()
+                   .unwrap();
+
+    result.hits.hits.into_iter()
+                    .map(|hit| {
+                      let talent: TalentsSearchResult = hit.source().unwrap();
+                      talent.id
+                    })
+                    .collect::<Vec<i32>>()
+  }
 }
 
 #[cfg(test)]
@@ -109,6 +132,11 @@ mod tests {
 
   #[test]
   fn test_search_filters() {
+    // TODO
+  }
+
+  #[test]
+  fn test_search() {
     // TODO
   }
 }

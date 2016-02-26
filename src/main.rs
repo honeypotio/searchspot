@@ -45,33 +45,14 @@ fn main() {
   Iron::new(router).http(&*host).unwrap();
 }
 
-#[derive(Debug, RustcDecodable)]
-struct TalentsSearchResult {
-  id: i32
-}
-
 fn talents(req: &mut Request) -> IronResult<Response> {
-  let mut es = Client::new(&*config.es.host, config.es.port);
+  let es = Client::new(&*config.es.host, config.es.port);
 
-  let params = req.get_ref::<Params>().ok().unwrap();
-
-  let result = es.search_query()
-                 .with_indexes(&config.es.indexes.clone()
-                                                 .iter()
-                                                 .map(|e| &**e)
-                                                 .collect::<Vec<&str>>())
-                 .with_query(&Talent::search_filters(params))
-                 .with_sort(&Talent::sorting_criteria())
-                 .send()
-                 .ok()
-                 .unwrap();
-
-  let talents = result.hits.hits.into_iter()
-                                .map(|hit| {
-                                  let talent: TalentsSearchResult = hit.source().unwrap();
-                                  talent.id
-                                })
-                                .collect::<Vec<i32>>();
+  let params  = req.get_ref::<Params>().ok().unwrap();
+  let indexes = config.es.indexes.iter()
+                                 .map(|e| &**e)
+                                 .collect::<Vec<&str>>();
+  let talents = Talent::search(es, params, &indexes);
 
   let content_type = "application/json".parse::<Mime>().unwrap();
   Ok(Response::with((content_type, status::Ok, json::encode(&talents).unwrap())))
