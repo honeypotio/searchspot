@@ -7,7 +7,6 @@ use rustc_serialize::json;
 
 extern crate rs_es;
 use rs_es::Client;
-use rs_es::operations::search::{Sort, SortField, Order};
 
 extern crate iron;
 use iron::prelude::*;
@@ -61,10 +60,7 @@ fn talents(req: &mut Request) -> IronResult<Response> {
                                                  .map(|e| &**e)
                                                  .collect::<Vec<&str>>())
                  .with_query(&User::search_filters(params))
-                 .with_sort(&Sort::new(
-                   vec![
-                     SortField::new("updated_at", Some(Order::Desc)).build()
-                   ]))
+                 .with_sort(&User::sorting_criteria())
                  .send()
                  .ok()
                  .unwrap();
