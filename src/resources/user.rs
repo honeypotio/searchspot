@@ -14,7 +14,7 @@ pub struct Talent;
 
 #[derive(Debug, RustcDecodable)]
 struct TalentsSearchResult {
-  id: i32
+  id: u32
 }
 
 impl Talent {
@@ -105,7 +105,7 @@ impl Talent {
       ])
   }
 
-  pub fn search(mut es: Client, params: &Map, indexes: &[&str]) -> Vec<i32> {
+  pub fn search(mut es: Client, params: &Map, indexes: &[&str]) -> Vec<u32> {
     let result = es.search_query()
                    .with_indexes(indexes)
                    .with_query(&Talent::search_filters(params))
@@ -119,7 +119,7 @@ impl Talent {
                       let talent: TalentsSearchResult = hit.source().unwrap();
                       talent.id
                     })
-                    .collect::<Vec<i32>>()
+                    .collect::<Vec<u32>>()
   }
 }
 
