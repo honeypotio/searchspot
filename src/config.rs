@@ -5,6 +5,7 @@ use std::io::prelude::*;
 use toml::{Parser, Value};
 use toml;
 
+/// Contain the configuration for ElasticSearch.
 #[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct ESConfig {
   pub host: String,
@@ -22,6 +23,8 @@ impl ESConfig {
   }
 }
 
+/// Contain instructions about where Honeysearch must
+/// listen to for new connections.
 #[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct HTTPConfig {
   pub host: String,
@@ -37,10 +40,11 @@ impl HTTPConfig {
   }
 }
 
+/// Container for ESConfig and HTTPConfig.
 #[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct Config {
-  pub es:   ESConfig,
-  pub http: HTTPConfig
+  pub http: HTTPConfig,
+  pub es:   ESConfig
 }
 
 impl Config {
