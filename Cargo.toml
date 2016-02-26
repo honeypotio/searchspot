@@ -7,8 +7,6 @@ license = "BSD-2-Clause"
 
 [dependencies]
 rustc-serialize = "0.3"
-postgres        = "0.11"
-postgres_array  = "0.6"
 chrono          = "0.2"
 iron            = "0.2"
 router          = "0.1"

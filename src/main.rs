@@ -9,9 +9,6 @@ extern crate rs_es;
 use rs_es::Client;
 use rs_es::operations::search::{Sort, SortField, Order};
 
-extern crate postgres;
-use postgres::{Connection, SslMode};
-
 extern crate iron;
 use iron::prelude::*;
 use iron::status;
@@ -56,7 +53,6 @@ struct TalentsSearchResult {
 
 fn talents(req: &mut Request) -> IronResult<Response> {
   let mut es = Client::new(&*config.es.host, config.es.port);
-  let     pg = Connection::connect(&*config.db.uri, SslMode::None).unwrap();
 
   let params = req.get_ref::<Params>().ok().unwrap();
   let result = es.search_query()
@@ -64,7 +60,7 @@ fn talents(req: &mut Request) -> IronResult<Response> {
                                                  .iter()
                                                  .map(|e| &**e)
                                                  .collect::<Vec<&str>>())
-                 .with_query(&User::search_filters(&pg, params))
+                 .with_query(&User::search_filters(params))
                  .with_sort(&Sort::new(
                    vec![
                      SortField::new("updated_at", Some(Order::Desc)).build()

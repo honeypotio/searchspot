@@ -1,6 +1,3 @@
-[db]
-uri = "postgres://lando@localhost/lando_development"
-
 [es]
 host    = "localhost"
 port    = 9200

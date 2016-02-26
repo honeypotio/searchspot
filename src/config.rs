@@ -6,19 +6,6 @@ use toml::{Parser, Value};
 use toml;
 
 #[derive(RustcEncodable, RustcDecodable, Debug)]
-pub struct DBConfig {
-  pub uri: String
-}
-
-impl DBConfig {
-  pub fn new() -> DBConfig {
-    DBConfig {
-      uri: "postgres://lando@localhost/lando_development".to_owned(),
-    }
-  }
-}
-
-#[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct ESConfig {
   pub host: String,
   pub port: u32,
@@ -52,7 +39,6 @@ impl HTTPConfig {
 
 #[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct Config {
-  pub db:   DBConfig,
   pub es:   ESConfig,
   pub http: HTTPConfig
 }
@@ -61,7 +47,6 @@ impl Config {
   /// Return a new `Config` fill with the default values
   pub fn new() -> Config {
     Config {
-      db:   DBConfig::new(),
       es:   ESConfig::new(),
       http: HTTPConfig::new()
     }
@@ -121,9 +106,6 @@ mod tests {
   use config::*;
 
   const sample_config: &'static str = r#"
-    [db]
-    uri = "postgres://homu@madoka/incubator"
-
     [es]
     host    = "123.0.123.0"
     port    = 9000
@@ -137,8 +119,6 @@ mod tests {
   #[test]
   fn test_config() {
     let config = Config::new();
-    assert_eq!(config.db.uri,
-                 "postgres://lando@localhost/lando_development".to_owned());
     assert_eq!(config.es.host,   "localhost".to_owned());
     assert_eq!(config.http.host, "127.0.0.1".to_owned());
   }
@@ -146,7 +126,6 @@ mod tests {
   #[test]
   fn test_parse() {
     let config = Config::parse(Some(sample_config.to_owned()));
-    assert_eq!(config.db.uri,    "postgres://homu@madoka/incubator".to_owned());
     assert_eq!(config.es.host,   "123.0.123.0".to_owned());
     assert_eq!(config.http.host, "1.0.0.127".to_owned());
   }
