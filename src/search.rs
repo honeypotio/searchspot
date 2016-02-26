@@ -44,3 +44,40 @@ impl ToJson for SearchResult {
     Json::Object(map)
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use params::*;
+  use search::SearchResult;
+  use rustc_serialize::json::{self, ToJson};
+
+  #[test]
+  fn test_search_result_to_json() {
+    {
+      let mut params = Map::new();
+      params.assign("work_roles[]", Value::String("Fullstack".into())).unwrap();
+      params.assign("work_roles[]", Value::String("DevOps".into())).unwrap();
+      params.assign("page",         Value::I64(42)).unwrap();
+      params.assign("vbb",          Value::String("vbb".into())).unwrap();
+
+      let response = SearchResult {
+        results: vec![],
+        params:  params.clone()
+      };
+
+      let json_response = json::encode(&response.to_json()).unwrap();
+      assert_eq!(json_response,
+        "{\"params\":{\"page\":42,\"vbb\":\"vbb\",\"work_roles\":[\"Fullstack\",\"DevOps\"]},\"results\":[]}");
+    }
+
+    {
+      let response = SearchResult {
+        results: vec![],
+        params:  Map::new()
+      };
+
+      let json_response = json::encode(&response.to_json()).unwrap();
+      assert_eq!(json_response, "{\"params\":{},\"results\":[]}");
+    }
+  }
+}
