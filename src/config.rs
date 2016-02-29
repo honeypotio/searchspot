@@ -1,7 +1,8 @@
+use toml::{self, Parser, Value};
+
 use std::fs::File;
 use std::io::prelude::*;
-use toml::{Parser, Value};
-use toml;
+use std::fmt;
 
 /// Contain the configuration for ElasticSearch.
 #[derive(RustcEncodable, RustcDecodable, Debug)]
@@ -21,6 +22,13 @@ impl ESConfig {
   }
 }
 
+impl fmt::Display for ESConfig {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "ElasticSearch on {}:{} (indexes: {})",
+      self.host, self.port, self.indexes.join(", "))
+  }
+}
+
 /// Contain instructions about where Honeysearch must
 /// listen to for new connections.
 #[derive(RustcEncodable, RustcDecodable, Debug)]
@@ -35,6 +43,12 @@ impl HTTPConfig {
       host: "127.0.0.1".to_owned(),
       port: 3000,
     }
+  }
+}
+
+impl fmt::Display for HTTPConfig {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "Listening on http://{}...", self.host)
   }
 }
 

@@ -29,8 +29,6 @@ use honeysearch::search::SearchResult;
 
 use std::env;
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-
 lazy_static! {
   static ref config: Config = Config::load_config(env::args()
                                                       .nth(1)
@@ -40,8 +38,7 @@ lazy_static! {
 fn main() {
   let host = format!("{}:{}", config.http.host, config.http.port);
 
-  println!("Honeysearch v{}", VERSION);
-  println!("Listening on http://{}...", host);
+  println!("Honeysearch v{}\n{}\n{}\n", env!("CARGO_PKG_VERSION"), config.es, config.http);
 
   let mut router = Router::new();
   router.get("/talents", talents);
