@@ -151,3 +151,167 @@ impl Talent {
       ])
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use std::env;
+
+  use chrono::UTC;
+  use chrono::datetime::DateTime;
+
+  use rs_es::Client;
+  use rs_es::query::*;
+  use rs_es::operations::bulk::Action;
+  use rs_es::units::Duration as ESDuration;
+
+  use params::*;
+
+  use resources::user::Talent;
+  use config::*;
+  use rustc_serialize::json::*;
+
+  #[derive(RustcEncodable, Debug)]
+  pub struct TestUser {
+    pub id:              u32,
+    pub accepted:        bool,
+    pub batch_start_at:  i64,
+    pub batch_end_at:    i64,
+    pub updated_at:      i64,
+    pub work_roles:      Array,
+    pub company_ids:     Array
+  }
+
+  pub fn make_client() -> Client {
+    let config = Config::load_config("examples/tests.toml".to_owned());
+    Client::new(&*config.es.host, config.es.port)
+  }
+
+  pub fn populate_es(mut client: &mut Client) {
+    let users = vec![
+      TestUser {
+        id:              1,
+        accepted:        true,
+        batch_start_at:  1141141876, // 2006
+        batch_end_at:    4580812259, // 2099
+        updated_at:      DateTime::timestamp(&UTC::now()),
+        work_roles:      vec![],
+        company_ids:     vec![]
+      },
+
+      TestUser {
+        id:              2,
+        accepted:        false,
+        batch_start_at:  1141141876, // 2006
+        batch_end_at:    4580812259, // 2099
+        updated_at:      DateTime::timestamp(&UTC::now()) + 10,
+        work_roles:      vec![],
+        company_ids:     vec![]
+      },
+
+      TestUser {
+        id:              3,
+        accepted:        true,
+        batch_start_at:  1141141876, // 2006
+        batch_end_at:    4580812259, // 2099
+        updated_at:      DateTime::timestamp(&UTC::now()) + 20,
+        work_roles:      vec!["Fullstack".to_json(), "DevOps".to_json()],
+        company_ids:     vec![6.to_json()]
+      }];
+
+    for user in users {
+      client.index("sample_index", "test_user")
+             .with_doc(&user)
+             .send()
+             .unwrap();
+    }
+  }
+
+  pub fn clean_es(mut client: &mut Client) {
+    let mut scan = match client.search_query()
+                               .with_indexes(&["sample_index"])
+                               .with_query(&Query::build_match_all().build())
+                               .scan(ESDuration::minutes(1)) {
+                                   Ok(scan) => scan,
+                                   Err(_)   => return
+                               };
+
+    loop {
+      let     page = scan.scroll(&mut client).unwrap();
+      let mut hits = page.hits.hits;
+
+      if hits.len() == 0 {
+        break;
+      }
+
+      let actions: Vec<Action> = hits.drain(..)
+                                .map(|hit| {
+                                    Action::delete(hit.id)
+                                        .with_index("sample_index")
+                                        .with_doc_type(hit.doc_type)
+                                })
+                                .collect();
+      client.bulk(&actions).send().unwrap();
+    }
+
+    scan.close(&mut client).unwrap();
+  }
+
+  #[test]
+  fn test_search() {
+    let mut client = make_client();
+    clean_es(&mut client);
+    populate_es(&mut client);
+
+    // no parameters are given
+    {
+      let results = Talent::search(&mut client, &["sample_index"], &Map::new());
+      assert_eq!(vec![3, 1], results);
+    }
+
+    // a non existing index is given
+    {
+      let mut map = Map::new();
+      map.assign("index", Value::String("lololol".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &["sample_index"], &map);
+      assert!(results.is_empty());
+    }
+
+    // a date that doesn't match given indexes is given
+    {
+      let mut map = Map::new();
+      map.assign("epoch", Value::I64(1141141870)).unwrap();
+
+      let results = Talent::search(&mut client, &["sample_index"], &map);
+      assert!(results.is_empty());
+    }
+
+    // a date that doesn't match given indexes is given
+    {
+      let mut map = Map::new();
+      map.assign("epoch", Value::I64(1141141870)).unwrap();
+
+      let results = Talent::search(&mut client, &["sample_index"], &map);
+      assert!(results.is_empty());
+    }
+
+    // TODO
+    // filtering for valid work roles
+    /*{
+      let mut map = Map::new();
+      map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &["sample_index"], &map);
+      assert_eq!(vec![3], results);
+    }*/
+
+    // filtering for valid work roles
+    {
+      let mut map = Map::new();
+      map.assign("company_id", Value::String("6".into())).unwrap();
+
+      let results = Talent::search(&mut client, &["sample_index"], &map);
+      assert_eq!(vec![1], results);
+    }
+  }
+}
