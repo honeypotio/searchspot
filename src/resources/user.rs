@@ -43,7 +43,7 @@ impl Talent {
                                     ])
                                   .build();
 
-    if presented_talents.is_empty() {
+    if !presented_talents.is_empty() {
       let presented_talents_filters = Filter::build_bool()
                                              .with_must(
                                                vec![
