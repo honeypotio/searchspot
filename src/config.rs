@@ -1,5 +1,3 @@
-extern crate rustc_serialize;
-
 use std::fs::File;
 use std::io::prelude::*;
 use toml::{Parser, Value};
@@ -121,7 +119,8 @@ mod tests {
   "#;
 
   #[test]
-  fn test_config() {
+  fn test_new() {
+    // returns a Config fill with the default hardcoded data
     let config = Config::new();
     assert_eq!(config.es.host,   "localhost".to_owned());
     assert_eq!(config.http.host, "127.0.0.1".to_owned());
@@ -129,6 +128,7 @@ mod tests {
 
   #[test]
   fn test_parse() {
+    // returns a Config fill with given TOML configuration file
     let config = Config::parse(Some(sample_config.to_owned()));
     assert_eq!(config.es.host,   "123.0.123.0".to_owned());
     assert_eq!(config.http.host, "1.0.0.127".to_owned());
