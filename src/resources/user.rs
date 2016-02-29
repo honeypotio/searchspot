@@ -144,21 +144,3 @@ impl Talent {
     }
   }
 }
-
-#[cfg(test)]
-mod tests {
-  #[test]
-  fn test_visibility_filters() {
-    // TODO
-  }
-
-  #[test]
-  fn test_search_filters() {
-    // TODO
-  }
-
-  #[test]
-  fn test_search() {
-    // TODO
-  }
-}
