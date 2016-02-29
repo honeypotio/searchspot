@@ -13,6 +13,9 @@ use iron::prelude::*;
 use iron::status;
 use iron::mime::Mime;
 
+extern crate logger;
+use logger::Logger;
+
 extern crate router;
 use router::Router;
 
@@ -43,7 +46,9 @@ fn main() {
   let mut router = Router::new();
   router.get("/talents", talents);
 
-  Iron::new(router).http(&*host).unwrap();
+  let mut chain = Chain::new(router);
+  chain.link(Logger::new(None));
+  Iron::new(chain).http(&*host).unwrap();
 }
 
 fn talents(req: &mut Request) -> IronResult<Response> {
