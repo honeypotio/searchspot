@@ -1,8 +1,8 @@
 [es]
 host    = "localhost"
 port    = 9200
-indexes = ["honeypot_dev_talents"]
+indexes = ["my_index"]
 
 [http]
 host = "127.0.0.1"
-port = 1234
+port = 3001
