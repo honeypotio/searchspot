@@ -32,18 +32,18 @@ impl Talent {
                                     vec![
                                       Filter::build_term("accepted", true)
                                              .build(),
-                                      Filter::build_range("batch_starts_at")
-                                             .with_lt(JsonVal::from(now))
+                                      Filter::build_range("batch_start_at")
+                                             .with_lte(JsonVal::from(now))
                                              .with_format("epoch_second")
                                              .build(),
-                                      Filter::build_range("batch_ends_at")
+                                      Filter::build_range("batch_end_at")
                                              .with_gte(JsonVal::from(now))
                                              .with_format("epoch_second")
                                              .build()
                                     ])
                                   .build();
 
-    if !presented_talents.is_empty() {
+    if presented_talents.len() > 0 { // preferred over !_.is_empty()
       let presented_talents_filters = Filter::build_bool()
                                              .with_must(
                                                vec![
@@ -126,16 +126,22 @@ impl Talent {
                    .with_indexes(indexes)
                    .with_query(&Talent::search_filters(params))
                    .with_sort(&Talent::sorting_criteria())
-                   .send()
-                   .ok()
-                   .unwrap();
+                   .send();
 
-    result.hits.hits.into_iter()
-                    .map(|hit| {
-                      let talent: TalentsSearchResult = hit.source().unwrap();
-                      talent.id
-                    })
-                    .collect::<Vec<u32>>()
+    match result {
+      Ok(result) => {
+        result.hits.hits.into_iter()
+                        .map(|hit| {
+                          let talent: TalentsSearchResult = hit.source().unwrap();
+                          talent.id
+                        })
+                        .collect::<Vec<u32>>()
+      },
+      Err(err) => {
+        println!("{:?}", err);
+        vec![]
+      }
+    }
   }
 }
 
