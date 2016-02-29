@@ -17,7 +17,7 @@ impl ESConfig {
     ESConfig {
       host: "localhost".to_owned(),
       port: 9200,
-      indexes: vec!["honeypot_dev_talents".to_owned()]
+      indexes: vec!["my_index".to_owned()]
     }
   }
 }
@@ -125,7 +125,7 @@ mod tests {
     [es]
     host    = "123.0.123.0"
     port    = 9000
-    indexes = ["honeypot_dev_talents"]
+    indexes = ["save_meguka"]
 
     [http]
     host = "1.0.0.127"
