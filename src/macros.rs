@@ -70,6 +70,7 @@ mod tests {
 
   #[test]
   fn test_vec_from_params() {
+    // given to strings, it returns a vector containing given strings
     {
       let mut params = Map::new();
       params.assign("work_roles[]", Value::String("Fullstack".into())).unwrap();
@@ -79,6 +80,7 @@ mod tests {
       assert_eq!(work_roles, vec!["Fullstack", "DevOps"]);
     }
 
+    // given an empty string, it returns a vector containing an empty strings
     {
       let mut params = Map::new();
       params.assign("work_roles[]", Value::String("".into())).unwrap();
@@ -87,6 +89,7 @@ mod tests {
       assert_eq!(work_roles, vec![""]); // TODO: `vec![]`?
     }
 
+    // given nothing, it returns an empty vector
     {
       let work_roles: Vec<String> = vec_from_params!(Map::new(), "work_roles");
       assert_eq!(work_roles, Vec::<String>::new());
@@ -95,6 +98,7 @@ mod tests {
 
   #[test]
   fn test_i32_vec_from_params() {
+    // given a number casted to String, it returns a vector containing that string casted to i32
     {
       let mut params = Map::new();
       params.assign("company_id", Value::String("4".into())).unwrap();
@@ -103,6 +107,7 @@ mod tests {
       assert_eq!(company_id, vec![4]);
     }
 
+    // given an empty string, it returns an empty vector
     {
       let mut params = Map::new();
       params.assign("company_id", Value::String("".into())).unwrap();
@@ -111,6 +116,7 @@ mod tests {
       assert_eq!(company_id, vec![]);
     }
 
+    // given a non-number string, it returns an empty vector
     {
       let mut params = Map::new();
       params.assign("company_id", Value::String("madukapls".into())).unwrap();
@@ -127,6 +133,7 @@ mod tests {
       assert_eq!(company_id, vec![]);
     }
 
+    // given nothing, it returns an empty vector
     {
       let company_id: Vec<i32> = i32_vec_from_params!(Map::new(), "company_id");
       assert_eq!(company_id, vec![]);
