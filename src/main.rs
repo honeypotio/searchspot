@@ -45,7 +45,12 @@ fn main() {
   router.get("/talents", talents);
 
   let mut chain = Chain::new(router);
-  chain.link(Logger::new(None));
+
+  // for some reasons, this link makes heroku crash
+  if env::var("DYNO").is_err() {
+    chain.link(Logger::new(None));
+  }
+
   Iron::new(chain).http(&*host).unwrap();
 }
 
