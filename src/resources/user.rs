@@ -180,7 +180,7 @@ mod tests {
   }
 
   pub fn make_client() -> Client {
-    let config = Config::load_config("examples/tests.toml".to_owned());
+    let config = Config::from_file("examples/tests.toml".to_owned());
     Client::new(&*config.es.host, config.es.port)
   }
 
