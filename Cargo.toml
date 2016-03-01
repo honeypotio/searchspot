@@ -26,3 +26,6 @@ path = "src/lib.rs"
 name = "searchspot"
 path = "src/main.rs"
 doc  = false
+
+[target.heroku]
+version = "stable"
