@@ -52,9 +52,12 @@ fn talents(req: &mut Request) -> IronResult<Response> {
   let es = Client::new(&*config.es.host, config.es.port);
 
   let params  = req.get_ref::<Params>().ok().unwrap();
-  let indexes = config.es.indexes.iter()
-                                 .map(|e| &**e)
-                                 .collect::<Vec<&str>>();
+  let indexes = match params.find(&["index"]) {
+    Some(&Value::String(ref index)) => vec![&index[..]],
+    _ => config.es.indexes.iter()
+                          .map(|e| &**e)
+                          .collect::<Vec<&str>>()
+  };
 
   let response = SearchResult {
     results: Talent::search(es, &indexes, params),
