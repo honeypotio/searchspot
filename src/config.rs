@@ -29,7 +29,7 @@ impl fmt::Display for ESConfig {
   }
 }
 
-/// Contain instructions about where Honeysearch must
+/// Contain instructions about where Searchspot must
 /// listen to for new connections.
 #[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct HTTPConfig {
