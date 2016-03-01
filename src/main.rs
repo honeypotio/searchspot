@@ -22,10 +22,10 @@ use router::Router;
 extern crate params;
 use params::*;
 
-extern crate honeysearch;
-use honeysearch::resources::user::Talent;
-use honeysearch::config::*;
-use honeysearch::search::SearchResult;
+extern crate searchspot;
+use searchspot::resources::user::Talent;
+use searchspot::config::*;
+use searchspot::search::SearchResult;
 
 use std::env;
 
@@ -39,7 +39,7 @@ lazy_static! {
 fn main() {
   let host = format!("{}:{}", config.http.host, config.http.port);
 
-  println!("Honeysearch v{}\n{}\n{}\n", env!("CARGO_PKG_VERSION"), config.es, config.http);
+  println!("Searchspot v{}\n{}\n{}\n", env!("CARGO_PKG_VERSION"), config.es, config.http);
 
   let mut router = Router::new();
   router.get("/talents", talents);

@@ -15,7 +15,7 @@
 /// returned `String`s found inside the query string.
 ///
 /// ```
-/// # #[macro_use] extern crate honeysearch;
+/// # #[macro_use] extern crate searchspot;
 /// # extern crate params;
 /// # use params::*;
 ///
@@ -30,7 +30,7 @@
 /// ```
 ///
 /// ```
-/// # #[macro_use] extern crate honeysearch;
+/// # #[macro_use] extern crate searchspot;
 /// # extern crate params;
 /// # use params::*;
 ///

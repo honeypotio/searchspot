@@ -1,8 +1,6 @@
-Honeysearch
-===========
-This service will be the endpoint responsible for Honeypot's ElasticSearch data.
-
-Currently a really WIP. Just [biliv](https://just-believe.in).
+Searchspot
+==========
+This service is the endpoint responsible for Honeypot's ElasticSearch data.
 
 Setup
 -----
