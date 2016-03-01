@@ -109,7 +109,7 @@ impl Talent {
 
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
   /// the found talents.
-  pub fn search(mut es: &mut Client, default_indexes: &[&str], params: &Map) -> Vec<u32> {
+  pub fn search(mut es: &mut Client, default_indexes: Vec<&str>, params: &Map) -> Vec<u32> {
     let epoch = match params.find(&["epoch"]) {
       Some(&Value::I64(epoch)) => epoch,
       _ => DateTime::timestamp(&UTC::now())
@@ -117,7 +117,7 @@ impl Talent {
 
     let indexes: Vec<&str> = match params.find(&["index"]) {
       Some(&Value::String(ref index)) => vec![&index[..]],
-      _ => default_indexes.to_vec()
+      _ => default_indexes
     };
 
     let result = es.search_query()
@@ -154,8 +154,6 @@ impl Talent {
 
 #[cfg(test)]
 mod tests {
-  use std::env;
-
   use chrono::UTC;
   use chrono::datetime::DateTime;
 
@@ -264,7 +262,7 @@ mod tests {
 
     // no parameters are given
     {
-      let results = Talent::search(&mut client, &["sample_index"], &Map::new());
+      let results = Talent::search(&mut client, vec!["sample_index"], &Map::new());
       assert_eq!(vec![3, 1], results);
     }
 
@@ -273,7 +271,7 @@ mod tests {
       let mut map = Map::new();
       map.assign("index", Value::String("lololol".to_owned())).unwrap();
 
-      let results = Talent::search(&mut client, &["sample_index"], &map);
+      let results = Talent::search(&mut client, vec!["sample_index"], &map);
       assert!(results.is_empty());
     }
 
@@ -282,7 +280,7 @@ mod tests {
       let mut map = Map::new();
       map.assign("epoch", Value::I64(1141141870)).unwrap();
 
-      let results = Talent::search(&mut client, &["sample_index"], &map);
+      let results = Talent::search(&mut client, vec!["sample_index"], &map);
       assert!(results.is_empty());
     }
 
@@ -291,7 +289,7 @@ mod tests {
       let mut map = Map::new();
       map.assign("epoch", Value::I64(1141141870)).unwrap();
 
-      let results = Talent::search(&mut client, &["sample_index"], &map);
+      let results = Talent::search(&mut client, vec!["sample_index"], &map);
       assert!(results.is_empty());
     }
 
@@ -301,7 +299,7 @@ mod tests {
       let mut map = Map::new();
       map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
 
-      let results = Talent::search(&mut client, &["sample_index"], &map);
+      let results = Talent::search(&mut client, vec!["sample_index"], &map);
       assert_eq!(vec![3], results);
     }*/
 
@@ -310,7 +308,7 @@ mod tests {
       let mut map = Map::new();
       map.assign("company_id", Value::String("6".into())).unwrap();
 
-      let results = Talent::search(&mut client, &["sample_index"], &map);
+      let results = Talent::search(&mut client, vec!["sample_index"], &map);
       assert_eq!(vec![1], results);
     }
   }

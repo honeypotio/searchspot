@@ -70,9 +70,27 @@ impl Config {
 
   /// Load, parse and return the configuration file
   /// wrapped inside a `Config`.
-  pub fn load_config(path: String) -> Config {
+  pub fn from_file(path: String) -> Config {
     let config_toml = Config::read_file(path).clone();
     Config::parse(config_toml)
+  }
+
+  /// Return a `Config` looking for the parameters
+  /// inside the ENV variables. `panic!` if there
+  /// are some missing.
+  pub fn from_env() -> Config {
+    let http_config = HTTPConfig {
+      host: env!("HTTP_HOST").to_owned(),
+      port: env!("HTTP_PORT").parse::<u32>().unwrap()
+    };
+
+    let es_config = ESConfig {
+      host: env!("ES_HOST").to_owned(),
+      port: env!("ES_PORT").parse::<u32>().unwrap(),
+      indexes: vec![env!("ES_INDEX").to_owned()]
+    };
+
+    Config { http: http_config, es: es_config }
   }
 
   /// Read a file from the given path and return its content
