@@ -81,14 +81,22 @@ impl Config {
   /// are some missing.
   pub fn from_env() -> Config {
     let http_config = HTTPConfig {
-      host: env::var("HTTP_HOST").unwrap().to_owned(),
-      port: env::var("PORT").unwrap().parse::<u32>().unwrap()
+      host: env::var("HTTP_HOST").unwrap()
+                                 .to_owned(),
+      port: env::var("PORT").or(env::var("HTTP_PORT"))
+                            .unwrap()
+                            .parse::<u32>()
+                            .unwrap()
     };
 
     let es_config = ESConfig {
-      host: env::var("ES_HOST").unwrap().to_owned(),
-      port: env::var("ES_PORT").unwrap().parse::<u32>().unwrap(),
-      indexes: vec![env::var("ES_INDEX").unwrap().to_owned()]
+      host: env::var("ES_HOST").unwrap()
+                               .to_owned(),
+      port: env::var("ES_PORT").unwrap()
+                               .parse::<u32>()
+                               .unwrap(),
+      indexes: vec![env::var("ES_INDEX").unwrap()
+                                        .to_owned()]
     };
 
     Config { http: http_config, es: es_config }
