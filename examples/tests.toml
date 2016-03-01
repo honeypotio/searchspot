@@ -1,0 +1,7 @@
+[es]
+host = "localhost"
+port = 9200
+
+[http]
+host = "127.0.0.1"
+port = 3001

@@ -32,7 +32,7 @@ use std::env;
 lazy_static! {
   static ref config: Config = Config::load_config(env::args()
                                                       .nth(1)
-                                                      .unwrap_or("config.toml".to_owned()));
+                                                      .unwrap_or("examples/default.toml".to_owned()));
 }
 
 fn main() {
