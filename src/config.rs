@@ -49,7 +49,7 @@ impl HTTPConfig {
 
 impl fmt::Display for HTTPConfig {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "Listening on http://{}...", self.host)
+    write!(f, "Listening on http://{}:{}...", self.host, self.port)
   }
 }
 
