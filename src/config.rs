@@ -25,7 +25,7 @@ impl ESConfig {
 
 impl fmt::Display for ESConfig {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "ElasticSearch on {}:{} (indexes: {})",
+    write!(f, "ElasticSearch on http://{}:{} (indexes: {})",
       self.host, self.port, self.indexes.join(", "))
   }
 }
