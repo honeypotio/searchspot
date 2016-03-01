@@ -128,11 +128,13 @@ impl Talent {
 
     match result {
       Ok(result) => {
-        result.hits.hits.into_iter()
-                        .map(|hit| hit.source.unwrap()["id"]
-                                             .as_u64()
-                                             .unwrap() as u32)
-                        .collect::<Vec<u32>>()
+        let mut results = result.hits.hits.into_iter()
+                                          .map(|hit| hit.source.unwrap()["id"]
+                                                               .as_u64()
+                                                               .unwrap() as u32)
+                                          .collect::<Vec<u32>>();
+        results.dedup();
+        results
       },
       Err(err) => {
         println!("{:?}", err);
