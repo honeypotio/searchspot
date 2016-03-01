@@ -19,25 +19,25 @@ pub struct Talent;
 
 impl Talent {
   /// Return a `Vec<Filter>` with visibility criteria for the talents.
+  /// The `epoch` must be given as `I64` (UNIX time in seconds) and is
+  /// the range in which batches are searched.
   /// If `presented_talents` is provided, talents who match the IDs
   /// contained there skip the standard visibility criteria.
   ///
   /// Basically, the talents must be accepted into the platform and must be
   /// inside a living batch to match the visibility criteria.
-  fn visibility_filters(presented_talents: Vec<i32>) -> Vec<Filter> {
-    let now = DateTime::timestamp(&UTC::now());
-
+  fn visibility_filters(epoch: i64, presented_talents: Vec<i32>) -> Vec<Filter> {
     let visibility_rules = Filter::build_bool()
                                   .with_must(
                                     vec![
                                       Filter::build_term("accepted", true)
                                              .build(),
                                       Filter::build_range("batch_start_at")
-                                             .with_lte(JsonVal::from(now))
+                                             .with_lte(JsonVal::from(epoch))
                                              .with_format("epoch_second")
                                              .build(),
                                       Filter::build_range("batch_end_at")
-                                             .with_gte(JsonVal::from(now))
+                                             .with_gte(JsonVal::from(epoch))
                                              .with_format("epoch_second")
                                              .build()
                                     ])
@@ -64,14 +64,15 @@ impl Talent {
     }
   }
 
-  /// Given parameters inside the query string mapped inisde a `Map`,
+  /// Given parameters inside the query string mapped inside a `Map`,
+  /// and the `epoch` (defined as UNIX time in seconds) for batches,
   /// return a `Query` for ElasticSearch.
   ///
-  /// The `VectorOfTerms` are ORred, while `Filter`s are ANDed.
+  /// `VectorOfTerms` are ORred, while `Filter`s are ANDed.
   /// I.e.: given ["Fullstack", "DevOps"] as `work_roles`, found talents
   /// will present at least one of these roles), but both `work_roles`
   /// and `work_languages`, if provided, must not be empty.
-  fn search_filters(params: &Map) -> Query {
+  fn search_filters(params: &Map, epoch: i64) -> Query {
     let company_id = i32_vec_from_params!(params, "company_id");
 
     Query::build_filtered(Filter::build_bool()
@@ -92,7 +93,7 @@ impl Talent {
                                      <Filter as VectorOfTerms<String>>::build_terms(
                                       "work_authorization", &vec_from_params!(params, "work_authorization")),
 
-                                     Talent::visibility_filters(
+                                     Talent::visibility_filters(epoch,
                                        i32_vec_from_params!(params, "presented_talents"))
                                    ].into_iter()
                                     .flat_map(|x| x)
@@ -111,20 +112,17 @@ impl Talent {
           .build()
   }
 
-  /// Return a `Sort` that makes values be sorted for `updated_at`, descendently.
-  fn sorting_criteria() -> Sort {
-    Sort::new(
-      vec![
-        SortField::new("updated_at", Some(Order::Desc)).build()
-      ])
-  }
-
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
   /// the found talents.
-  pub fn search(mut es: Client, params: &Map, indexes: &[&str]) -> Vec<u32> {
+  pub fn search(mut es: Client, indexes: &[&str], params: &Map) -> Vec<u32> {
+    let epoch = match params.find(&["epoch"]) {
+      Some(&Value::I64(epoch)) => epoch,
+      _ => DateTime::timestamp(&UTC::now())
+    };
+
     let result = es.search_query()
                    .with_indexes(indexes)
-                   .with_query(&Talent::search_filters(params))
+                   .with_query(&Talent::search_filters(params, epoch))
                    .with_sort(&Talent::sorting_criteria())
                    .send();
 
@@ -142,5 +140,13 @@ impl Talent {
         vec![]
       }
     }
+  }
+
+  /// Return a `Sort` that makes values be sorted for `updated_at`, descendently.
+  fn sorting_criteria() -> Sort {
+    Sort::new(
+      vec![
+        SortField::new("updated_at", Some(Order::Desc)).build()
+      ])
   }
 }
