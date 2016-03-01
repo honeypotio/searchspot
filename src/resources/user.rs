@@ -114,14 +114,19 @@ impl Talent {
 
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
   /// the found talents.
-  pub fn search(mut es: Client, indexes: &[&str], params: &Map) -> Vec<u32> {
+  pub fn search(mut es: &mut Client, default_indexes: &[&str], params: &Map) -> Vec<u32> {
     let epoch = match params.find(&["epoch"]) {
       Some(&Value::I64(epoch)) => epoch,
       _ => DateTime::timestamp(&UTC::now())
     };
 
+    let indexes: Vec<&str> = match params.find(&["index"]) {
+      Some(&Value::String(ref index)) => vec![&index[..]],
+      _ => default_indexes.to_vec()
+    };
+
     let result = es.search_query()
-                   .with_indexes(indexes)
+                   .with_indexes(&indexes)
                    .with_query(&Talent::search_filters(params, epoch))
                    .with_sort(&Talent::sorting_criteria())
                    .send();
