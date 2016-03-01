@@ -10,11 +10,6 @@ use rs_es::operations::search::{Sort, SortField, Order};
 
 use terms::VectorOfTerms;
 
-#[derive(Debug, RustcDecodable)]
-struct TalentsSearchResult {
-  id: u32
-}
-
 pub struct Talent;
 
 impl Talent {
@@ -134,10 +129,9 @@ impl Talent {
     match result {
       Ok(result) => {
         result.hits.hits.into_iter()
-                        .map(|hit| {
-                          let talent: TalentsSearchResult = hit.source().unwrap();
-                          talent.id
-                        })
+                        .map(|hit| hit.source.unwrap()["id"]
+                                             .as_u64()
+                                             .unwrap() as u32)
                         .collect::<Vec<u32>>()
       },
       Err(err) => {
