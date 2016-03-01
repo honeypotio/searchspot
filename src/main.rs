@@ -30,9 +30,10 @@ use honeysearch::search::SearchResult;
 use std::env;
 
 lazy_static! {
-  static ref config: Config = Config::load_config(env::args()
-                                                      .nth(1)
-                                                      .unwrap_or("examples/default.toml".to_owned()));
+  static ref config: Config = match env::args().nth(1) {
+    Some(file) => Config::from_file(file),
+    None       => Config::from_env()
+  };
 }
 
 fn main() {
@@ -57,7 +58,7 @@ fn talents(req: &mut Request) -> IronResult<Response> {
                           .collect::<Vec<&str>>();
 
   let response = SearchResult {
-    results: Talent::search(&mut es, &indexes, params),
+    results: Talent::search(&mut es, indexes, params),
     params:  params.clone()
   };
 
