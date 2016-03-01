@@ -16,7 +16,8 @@ toml            = "0.1"
 lazy_static     = "0.1"
 
 [dependencies.rs-es]
-git = "https://github.com/benashford/rs-es"
+git    = "https://github.com/RoxasShadow/rs-es"
+branch = "patch-2"
 
 [lib]
 name = "searchspot"
