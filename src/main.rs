@@ -54,8 +54,8 @@ fn talents(req: &mut Request) -> IronResult<Response> {
 
   let params  = req.get_ref::<Params>().ok().unwrap();
   let indexes = config.es.indexes.iter()
-                          .map(|e| &**e)
-                          .collect::<Vec<&str>>();
+                                 .map(|e| &**e)
+                                 .collect::<Vec<&str>>();
 
   let response = SearchResult {
     results: Talent::search(&mut es, indexes, params),
