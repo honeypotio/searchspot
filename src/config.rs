@@ -3,6 +3,7 @@ use toml::{self, Parser, Value};
 use std::fs::File;
 use std::io::prelude::*;
 use std::fmt;
+use std::env;
 
 /// Contain the configuration for ElasticSearch.
 #[derive(RustcEncodable, RustcDecodable, Debug)]
@@ -80,14 +81,14 @@ impl Config {
   /// are some missing.
   pub fn from_env() -> Config {
     let http_config = HTTPConfig {
-      host: env!("HTTP_HOST").to_owned(),
-      port: env!("HTTP_PORT").parse::<u32>().unwrap()
+      host: env::var("HTTP_HOST").unwrap().to_owned(),
+      port: env::var("HTTP_PORT").unwrap().parse::<u32>().unwrap()
     };
 
     let es_config = ESConfig {
-      host: env!("ES_HOST").to_owned(),
-      port: env!("ES_PORT").parse::<u32>().unwrap(),
-      indexes: vec![env!("ES_INDEX").to_owned()]
+      host: env::var("ES_HOST").unwrap().to_owned(),
+      port: env::var("ES_PORT").unwrap().parse::<u32>().unwrap(),
+      indexes: vec![env::var("ES_INDEX").unwrap().to_owned()]
     };
 
     Config { http: http_config, es: es_config }
