@@ -82,7 +82,7 @@ impl Config {
   pub fn from_env() -> Config {
     let http_config = HTTPConfig {
       host: env::var("HTTP_HOST").unwrap().to_owned(),
-      port: env::var("HTTP_PORT").unwrap().parse::<u32>().unwrap()
+      port: env::var("PORT").unwrap().parse::<u32>().unwrap()
     };
 
     let es_config = ESConfig {
