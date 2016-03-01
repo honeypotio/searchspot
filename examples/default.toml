@@ -1,6 +1,6 @@
 [es]
-host    = "localhost"
-port    = 9200
+host    = "homu:1ncub4t0r@example.com"
+port    = 80
 indexes = ["my_index"]
 
 [http]
