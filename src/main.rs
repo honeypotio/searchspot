@@ -57,7 +57,7 @@ fn talents(req: &mut Request) -> IronResult<Response> {
                                  .collect::<Vec<&str>>();
 
   let response = SearchResult {
-    results: Talent::search(es, params, &indexes),
+    results: Talent::search(es, &indexes, params),
     params:  params.clone()
   };
 
