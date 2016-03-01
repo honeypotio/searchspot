@@ -49,18 +49,15 @@ fn main() {
 }
 
 fn talents(req: &mut Request) -> IronResult<Response> {
-  let es = Client::new(&*config.es.host, config.es.port);
+  let mut es = Client::new(&*config.es.host, config.es.port);
 
   let params  = req.get_ref::<Params>().ok().unwrap();
-  let indexes = match params.find(&["index"]) {
-    Some(&Value::String(ref index)) => vec![&index[..]],
-    _ => config.es.indexes.iter()
+  let indexes = config.es.indexes.iter()
                           .map(|e| &**e)
-                          .collect::<Vec<&str>>()
-  };
+                          .collect::<Vec<&str>>();
 
   let response = SearchResult {
-    results: Talent::search(es, &indexes, params),
+    results: Talent::search(&mut es, &indexes, params),
     params:  params.clone()
   };
 
