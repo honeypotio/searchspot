@@ -14,10 +14,7 @@ logger          = "0.0.3"
 params          = "0.0.3"
 toml            = "0.1"
 lazy_static     = "0.1"
-
-[dependencies.rs-es]
-git    = "https://github.com/RoxasShadow/rs-es"
-branch = "patch-2"
+rs-es           = "0.2.2"
 
 [lib]
 name = "searchspot"
