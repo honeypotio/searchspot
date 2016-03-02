@@ -161,6 +161,7 @@ mod tests {
   use rs_es::query::*;
   use rs_es::operations::bulk::Action;
   use rs_es::units::Duration as ESDuration;
+  use rs_es::units::DurationUnit;
 
   use params::*;
 
@@ -228,7 +229,7 @@ mod tests {
     let mut scan = match client.search_query()
                                .with_indexes(&["sample_index"])
                                .with_query(&Query::build_match_all().build())
-                               .scan(ESDuration::minutes(1)) {
+                               .scan(ESDuration::new(1, DurationUnit::Minute)) {
                                    Ok(scan) => scan,
                                    Err(_)   => return
                                };
