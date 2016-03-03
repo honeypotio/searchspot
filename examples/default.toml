@@ -1,5 +1,5 @@
 [es]
-host    = "homu:1ncub4t0r@example.com"
+host    = "user:pass@example.com"
 port    = 80
 indexes = ["my_index"]
 
