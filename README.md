@@ -23,17 +23,24 @@ You can execute `$ cargo test` to run the tests and `$ cargo doc` to produce the
 
 Heroku
 ------
-To deploy this application on Heroku, just run `$ heroku create my-searchspot --buildpack https://github.com/Hoverbear/heroku-buildpack-rust` and then `$ heroku ps:scale web=1`.
+To deploy this application on Heroku, just run
 
-You need also to set the following environment variables:
+```sh
+$ heroku create my-searchspot --buildpack https://github.com/Hoverbear/heroku-buildpack-rust
+$ heroku ps:scale web=1`
+```
 
-- `ES_HOST` (i.e.: `$user`:`$pass`@`$host`)
-- `ES_INDEX` (i.e.: `incubator_production_mahoshojos`)
-- `ES_PORT` (i.e.: `80`)
-– `HTTP_HOST` (i.e.: `0.0.0.0`)
+You need also to set the following environment variables (example in parentheses):
+
+- `ES_HOST` (`$user`:`$pass`@`$host`)
+- `ES_INDEX` (`incubator_production_mahoshojos`)
+- `ES_PORT` (`80`)
+- `HTTP_HOST` (`0.0.0.0`)
 
 Performance
 -----------
+MacBook Pro (Early 2015) on [11c5714](https://github.com/honeypotio/searchspot/commit/11c57149d88e1dca5cccf858d986894e878cc8f0):
+
 ```
 ┌[giovanni@lifestream-2] [/dev/ttys002] [master ⚡] [1]
 └[~/Desktop/searchspot]> wrk -t12 -c400 -d30s "http://127.0.0.1:3001/talents?work_roles[]=DevOps"
