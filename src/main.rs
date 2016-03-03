@@ -1,7 +1,4 @@
 #![allow(non_upper_case_globals)]
-#[macro_use]
-extern crate lazy_static;
-
 extern crate rustc_serialize;
 use rustc_serialize::json::{self, ToJson};
 
@@ -23,9 +20,18 @@ extern crate params;
 use params::*;
 
 extern crate searchspot;
-use searchspot::resources::user::Talent;
 use searchspot::config::*;
 use searchspot::search::SearchResult;
+
+#[macro_use]
+pub mod macros;
+
+extern crate chrono;
+mod resources;
+use resources::user::Talent;
+
+#[macro_use]
+extern crate lazy_static;
 
 use std::env;
 
