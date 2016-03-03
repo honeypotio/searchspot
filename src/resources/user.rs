@@ -8,7 +8,8 @@ use rs_es::query::{Filter, Query};
 use rs_es::units::JsonVal;
 use rs_es::operations::search::{Sort, SortField, Order};
 
-use terms::VectorOfTerms;
+extern crate searchspot;
+use searchspot::terms::VectorOfTerms;
 
 pub struct Talent;
 
@@ -166,8 +167,10 @@ mod tests {
 
   use params::*;
 
+  extern crate searchspot;
+  use searchspot::config::*;
+
   use resources::user::Talent;
-  use config::*;
   use rustc_serialize::json::*;
 
   #[derive(RustcEncodable, Debug)]
