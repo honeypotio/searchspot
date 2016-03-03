@@ -23,15 +23,12 @@ extern crate searchspot;
 use searchspot::config::*;
 use searchspot::search::SearchResult;
 
-#[macro_use]
-pub mod macros;
+#[macro_use] pub mod macros;
+#[macro_use] extern crate lazy_static;
 
 extern crate chrono;
 mod resources;
 use resources::user::Talent;
-
-#[macro_use]
-extern crate lazy_static;
 
 use std::env;
 
