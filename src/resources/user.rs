@@ -27,11 +27,11 @@ impl Talent {
                                     vec![
                                       Filter::build_term("accepted", true)
                                              .build(),
-                                      Filter::build_range("batch_start_at")
+                                      Filter::build_range("batch_starts_at")
                                              .with_lte(JsonVal::from(epoch))
                                              .with_format("epoch_second")
                                              .build(),
-                                      Filter::build_range("batch_end_at")
+                                      Filter::build_range("batch_ends_at")
                                              .with_gte(JsonVal::from(epoch))
                                              .with_format("epoch_second")
                                              .build()
@@ -143,19 +143,20 @@ impl Talent {
     }
   }
 
-  /// Return a `Sort` that makes values be sorted for `updated_at`, descendently.
+  /// Return a `Sort` that makes values be sorted for given fields, descendently.
   fn sorting_criteria() -> Sort {
     Sort::new(
       vec![
-        SortField::new("updated_at", Some(Order::Desc)).build()
+        SortField::new("batch_starts_at",   Some(Order::Desc)).build(),
+        SortField::new("weight",            Some(Order::Desc)).build(),
+        SortField::new("added_to_batch_at", Some(Order::Desc)).build()
       ])
   }
 }
 
 #[cfg(test)]
 mod tests {
-  use chrono::UTC;
-  use chrono::datetime::DateTime;
+  use chrono::*;
 
   use rs_es::Client;
   use rs_es::query::*;
@@ -171,58 +172,19 @@ mod tests {
 
   #[derive(RustcEncodable, Debug)]
   pub struct TestUser {
-    pub id:              u32,
-    pub accepted:        bool,
-    pub batch_start_at:  i64,
-    pub batch_end_at:    i64,
-    pub updated_at:      i64,
-    pub work_roles:      Array,
-    pub company_ids:     Array
+    pub id:                u32,
+    pub accepted:          bool,
+    pub batch_starts_at:   i64,
+    pub batch_ends_at:     i64,
+    pub added_to_batch_at: i64,
+    pub work_roles:        Array,
+    pub company_ids:       Array,
+    pub weight:            i32
   }
 
   pub fn make_client() -> Client {
     let config = Config::from_file("examples/tests.toml".to_owned());
     Client::new(&*config.es.host, config.es.port)
-  }
-
-  pub fn populate_es(mut client: &mut Client) {
-    let users = vec![
-      TestUser {
-        id:              1,
-        accepted:        true,
-        batch_start_at:  1141141876, // 2006
-        batch_end_at:    4580812259, // 2099
-        updated_at:      DateTime::timestamp(&UTC::now()),
-        work_roles:      vec![],
-        company_ids:     vec![]
-      },
-
-      TestUser {
-        id:              2,
-        accepted:        false,
-        batch_start_at:  1141141876, // 2006
-        batch_end_at:    4580812259, // 2099
-        updated_at:      DateTime::timestamp(&UTC::now()) + 10,
-        work_roles:      vec![],
-        company_ids:     vec![]
-      },
-
-      TestUser {
-        id:              3,
-        accepted:        true,
-        batch_start_at:  1141141876, // 2006
-        batch_end_at:    4580812259, // 2099
-        updated_at:      DateTime::timestamp(&UTC::now()) + 20,
-        work_roles:      vec!["Fullstack".to_json(), "DevOps".to_json()],
-        company_ids:     vec![6.to_json()]
-      }];
-
-    for user in users {
-      client.index("sample_index", "test_user")
-             .with_doc(&user)
-             .send()
-             .unwrap();
-    }
   }
 
   pub fn clean_es(mut client: &mut Client) {
@@ -255,6 +217,67 @@ mod tests {
     scan.close(&mut client).unwrap();
   }
 
+  macro_rules! epoch_from_year {
+    ($year:expr) => {
+      UTC.datetime_from_str(&format!("{}-01-01 12:00:00", $year),
+        "%Y-%m-%d %H:%M:%S").unwrap().timestamp()
+    }
+  }
+
+  pub fn populate_es(mut client: &mut Client) {
+    let users = vec![
+      TestUser {
+        id:                1,
+        accepted:          true,
+        batch_starts_at:   epoch_from_year!("2006"),
+        batch_ends_at:     epoch_from_year!("2020"),
+        added_to_batch_at: epoch_from_year!("2006"),
+        work_roles:        vec![],
+        company_ids:       vec![],
+        weight:            -5
+      },
+
+      TestUser {
+        id:                2,
+        accepted:          true,
+        batch_starts_at:   epoch_from_year!("2006"),
+        batch_ends_at:     epoch_from_year!("2020"),
+        added_to_batch_at: epoch_from_year!("2006"),
+        work_roles:        vec![],
+        company_ids:       vec![],
+        weight:            6
+      },
+
+      TestUser {
+        id:                3,
+        accepted:          false,
+        batch_starts_at:   epoch_from_year!("2007"),
+        batch_ends_at:     epoch_from_year!("2020"),
+        added_to_batch_at: epoch_from_year!("2011"),
+        work_roles:        vec![],
+        company_ids:       vec![],
+        weight:            6
+      },
+
+      TestUser {
+        id:                4,
+        accepted:          true,
+        batch_starts_at:   epoch_from_year!("2008"),
+        batch_ends_at:     epoch_from_year!("2020"),
+        added_to_batch_at: epoch_from_year!("2011"),
+        work_roles:        vec!["Fullstack".to_json(), "DevOps".to_json()],
+        company_ids:       vec![6.to_json()],
+        weight:            0
+      }];
+
+    for user in users {
+      client.index("sample_index", "test_user")
+             .with_doc(&user)
+             .send()
+             .unwrap();
+    }
+  }
+
   #[test]
   fn test_search() {
     let mut client = make_client();
@@ -264,7 +287,7 @@ mod tests {
     // no parameters are given
     {
       let results = Talent::search(&mut client, vec!["sample_index"], &Map::new());
-      assert_eq!(vec![3, 1], results);
+      assert_eq!(vec![4, 2, 1], results);
     }
 
     // a non existing index is given
@@ -279,16 +302,7 @@ mod tests {
     // a date that doesn't match given indexes is given
     {
       let mut map = Map::new();
-      map.assign("epoch", Value::I64(1141141870)).unwrap();
-
-      let results = Talent::search(&mut client, vec!["sample_index"], &map);
-      assert!(results.is_empty());
-    }
-
-    // a date that doesn't match given indexes is given
-    {
-      let mut map = Map::new();
-      map.assign("epoch", Value::I64(1141141870)).unwrap();
+      map.assign("epoch", Value::I64(epoch_from_year!("2040"))).unwrap();
 
       let results = Talent::search(&mut client, vec!["sample_index"], &map);
       assert!(results.is_empty());
@@ -296,21 +310,21 @@ mod tests {
 
     // TODO
     // filtering for valid work roles
-    /*{
-      let mut map = Map::new();
-      map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
+    // {
+    //   let mut map = Map::new();
+    //   map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
 
-      let results = Talent::search(&mut client, vec!["sample_index"], &map);
-      assert_eq!(vec![3], results);
-    }*/
+    //   let results = Talent::search(&mut client, vec!["sample_index"], &map);
+    //   assert_eq!(vec![4], results);
+    // }
 
-    // filtering for valid work roles
+    // filtering for given company_id
     {
       let mut map = Map::new();
       map.assign("company_id", Value::String("6".into())).unwrap();
 
       let results = Talent::search(&mut client, vec!["sample_index"], &map);
-      assert_eq!(vec![1], results);
+      assert_eq!(vec![2, 1], results);
     }
   }
 }
