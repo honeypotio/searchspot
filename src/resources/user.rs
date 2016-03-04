@@ -1,5 +1,4 @@
 use chrono::UTC;
-use chrono::datetime::DateTime;
 
 use params::*;
 
@@ -25,9 +24,9 @@ pub struct Talent {
   pub work_locations:     Vec<String>,
   pub work_authorization: String,
   pub company_ids:        Vec<u32>,
-  pub batch_starts_at:    i64,
-  pub batch_ends_at:      i64,
-  pub added_to_batch_at:  i64,
+  pub batch_starts_at:    String,
+  pub batch_ends_at:      String,
+  pub added_to_batch_at:  String,
   pub weight:             i32,
   pub blocked_companies:  Vec<u32>
 }
@@ -77,9 +76,10 @@ impl Talent {
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
   /// the found talents.
   pub fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Vec<u32> {
+    let now   = UTC::now().to_rfc3339();
     let epoch = match params.find(&["epoch"]) {
-      Some(&Value::I64(epoch)) => epoch,
-      _ => DateTime::timestamp(&UTC::now())
+      Some(epoch) => String::from_value(&epoch).unwrap_or(now),
+      _           => now
     };
 
     let index: Vec<&str> = match params.find(&["index"]) {
@@ -89,8 +89,9 @@ impl Talent {
 
     let result = es.search_query()
                    .with_indexes(&*index)
-                   .with_query(&Talent::search_filters(params, epoch))
+                   .with_query(&Talent::search_filters(params, &*epoch))
                    .with_sort(&Talent::sorting_criteria())
+                   .with_size(1000) // TODO
                    .send();
 
     match result {
@@ -118,7 +119,7 @@ impl Talent {
   ///
   /// Basically, the talents must be accepted into the platform and must be
   /// inside a living batch to match the visibility criteria.
-  fn visibility_filters(epoch: i64, presented_talents: Vec<i32>) -> Vec<Filter> {
+  fn visibility_filters(epoch: &str, presented_talents: Vec<i32>) -> Vec<Filter> {
     let visibility_rules = Filter::build_bool()
                                   .with_must(
                                     vec![
@@ -126,11 +127,11 @@ impl Talent {
                                              .build(),
                                       Filter::build_range("batch_starts_at")
                                              .with_lte(JsonVal::from(epoch))
-                                             .with_format("epoch_second")
+                                             .with_format("strict_date_optional_time")
                                              .build(),
                                       Filter::build_range("batch_ends_at")
                                              .with_gte(JsonVal::from(epoch))
-                                             .with_format("epoch_second")
+                                             .with_format("strict_date_optional_time")
                                              .build()
                                     ])
                                   .build();
@@ -164,7 +165,7 @@ impl Talent {
   /// I.e.: given ["Fullstack", "DevOps"] as `work_roles`, found talents
   /// will present at least one of these roles), but both `work_roles`
   /// and `work_languages`, if provided, must not be empty.
-  fn search_filters(params: &Map, epoch: i64) -> Query {
+  fn search_filters(params: &Map, epoch: &str) -> Query {
     let company_id = i32_vec_from_params!(params, "company_id");
 
     Query::build_filtered(Filter::build_bool()
@@ -244,7 +245,7 @@ mod tests {
   macro_rules! epoch_from_year {
     ($year:expr) => {
       UTC.datetime_from_str(&format!("{}-01-01 12:00:00", $year),
-        "%Y-%m-%d %H:%M:%S").unwrap().timestamp()
+        "%Y-%m-%d %H:%M:%S").unwrap().to_rfc3339()
     }
   }
 
@@ -317,7 +318,7 @@ mod tests {
      .all(|user| user.index(&mut client, &config.es.index)
                      .is_ok());
 
-    sleep(TimeDuration::from_millis(1000));
+    sleep(TimeDuration::from_millis(5000));
   }
 
   #[test]
@@ -344,7 +345,7 @@ mod tests {
     // a date that doesn't match given indexes is given
     {
       let mut map = Map::new();
-      map.assign("epoch", Value::I64(epoch_from_year!("2040"))).unwrap();
+      map.assign("epoch", Value::String(epoch_from_year!("2040"))).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert!(results.is_empty());
