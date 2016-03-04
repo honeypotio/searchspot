@@ -29,7 +29,7 @@ impl ToJson for SearchResult {
             None        => {
               match String::from_value(value) {
                 Some(value) => { values.insert(key, value.to_json()); },
-                None        => {}
+                None        => ()
               }
             }
           }
