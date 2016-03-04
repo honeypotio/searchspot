@@ -12,6 +12,8 @@ Things that are missing
 Basically at the moment we cannot map the types and the analyzers.
 Please check the details [here](https://github.com/benashford/rs-es/issues/11).
 
+Also we need to implement a proper pagination and bulk indexing.
+
 Setup
 -----
 Install the latest stable release of Rust using the [official installer](https://www.rust-lang.org/downloads.html) or your package manager (i.e.: `brew install rust`).
@@ -47,17 +49,17 @@ Performance
 MacBook Pro (Early 2015) on [11c5714](https://github.com/honeypotio/searchspot/commit/11c57149d88e1dca5cccf858d986894e878cc8f0):
 
 ```
-┌[giovanni@lifestream-2] [/dev/ttys002] [master ⚡] [1]
-└[~/Desktop/searchspot]> wrk -t12 -c400 -d30s "http://127.0.0.1:3001/talents?work_roles[]=DevOps"
-Running 30s test @ http://127.0.0.1:3001/talents?work_roles[]=DevOps
+┌[giovanni@lifestream-2] [/dev/ttys001] [master ⚡]
+└[~/Desktop/searchspot]> wrk -t12 -c400 -d30s "http://127.0.0.1:1234/talents?work_roles[]=DevOps"
+Running 30s test @ http://127.0.0.1:1234/talents?work_roles[]=DevOps
   12 threads and 400 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    50.30ms   40.07ms   1.54s    85.53%
-    Req/Sec   667.29    336.85     1.24k    60.14%
-  19063 requests in 30.10s, 3.20MB read
-  Socket errors: connect 0, read 371, write 0, timeout 0
-Requests/sec:    633.27
-Transfer/sec:    108.84KB
+    Latency    35.85ms    2.35ms  67.12ms   81.01%
+    Req/Sec     0.90k    38.54     0.95k    86.33%
+  26790 requests in 30.10s, 4.57MB read
+  Socket errors: connect 0, read 588, write 3, timeout 0
+Requests/sec:    890.00
+Transfer/sec:    155.58KB
 ```
 
 
