@@ -7,6 +7,11 @@ Our hope is to make this service usable by everyone who needs a search engine wi
 
 Every kind of contribution is more than well accepted!
 
+Things that are missing
+-----------------------
+Basically at the moment we cannot map the types and the analyzers.
+Please check the details [here](https://github.com/benashford/rs-es/issues/11).
+
 Setup
 -----
 Install the latest stable release of Rust using the [official installer](https://www.rust-lang.org/downloads.html) or your package manager (i.e.: `brew install rust`).
