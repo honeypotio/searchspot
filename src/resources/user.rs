@@ -41,15 +41,15 @@ impl Talent {
       .send()
   }
 
-  #[warn(dead_code)]
-  pub fn clean_es(mut es: &mut Client, index: &str) {
+  #[allow(dead_code)]
+  pub fn delete_all(mut es: &mut Client, index: &str) {
     let mut scan = match es.search_query()
-                               .with_indexes(&[&index])
-                               .with_query(&Query::build_match_all().build())
-                               .scan(ESDuration::new(1, DurationUnit::Minute)) {
-                                   Ok(scan) => scan,
-                                   Err(_)   => return
-                               };
+                           .with_indexes(&[&index])
+                           .with_query(&Query::build_match_all().build())
+                           .scan(ESDuration::new(1, DurationUnit::Minute)) {
+                              Ok(scan) => scan,
+                              Err(_)   => return
+                           };
 
     loop {
       let     page = scan.scroll(&mut es).unwrap();
@@ -59,17 +59,19 @@ impl Talent {
         break;
       }
 
-      let actions: Vec<Action> = hits.drain(..)
-                                .map(|hit| {
-                                    Action::delete(hit.id)
-                                        .with_index(&*index)
-                                        .with_doc_type(hit.doc_type)
-                                })
-                                .collect();
-      es.bulk(&actions).send().unwrap();
+      let actions = hits.drain(..)
+                        .map(|hit| {
+                           Action::delete(hit.id).with_index(&*index)
+                                                 .with_doc_type(hit.doc_type)
+                        })
+                        .collect::<Vec<Action>>();
+      es.bulk(&actions)
+        .send()
+        .unwrap();
     }
 
-    scan.close(&mut es).unwrap();
+    scan.close(&mut es)
+        .unwrap();
   }
 
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
@@ -316,7 +318,7 @@ mod tests {
   #[test]
   fn test_search() {
     let mut client = make_client();
-    Talent::clean_es(&mut client, &config.es.index);
+    Talent::delete_all(&mut client, &config.es.index);
     populate_es(&mut client);
 
     // no parameters are given
