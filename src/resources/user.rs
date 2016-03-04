@@ -37,6 +37,7 @@ impl Talent {
   pub fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
     es.index(index, "talent")
       .with_doc(&self)
+      .with_id(&*format!("{}", self.id))
       .send()
   }
 
