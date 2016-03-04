@@ -175,13 +175,13 @@ impl Talent {
                                        "work_languages", &vec_from_params!(params, "work_languages")),
 
                                      <Filter as VectorOfTerms<String>>::build_terms(
-                                       "work_experience", &vec_from_params!(params, "work_experience")),
+                                       "work_experience", &string_vec_from_params!(params, "work_experience")),
+
+                                     <Filter as VectorOfTerms<String>>::build_terms(
+                                      "work_authorization", &string_vec_from_params!(params, "work_authorization")),
 
                                      <Filter as VectorOfTerms<String>>::build_terms(
                                        "work_locations", &vec_from_params!(params, "work_locations")),
-
-                                     <Filter as VectorOfTerms<String>>::build_terms(
-                                      "work_authorization", &vec_from_params!(params, "work_authorization")),
 
                                      Talent::visibility_filters(epoch,
                                        i32_vec_from_params!(params, "presented_talents"))
