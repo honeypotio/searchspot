@@ -7,13 +7,37 @@ use rs_es::Client;
 use rs_es::query::{Filter, Query};
 use rs_es::units::JsonVal;
 use rs_es::operations::search::{Sort, SortField, Order};
+use rs_es::operations::index::IndexResult;
+use rs_es::error::EsError;
 
 extern crate searchspot;
 use searchspot::terms::VectorOfTerms;
 
-pub struct Talent;
+#[derive(RustcEncodable, RustcDecodable, Debug)]
+pub struct Talent {
+  pub id:                 u32,
+  pub accepted:           bool,
+  pub work_roles:         Vec<String>,
+  pub work_languages:     Vec<String>,
+  pub work_experience:    String,
+  pub work_locations:     Vec<String>,
+  pub work_authorization: String,
+  pub company_ids:        Vec<u32>,
+  pub batch_starts_at:    i64,
+  pub batch_ends_at:      i64,
+  pub added_to_batch_at:  i64,
+  pub weight:             i32,
+  pub blocked_companies:  Vec<u32>
+}
 
 impl Talent {
+  /// Populate the ElasticSearch index with `self`.
+  pub fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
+    es.index(index, "talent")
+      .with_doc(&self)
+      .send()
+  }
+
   /// Return a `Vec<Filter>` with visibility criteria for the talents.
   /// The `epoch` must be given as `I64` (UNIX time in seconds) and is
   /// the range in which batches are searched.
@@ -171,22 +195,14 @@ mod tests {
   use searchspot::config::*;
 
   use resources::user::Talent;
-  use rustc_serialize::json::*;
 
-  #[derive(RustcEncodable, Debug)]
-  pub struct TestUser {
-    pub id:                u32,
-    pub accepted:          bool,
-    pub batch_starts_at:   i64,
-    pub batch_ends_at:     i64,
-    pub added_to_batch_at: i64,
-    pub work_roles:        Array,
-    pub company_ids:       Array,
-    pub weight:            i32
+  const CONFIG_FILE: &'static str = "examples/tests.toml";
+
+  lazy_static! {
+    static ref config: Config = Config::from_file(CONFIG_FILE.to_owned());
   }
 
   pub fn make_client() -> Client {
-    let config = Config::from_file("examples/tests.toml".to_owned());
     Client::new(&*config.es.host, config.es.port)
   }
 
@@ -228,57 +244,73 @@ mod tests {
   }
 
   pub fn populate_es(mut client: &mut Client) {
-    let users = vec![
-      TestUser {
-        id:                1,
-        accepted:          true,
-        batch_starts_at:   epoch_from_year!("2006"),
-        batch_ends_at:     epoch_from_year!("2020"),
-        added_to_batch_at: epoch_from_year!("2006"),
-        work_roles:        vec![],
-        company_ids:       vec![],
-        weight:            -5
+    vec![
+      Talent {
+        id:                 1,
+        accepted:           true,
+        work_roles:         vec![],
+        work_languages:     vec![],
+        work_experience:    "1..2".to_owned(),
+        work_locations:     vec!["Berlin".to_owned()],
+        work_authorization: "yes".to_owned(),
+        company_ids:        vec![],
+        batch_starts_at:    epoch_from_year!("2006"),
+        batch_ends_at:      epoch_from_year!("2020"),
+        added_to_batch_at:  epoch_from_year!("2006"),
+        weight:             -5,
+        blocked_companies:  vec![]
       },
 
-      TestUser {
-        id:                2,
-        accepted:          true,
-        batch_starts_at:   epoch_from_year!("2006"),
-        batch_ends_at:     epoch_from_year!("2020"),
-        added_to_batch_at: epoch_from_year!("2006"),
-        work_roles:        vec![],
-        company_ids:       vec![],
-        weight:            6
+      Talent {
+        id:                 2,
+        accepted:           true,
+        work_roles:         vec![],
+        work_languages:     vec![],
+        work_experience:    "1..2".to_owned(),
+        work_locations:     vec!["Berlin".to_owned()],
+        work_authorization: "yes".to_owned(),
+        company_ids:        vec![],
+        batch_starts_at:    epoch_from_year!("2006"),
+        batch_ends_at:      epoch_from_year!("2020"),
+        added_to_batch_at:  epoch_from_year!("2006"),
+        weight:             6,
+        blocked_companies:  vec![]
       },
 
-      TestUser {
-        id:                3,
-        accepted:          false,
-        batch_starts_at:   epoch_from_year!("2007"),
-        batch_ends_at:     epoch_from_year!("2020"),
-        added_to_batch_at: epoch_from_year!("2011"),
-        work_roles:        vec![],
-        company_ids:       vec![],
-        weight:            6
+      Talent {
+        id:                 3,
+        accepted:           false,
+        work_roles:         vec![],
+        work_languages:     vec![],
+        work_experience:    "1..2".to_owned(),
+        work_locations:     vec!["Berlin".to_owned()],
+        work_authorization: "yes".to_owned(),
+        company_ids:        vec![],
+        batch_starts_at:    epoch_from_year!("2007"),
+        batch_ends_at:      epoch_from_year!("2020"),
+        added_to_batch_at:  epoch_from_year!("2011"),
+        weight:             6,
+        blocked_companies:  vec![]
       },
 
-      TestUser {
-        id:                4,
-        accepted:          true,
-        batch_starts_at:   epoch_from_year!("2008"),
-        batch_ends_at:     epoch_from_year!("2020"),
-        added_to_batch_at: epoch_from_year!("2011"),
-        work_roles:        vec!["Fullstack".to_json(), "DevOps".to_json()],
-        company_ids:       vec![6.to_json()],
-        weight:            0
-      }];
-
-    for user in users {
-      client.index("sample_index", "test_user")
-             .with_doc(&user)
-             .send()
-             .unwrap();
-    }
+      Talent {
+        id:                 4,
+        accepted:           true,
+        work_roles:         vec!["Fullstack".to_owned(), "DevOps".to_owned()],
+        work_languages:     vec![],
+        work_experience:    "1..2".to_owned(),
+        work_locations:     vec!["Berlin".to_owned()],
+        work_authorization:  "yes".to_owned(),
+        company_ids:        vec![6],
+        batch_starts_at:    epoch_from_year!("2008"),
+        batch_ends_at:      epoch_from_year!("2020"),
+        added_to_batch_at:  epoch_from_year!("2011"),
+        weight:             0,
+        blocked_companies:  vec![]
+      }
+    ].iter()
+     .all(|user| user.index(&mut client, &config.es.index)
+                     .is_ok());
   }
 
   #[test]
