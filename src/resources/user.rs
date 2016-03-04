@@ -228,6 +228,9 @@ mod tests {
 
   use resources::user::Talent;
 
+  use std::time::Duration as TimeDuration;
+  use std::thread::sleep;
+
   const CONFIG_FILE: &'static str = "examples/tests.toml";
 
   lazy_static! {
@@ -313,6 +316,8 @@ mod tests {
     ].iter()
      .all(|user| user.index(&mut client, &config.es.index)
                      .is_ok());
+
+    sleep(TimeDuration::from_millis(1000));
   }
 
   #[test]
