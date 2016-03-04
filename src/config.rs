@@ -8,25 +8,25 @@ use std::env;
 /// Contain the configuration for ElasticSearch.
 #[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct ESConfig {
-  pub host: String,
-  pub port: u32,
-  pub indexes: Vec<String>
+  pub host:  String,
+  pub port:  u32,
+  pub index: String
 }
 
 impl ESConfig {
   pub fn new() -> ESConfig {
     ESConfig {
-      host: "localhost".to_owned(),
-      port: 9200,
-      indexes: vec!["my_index".to_owned()]
+      host:  "localhost".to_owned(),
+      port:  9200,
+      index: "my_index".to_owned()
     }
   }
 }
 
 impl fmt::Display for ESConfig {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "ElasticSearch on http://{}:{} (indexes: {})",
-      self.host, self.port, self.indexes.join(", "))
+    write!(f, "ElasticSearch on http://{}:{} ({})",
+      self.host, self.port, self.index)
   }
 }
 
@@ -95,8 +95,8 @@ impl Config {
       port: env::var("ES_PORT").unwrap()
                                .parse::<u32>()
                                .unwrap(),
-      indexes: vec![env::var("ES_INDEX").unwrap()
-                                        .to_owned()]
+      index: env::var("ES_INDEX").unwrap()
+                                 .to_owned()
     };
 
     Config { http: http_config, es: es_config }
@@ -150,9 +150,9 @@ mod tests {
 
   const sample_config: &'static str = r#"
     [es]
-    host    = "123.0.123.0"
-    port    = 9000
-    indexes = ["save_meguka"]
+    host  = "123.0.123.0"
+    port  = 9000
+    index = "save_meguka"
 
     [http]
     host = "1.0.0.127"

@@ -1,6 +1,7 @@
 [es]
-host = "localhost"
-port = 9200
+host  = "localhost"
+port  = 9200
+index = "sample_index"
 
 [http]
 host = "127.0.0.1"

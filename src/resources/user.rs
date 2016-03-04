@@ -38,6 +38,42 @@ impl Talent {
       .send()
   }
 
+  /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
+  /// the found talents.
+  pub fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Vec<u32> {
+    let epoch = match params.find(&["epoch"]) {
+      Some(&Value::I64(epoch)) => epoch,
+      _ => DateTime::timestamp(&UTC::now())
+    };
+
+    let index: Vec<&str> = match params.find(&["index"]) {
+      Some(&Value::String(ref index)) => vec![&index[..]],
+      _ => vec![default_index]
+    };
+
+    let result = es.search_query()
+                   .with_indexes(&*index)
+                   .with_query(&Talent::search_filters(params, epoch))
+                   .with_sort(&Talent::sorting_criteria())
+                   .send();
+
+    match result {
+      Ok(result) => {
+        let mut results = result.hits.hits.into_iter()
+                                          .map(|hit| hit.source.unwrap()["id"]
+                                                               .as_u64()
+                                                               .unwrap() as u32)
+                                          .collect::<Vec<u32>>();
+        results.dedup();
+        results
+      },
+      Err(err) => {
+        println!("{:?}", err);
+        vec![]
+      }
+    }
+  }
+
   /// Return a `Vec<Filter>` with visibility criteria for the talents.
   /// The `epoch` must be given as `I64` (UNIX time in seconds) and is
   /// the range in which batches are searched.
@@ -132,42 +168,6 @@ impl Talent {
           .build()
   }
 
-  /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
-  /// the found talents.
-  pub fn search(mut es: &mut Client, default_indexes: Vec<&str>, params: &Map) -> Vec<u32> {
-    let epoch = match params.find(&["epoch"]) {
-      Some(&Value::I64(epoch)) => epoch,
-      _ => DateTime::timestamp(&UTC::now())
-    };
-
-    let indexes: Vec<&str> = match params.find(&["index"]) {
-      Some(&Value::String(ref index)) => vec![&index[..]],
-      _ => default_indexes
-    };
-
-    let result = es.search_query()
-                   .with_indexes(&indexes)
-                   .with_query(&Talent::search_filters(params, epoch))
-                   .with_sort(&Talent::sorting_criteria())
-                   .send();
-
-    match result {
-      Ok(result) => {
-        let mut results = result.hits.hits.into_iter()
-                                          .map(|hit| hit.source.unwrap()["id"]
-                                                               .as_u64()
-                                                               .unwrap() as u32)
-                                          .collect::<Vec<u32>>();
-        results.dedup();
-        results
-      },
-      Err(err) => {
-        println!("{:?}", err);
-        vec![]
-      }
-    }
-  }
-
   /// Return a `Sort` that makes values be sorted for given fields, descendently.
   fn sorting_criteria() -> Sort {
     Sort::new(
@@ -208,7 +208,7 @@ mod tests {
 
   pub fn clean_es(mut client: &mut Client) {
     let mut scan = match client.search_query()
-                               .with_indexes(&["sample_index"])
+                               .with_indexes(&[&config.es.index])
                                .with_query(&Query::build_match_all().build())
                                .scan(ESDuration::new(1, DurationUnit::Minute)) {
                                    Ok(scan) => scan,
@@ -226,7 +226,7 @@ mod tests {
       let actions: Vec<Action> = hits.drain(..)
                                 .map(|hit| {
                                     Action::delete(hit.id)
-                                        .with_index("sample_index")
+                                        .with_index(&*config.es.index)
                                         .with_doc_type(hit.doc_type)
                                 })
                                 .collect();
@@ -321,7 +321,7 @@ mod tests {
 
     // no parameters are given
     {
-      let results = Talent::search(&mut client, vec!["sample_index"], &Map::new());
+      let results = Talent::search(&mut client, &*config.es.index, &Map::new());
       assert_eq!(vec![4, 2, 1], results);
     }
 
@@ -330,7 +330,7 @@ mod tests {
       let mut map = Map::new();
       map.assign("index", Value::String("lololol".to_owned())).unwrap();
 
-      let results = Talent::search(&mut client, vec!["sample_index"], &map);
+      let results = Talent::search(&mut client, &*config.es.index, &map);
       assert!(results.is_empty());
     }
 
@@ -339,7 +339,7 @@ mod tests {
       let mut map = Map::new();
       map.assign("epoch", Value::I64(epoch_from_year!("2040"))).unwrap();
 
-      let results = Talent::search(&mut client, vec!["sample_index"], &map);
+      let results = Talent::search(&mut client, &*config.es.index, &map);
       assert!(results.is_empty());
     }
 
@@ -349,7 +349,7 @@ mod tests {
     //   let mut map = Map::new();
     //   map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
 
-    //   let results = Talent::search(&mut client, vec!["sample_index"], &map);
+    //   let results = Talent::search(&mut client, config.es.index, &map);
     //   assert_eq!(vec![4], results);
     // }
 
@@ -358,7 +358,7 @@ mod tests {
       let mut map = Map::new();
       map.assign("company_id", Value::String("6".into())).unwrap();
 
-      let results = Talent::search(&mut client, vec!["sample_index"], &map);
+      let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![2, 1], results);
     }
   }
