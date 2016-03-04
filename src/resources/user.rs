@@ -5,9 +5,11 @@ use params::*;
 
 use rs_es::Client;
 use rs_es::query::{Filter, Query};
-use rs_es::units::JsonVal;
+use rs_es::units::{JsonVal, DurationUnit};
+use rs_es::units::Duration as ESDuration;
 use rs_es::operations::search::{Sort, SortField, Order};
 use rs_es::operations::index::IndexResult;
+use rs_es::operations::bulk::Action;
 use rs_es::error::EsError;
 
 extern crate searchspot;
@@ -36,6 +38,37 @@ impl Talent {
     es.index(index, "talent")
       .with_doc(&self)
       .send()
+  }
+
+  #[warn(dead_code)]
+  pub fn clean_es(mut es: &mut Client, index: &str) {
+    let mut scan = match es.search_query()
+                               .with_indexes(&[&index])
+                               .with_query(&Query::build_match_all().build())
+                               .scan(ESDuration::new(1, DurationUnit::Minute)) {
+                                   Ok(scan) => scan,
+                                   Err(_)   => return
+                               };
+
+    loop {
+      let     page = scan.scroll(&mut es).unwrap();
+      let mut hits = page.hits.hits;
+
+      if hits.len() == 0 {
+        break;
+      }
+
+      let actions: Vec<Action> = hits.drain(..)
+                                .map(|hit| {
+                                    Action::delete(hit.id)
+                                        .with_index(&*index)
+                                        .with_doc_type(hit.doc_type)
+                                })
+                                .collect();
+      es.bulk(&actions).send().unwrap();
+    }
+
+    scan.close(&mut es).unwrap();
   }
 
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
@@ -184,10 +217,6 @@ mod tests {
   use chrono::*;
 
   use rs_es::Client;
-  use rs_es::query::*;
-  use rs_es::operations::bulk::Action;
-  use rs_es::units::Duration as ESDuration;
-  use rs_es::units::DurationUnit;
 
   use params::*;
 
@@ -204,36 +233,6 @@ mod tests {
 
   pub fn make_client() -> Client {
     Client::new(&*config.es.host, config.es.port)
-  }
-
-  pub fn clean_es(mut client: &mut Client) {
-    let mut scan = match client.search_query()
-                               .with_indexes(&[&config.es.index])
-                               .with_query(&Query::build_match_all().build())
-                               .scan(ESDuration::new(1, DurationUnit::Minute)) {
-                                   Ok(scan) => scan,
-                                   Err(_)   => return
-                               };
-
-    loop {
-      let     page = scan.scroll(&mut client).unwrap();
-      let mut hits = page.hits.hits;
-
-      if hits.len() == 0 {
-        break;
-      }
-
-      let actions: Vec<Action> = hits.drain(..)
-                                .map(|hit| {
-                                    Action::delete(hit.id)
-                                        .with_index(&*config.es.index)
-                                        .with_doc_type(hit.doc_type)
-                                })
-                                .collect();
-      client.bulk(&actions).send().unwrap();
-    }
-
-    scan.close(&mut client).unwrap();
   }
 
   macro_rules! epoch_from_year {
@@ -316,7 +315,7 @@ mod tests {
   #[test]
   fn test_search() {
     let mut client = make_client();
-    clean_es(&mut client);
+    Talent::clean_es(&mut client, &config.es.index);
     populate_es(&mut client);
 
     // no parameters are given
