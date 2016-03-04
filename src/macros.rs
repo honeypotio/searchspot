@@ -50,18 +50,31 @@ macro_rules! vec_from_params {
   }
 }
 
-/// Like vec_from_params!, but all the elements are casted
-/// to i32 (or discarded if the type conversion is impossibile).
+/// Like `vec_from_params`, but expects `$t` (instead of `Vec<$t>`)
+/// and return `Vec<$t>`. Elements that cannot be actually
+/// casted to `$t` are discarded.
 #[macro_export]
-macro_rules! i32_vec_from_params {
-  ($params:expr, $param:expr) => {
+macro_rules! type_vec_from_params {
+  ($t:ident, $params:expr, $param:expr) => {
     match $params.find(&[$param]) {
-      Some(company_id) => i32::from_value(company_id)
+      Some(val) => $t::from_value(val)
                               .map(|id| vec![id])
                               .unwrap_or(vec![]),
       None => vec![]
     }
   }
+}
+
+/// Sugar for `type_vec_from_params` where `$t` is `String`.
+#[macro_export]
+macro_rules! string_vec_from_params {
+  ($params:expr, $param:expr) => { type_vec_from_params!(String, $params, $param) }
+}
+
+/// Sugar for `type_vec_from_params` where `$t` is `i32`.
+#[macro_export]
+macro_rules! i32_vec_from_params {
+  ($params:expr, $param:expr) => { type_vec_from_params!(i32, $params, $param) }
 }
 
 #[cfg(test)]
