@@ -345,15 +345,15 @@ mod tests {
       assert!(results.is_empty());
     }
 
-    // TODO
-    // filtering for valid work roles
-    // {
-    //   let mut map = Map::new();
-    //   map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
-
-    //   let results = Talent::search(&mut client, config.es.index, &map);
-    //   assert_eq!(vec![4], results);
-    // }
+    // TODO: map field type properly (see benashford/rs-es#11)
+    // // filtering for valid work roles
+    // // {
+    // //   let mut map = Map::new();
+    // //   map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
+    // //
+    // //   let results = Talent::search(&mut client, &*config.es.index, &map);
+    // //   assert_eq!(vec![4], results);
+    // // }
 
     // filtering for given company_id
     {
