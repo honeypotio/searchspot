@@ -1,4 +1,5 @@
 use chrono::UTC;
+use rustc_serialize::json::{self, ToJson};
 
 use params::*;
 
@@ -8,7 +9,7 @@ use rs_es::units::{JsonVal, DurationUnit};
 use rs_es::units::Duration as ESDuration;
 use rs_es::operations::search::{Sort, SortField, Order};
 use rs_es::operations::index::IndexResult;
-use rs_es::operations::bulk::Action;
+use rs_es::operations::bulk::{Action, BulkResult};
 use rs_es::error::EsError;
 
 extern crate searchspot;
@@ -36,8 +37,19 @@ impl Talent {
   pub fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
     es.index(index, "talent")
       .with_doc(&self)
-      .with_id(&*format!("{}", self.id))
+      .with_id(&*self.id.to_string())
       .send()
+  }
+
+  /// Populate the ElasticSearch index with `Vec<Talent>`.
+  pub fn index_many(talents: Vec<Talent>, mut es: &mut Client, index: &str) -> Result<BulkResult, EsError> {
+    let actions: Vec<Action> = talents.into_iter().map(|talent| {
+      let json = json::encode(&talent).unwrap().to_json();
+      Action::index(json).with_id(&*talent.id.to_string())
+                                     .with_index(index)
+    }).collect();
+
+    es.bulk(&actions).send()
   }
 
   #[allow(dead_code)]
@@ -250,7 +262,7 @@ mod tests {
   }
 
   pub fn populate_es(mut client: &mut Client) {
-    vec![
+    Talent::index_many(vec![
       Talent {
         id:                 1,
         accepted:           true,
@@ -314,9 +326,7 @@ mod tests {
         weight:             0,
         blocked_companies:  vec![]
       }
-    ].iter()
-     .all(|user| user.index(&mut client, &config.es.index)
-                     .is_ok());
+    ], &mut client, &config.es.index);
 
     sleep(TimeDuration::from_millis(5000));
   }
