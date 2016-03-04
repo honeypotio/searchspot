@@ -1,7 +1,7 @@
 [es]
-host    = "user:pass@example.com"
-port    = 80
-indexes = ["my_index"]
+host  = "user:pass@example.com"
+port  = 80
+index = "my_index"
 
 [http]
 host = "127.0.0.1"
