@@ -100,7 +100,7 @@ impl Talent {
     }
   }
 
-  pub fn reset_index(mut es: &mut Client, index: &str) {
+  pub fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
     let mapping = hashmap! {
       "talent" => hashmap! {
         "id" => hashmap! {
@@ -173,16 +173,9 @@ impl Talent {
       }
     };
 
-    es.delete_index(index)
-      .unwrap();
+    es.delete_index(index);
 
     MappingOperation::new(&mut es, index, &mapping).send()
-                                                   .unwrap();
-
-    es.refresh()
-      .with_indexes(&[index])
-      .send()
-      .unwrap();
   }
 
   /// Return a `Vec<Filter>` with visibility criteria for the talents.
@@ -320,7 +313,7 @@ mod tests {
     }
   }
 
-  pub fn populate_index(mut client: &mut Client) {
+  pub fn populate_index(mut client: &mut Client) -> bool {
     vec![
       Talent {
         id:                 1,
@@ -388,8 +381,12 @@ mod tests {
     ].iter()
      .map(|talent| talent.index(&mut client, &config.es.index)
                          .is_ok())
-     .collect::<Vec<bool>>();
+     .collect::<Vec<bool>>()
+     .into_iter()
+     .all(|result| result)
+  }
 
+  fn refresh_index(mut client: &mut Client) {
     client.refresh()
           .with_indexes(&[&config.es.index])
           .send()
@@ -399,8 +396,10 @@ mod tests {
   #[test]
   fn test_search() {
     let mut client = make_client();
-    Talent::reset_index(&mut client, &*config.es.index);
-    populate_index(&mut client);
+    Talent::reset_index(&mut client, &*config.es.index).unwrap();
+    refresh_index(&mut client);
+    assert!(populate_index(&mut client));
+    refresh_index(&mut client);
 
     // no parameters are given
     {

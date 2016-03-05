@@ -18,7 +18,7 @@ maplit          = "0.1"
 
 [dependencies.rs-es]
 git    = "https://github.com/RoxasShadow/rs-es"
-branch = "implement-delete_index"
+branch = "fix-mapping-query"
 
 [lib]
 name = "searchspot"
