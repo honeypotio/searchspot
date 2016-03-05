@@ -18,7 +18,7 @@ maplit          = "0.1"
 
 [dependencies.rs-es]
 git    = "https://github.com/RoxasShadow/rs-es"
-branch = "add-execute-to-delete"
+branch = "implement-delete_index"
 
 [lib]
 name = "searchspot"
