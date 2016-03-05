@@ -1,7 +1,7 @@
 Searchspot
 ==========
 This service is used as endpoint responsible for Honeypot's ElasticSearch data.
-For this first iteration it only reads and returns the data based on given filters but the plan is to implement the population of the indexes as well.
+Thanks to [benashford](https://github.com/benashford) for his client.
 
 Our hope is to make this service usable by everyone who needs a search engine with a more-or-less complex system of data filtering (including string matching, dates, booleans and full text search).
 
@@ -9,10 +9,9 @@ Every kind of contribution is more than well accepted!
 
 Things that are missing
 -----------------------
-Basically at the moment we cannot map the types and the analyzers.
-Please check the details [here](https://github.com/benashford/rs-es/issues/11).
-
-Also we need to implement a proper pagination and bulk indexing.
+- Proper pagination
+- Bulk indexing
+- Make [resources/user.rs](https://github.com/honeypotio/searchspot/blob/master/src/resources/user.rs) reusable
 
 Setup
 -----

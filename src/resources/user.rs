@@ -102,80 +102,82 @@ impl Talent {
 
   pub fn reset_index(mut es: &mut Client, index: &str) {
     let mapping = hashmap! {
-      "id" => hashmap! {
-        "type" => "integer",
-        "index" => "not_analyzed"
-      },
+      "talent" => hashmap! {
+        "id" => hashmap! {
+          "type" => "integer",
+          "index" => "not_analyzed"
+        },
 
-      "work_roles" => hashmap! {
-        "type" => "string",
-        "index" => "not_analyzed"
-      },
+        "work_roles" => hashmap! {
+          "type" => "string",
+          "index" => "not_analyzed"
+        },
 
-      "work_languages" => hashmap! {
-        "type" => "string",
-        "index" => "not_analyzed"
-      },
+        "work_languages" => hashmap! {
+          "type" => "string",
+          "index" => "not_analyzed"
+        },
 
-      "work_experience" => hashmap! {
-        "type" => "string",
-        "index" => "not_analyzed"
-      },
+        "work_experience" => hashmap! {
+          "type" => "string",
+          "index" => "not_analyzed"
+        },
 
-      "work_locations" => hashmap! {
-        "type" => "string",
-        "index" => "not_analyzed"
-      },
+        "work_locations" => hashmap! {
+          "type" => "string",
+          "index" => "not_analyzed"
+        },
 
-      "work_authorization" => hashmap! {
-        "type" => "string",
-        "index" => "not_analyzed"
-      },
+        "work_authorization" => hashmap! {
+          "type" => "string",
+          "index" => "not_analyzed"
+        },
 
-      "company_ids" => hashmap! {
-        "type" => "integer",
-        "index" => "not_analyzed"
-      },
+        "company_ids" => hashmap! {
+          "type" => "integer",
+          "index" => "not_analyzed"
+        },
 
-      "accepted" => hashmap! {
-        "type" => "boolean",
-        "index" => "not_analyzed"
-      },
+        "accepted" => hashmap! {
+          "type" => "boolean",
+          "index" => "not_analyzed"
+        },
 
-      "batch_starts_at" => hashmap! {
-        "type" => "date",
-        "format" => "strict_date_optional_time",
-        "index" => "not_analyzed"
-      },
+        "batch_starts_at" => hashmap! {
+          "type" => "date",
+          "format" => "strict_date_optional_time",
+          "index" => "not_analyzed"
+        },
 
-      "batch_ends_at" => hashmap! {
-        "type" => "date",
-        "format" => "strict_date_optional_time",
-        "index" => "not_analyzed"
-      },
+        "batch_ends_at" => hashmap! {
+          "type" => "date",
+          "format" => "strict_date_optional_time",
+          "index" => "not_analyzed"
+        },
 
-      "added_to_batch_at" => hashmap! {
-        "type" => "date",
-        "format" => "strict_date_optional_time",
-        "index" => "not_analyzed"
-      },
+        "added_to_batch_at" => hashmap! {
+          "type" => "date",
+          "format" => "strict_date_optional_time",
+          "index" => "not_analyzed"
+        },
 
-      "weight" => hashmap! {
-        "type" => "integer",
-        "index" => "not_analyzed"
-      },
+        "weight" => hashmap! {
+          "type" => "integer",
+          "index" => "not_analyzed"
+        },
 
-      "blocked_companies" => hashmap! {
-        "type" => "integer",
-        "index" => "not_analyzed"
+        "blocked_companies" => hashmap! {
+          "type" => "integer",
+          "index" => "not_analyzed"
+        }
       }
     };
 
-    es.delete(index, "", "")
-      .execute();
+    es.delete_index(index)
+      .unwrap();
 
-    MappingOperation::new(&mut es, index, "talent", &mapping).send()
-                                                             .unwrap();
+    MappingOperation::new(&mut es, index, &mapping).send()
+                                                   .unwrap();
 
     es.refresh()
       .with_indexes(&[index])
@@ -388,7 +390,10 @@ mod tests {
                          .is_ok())
      .collect::<Vec<bool>>();
 
-    client.refresh().with_indexes(&[&config.es.index]).send().unwrap();
+    client.refresh()
+          .with_indexes(&[&config.es.index])
+          .send()
+          .unwrap();
   }
 
   #[test]
