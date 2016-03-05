@@ -251,9 +251,6 @@ mod tests {
 
   use resources::user::Talent;
 
-  use std::time::Duration as TimeDuration;
-  use std::thread::sleep;
-
   const CONFIG_FILE: &'static str = "examples/tests.toml";
 
   lazy_static! {
@@ -338,7 +335,7 @@ mod tests {
       }
     ], &mut client, &config.es.index);
 
-    sleep(TimeDuration::from_millis(5000));
+    client.refresh().with_indexes(&[&config.es.index]).send().unwrap();
   }
 
   #[test]
