@@ -5,11 +5,11 @@ use params::*;
 
 use rs_es::Client;
 use rs_es::query::{Filter, Query};
-use rs_es::units::{JsonVal, DurationUnit};
-use rs_es::units::Duration as ESDuration;
+use rs_es::units::JsonVal;
 use rs_es::operations::search::{Sort, SortField, Order};
 use rs_es::operations::index::IndexResult;
 use rs_es::operations::bulk::{Action, BulkResult};
+use rs_es::operations::mapping::*;
 use rs_es::error::EsError;
 
 extern crate searchspot;
@@ -62,39 +62,6 @@ impl Talent {
     es.bulk(&actions).send()
   }
 
-  #[allow(dead_code)]
-  pub fn delete_all(mut es: &mut Client, index: &str) {
-    let mut scan = match es.search_query()
-                           .with_indexes(&[&index])
-                           .with_query(&Query::build_match_all().build())
-                           .scan(ESDuration::new(1, DurationUnit::Minute)) {
-                              Ok(scan) => scan,
-                              Err(_)   => return
-                           };
-
-    loop {
-      let     page = scan.scroll(&mut es).unwrap();
-      let mut hits = page.hits.hits;
-
-      if hits.len() == 0 {
-        break;
-      }
-
-      let actions = hits.drain(..)
-                        .map(|hit| {
-                           Action::delete(hit.id).with_index(&*index)
-                                                 .with_doc_type(hit.doc_type)
-                        })
-                        .collect::<Vec<Action>>();
-      es.bulk(&actions)
-        .send()
-        .unwrap();
-    }
-
-    scan.close(&mut es)
-        .unwrap();
-  }
-
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
   /// the found talents.
   pub fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Vec<u32> {
@@ -131,6 +98,89 @@ impl Talent {
         vec![]
       }
     }
+  }
+
+  pub fn reset_index(mut es: &mut Client, index: &str) {
+    let mapping = hashmap! {
+      "id" => hashmap! {
+        "type" => "integer",
+        "index" => "not_analyzed"
+      },
+
+      "work_roles" => hashmap! {
+        "type" => "string",
+        "index" => "not_analyzed"
+      },
+
+      "work_languages" => hashmap! {
+        "type" => "string",
+        "index" => "not_analyzed"
+      },
+
+      "work_experience" => hashmap! {
+        "type" => "string",
+        "index" => "not_analyzed"
+      },
+
+      "work_locations" => hashmap! {
+        "type" => "string",
+        "index" => "not_analyzed"
+      },
+
+      "work_authorization" => hashmap! {
+        "type" => "string",
+        "index" => "not_analyzed"
+      },
+
+      "company_ids" => hashmap! {
+        "type" => "integer",
+        "index" => "not_analyzed"
+      },
+
+      "accepted" => hashmap! {
+        "type" => "boolean",
+        "index" => "not_analyzed"
+      },
+
+      "batch_starts_at" => hashmap! {
+        "type" => "date",
+        "format" => "strict_date_optional_time",
+        "index" => "not_analyzed"
+      },
+
+      "batch_ends_at" => hashmap! {
+        "type" => "date",
+        "format" => "strict_date_optional_time",
+        "index" => "not_analyzed"
+      },
+
+      "added_to_batch_at" => hashmap! {
+        "type" => "date",
+        "format" => "strict_date_optional_time",
+        "index" => "not_analyzed"
+      },
+
+      "weight" => hashmap! {
+        "type" => "integer",
+        "index" => "not_analyzed"
+      },
+
+      "blocked_companies" => hashmap! {
+        "type" => "integer",
+        "index" => "not_analyzed"
+      }
+    };
+
+    es.delete(index, "", "")
+      .execute();
+
+    MappingOperation::new(&mut es, index, "talent", &mapping).send()
+                                                             .unwrap();
+
+    es.refresh()
+      .with_indexes(&[index])
+      .send()
+      .unwrap();
   }
 
   /// Return a `Vec<Filter>` with visibility criteria for the talents.
@@ -268,8 +318,8 @@ mod tests {
     }
   }
 
-  pub fn populate_es(mut client: &mut Client) {
-    Talent::index_many(vec![
+  pub fn populate_index(mut client: &mut Client) {
+    vec![
       Talent {
         id:                 1,
         accepted:           true,
@@ -333,7 +383,10 @@ mod tests {
         weight:             0,
         blocked_companies:  vec![]
       }
-    ], &mut client, &config.es.index);
+    ].iter()
+     .map(|talent| talent.index(&mut client, &config.es.index)
+                         .is_ok())
+     .collect::<Vec<bool>>();
 
     client.refresh().with_indexes(&[&config.es.index]).send().unwrap();
   }
@@ -341,8 +394,8 @@ mod tests {
   #[test]
   fn test_search() {
     let mut client = make_client();
-    Talent::delete_all(&mut client, &config.es.index);
-    populate_es(&mut client);
+    Talent::reset_index(&mut client, &*config.es.index);
+    populate_index(&mut client);
 
     // no parameters are given
     {
@@ -368,15 +421,13 @@ mod tests {
       assert!(results.is_empty());
     }
 
-    // TODO: map field type properly (see benashford/rs-es#11)
-    // // filtering for valid work roles
-    // // {
-    // //   let mut map = Map::new();
-    // //   map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
-    // //
-    // //   let results = Talent::search(&mut client, &*config.es.index, &map);
-    // //   assert_eq!(vec![4], results);
-    // // }
+    {
+      let mut map = Map::new();
+      map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![4], results);
+    }
 
     // filtering for given company_id
     {

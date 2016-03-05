@@ -25,6 +25,7 @@ use searchspot::search::SearchResult;
 
 #[macro_use] pub mod macros;
 #[macro_use] extern crate lazy_static;
+#[macro_use] extern crate maplit;
 
 extern crate chrono;
 mod resources;
