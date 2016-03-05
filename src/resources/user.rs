@@ -1,5 +1,5 @@
 use chrono::UTC;
-use rustc_serialize::json::{self, ToJson};
+use rustc_serialize::json::{self, Json, ToJson};
 
 use params::*;
 
@@ -32,6 +32,13 @@ pub struct Talent {
   pub blocked_companies:  Vec<u32>
 }
 
+impl ToJson for Talent {
+  fn to_json(&self) -> Json {
+    json::encode(&self).unwrap()
+                       .to_json()
+  }
+}
+
 impl Talent {
   /// Populate the ElasticSearch index with `self`.
   pub fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
@@ -44,9 +51,12 @@ impl Talent {
   /// Populate the ElasticSearch index with `Vec<Talent>`.
   pub fn index_many(talents: Vec<Talent>, mut es: &mut Client, index: &str) -> Result<BulkResult, EsError> {
     let actions: Vec<Action> = talents.into_iter().map(|talent| {
-      let json = json::encode(&talent).unwrap().to_json();
-      Action::index(json).with_id(&*talent.id.to_string())
-                                     .with_index(index)
+      let id   = &*talent.id.to_string();
+      let json = json::encode(&talent).unwrap()
+                                      .to_json();
+
+      Action::index(json).with_id(id)
+                         .with_index(index)
     }).collect();
 
     es.bulk(&actions).send()
