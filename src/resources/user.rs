@@ -8,7 +8,6 @@ use rs_es::query::{Filter, Query};
 use rs_es::units::JsonVal;
 use rs_es::operations::search::{Sort, SortField, Order};
 use rs_es::operations::index::IndexResult;
-use rs_es::operations::bulk::{Action, BulkResult};
 use rs_es::operations::mapping::*;
 use rs_es::error::EsError;
 
@@ -41,25 +40,12 @@ impl ToJson for Talent {
 
 impl Talent {
   /// Populate the ElasticSearch index with `self`.
+  // I'm having problems with bulk actions. Let's wait for the next iteration.
   pub fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
     es.index(index, "talent")
       .with_doc(&self)
       .with_id(&*self.id.to_string())
       .send()
-  }
-
-  /// Populate the ElasticSearch index with `Vec<Talent>`.
-  pub fn index_many(talents: Vec<Talent>, mut es: &mut Client, index: &str) -> Result<BulkResult, EsError> {
-    let actions: Vec<Action> = talents.into_iter().map(|talent| {
-      let id   = &*talent.id.to_string();
-      let json = json::encode(&talent).unwrap()
-                                      .to_json();
-
-      Action::index(json).with_id(id)
-                         .with_index(index)
-    }).collect();
-
-    es.bulk(&actions).send()
   }
 
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
@@ -147,19 +133,19 @@ impl Talent {
 
         "batch_starts_at" => hashmap! {
           "type" => "date",
-          "format" => "strict_date_optional_time",
+          "format" => "dateOptionalTime",
           "index" => "not_analyzed"
         },
 
         "batch_ends_at" => hashmap! {
           "type" => "date",
-          "format" => "strict_date_optional_time",
+          "format" => "dateOptionalTime",
           "index" => "not_analyzed"
         },
 
         "added_to_batch_at" => hashmap! {
           "type" => "date",
-          "format" => "strict_date_optional_time",
+          "format" => "dateOptionalTime",
           "index" => "not_analyzed"
         },
 
@@ -175,8 +161,7 @@ impl Talent {
       }
     };
 
-    es.delete_index(index)
-      .unwrap();
+    es.delete_index(index);
 
     MappingOperation::new(&mut es, index, &mapping).send()
   }
@@ -197,11 +182,11 @@ impl Talent {
                                              .build(),
                                       Filter::build_range("batch_starts_at")
                                              .with_lte(JsonVal::from(epoch))
-                                             .with_format("strict_date_optional_time")
+                                             .with_format("dateOptionalTime")
                                              .build(),
                                       Filter::build_range("batch_ends_at")
                                              .with_gte(JsonVal::from(epoch))
-                                             .with_format("strict_date_optional_time")
+                                             .with_format("dateOptionalTime")
                                              .build()
                                     ])
                                   .build();
@@ -399,7 +384,7 @@ mod tests {
   #[test]
   fn test_search() {
     let mut client = make_client();
-    Talent::reset_index(&mut client, &*config.es.index).unwrap();
+    assert!(Talent::reset_index(&mut client, &*config.es.index).is_ok());
     refresh_index(&mut client);
     assert!(populate_index(&mut client));
     refresh_index(&mut client);
