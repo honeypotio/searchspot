@@ -120,12 +120,12 @@ fn index_talents(req: &mut Request, mut es: &mut Client, index: &str) -> IronRes
     try_or_422!(talent.index(es, index));
   }
 
-  Ok(Response::with(status::Ok))
+  Ok(Response::with(status::Created))
 }
 
 fn reset_talents(_: &mut Request, mut es: &mut Client, index: &str) -> IronResult<Response> {
   match Talent::reset_index(&mut es, index) {
-    Ok(_)  => Ok(Response::with(status::Ok)),
+    Ok(_)  => Ok(Response::with(status::NoContent)),
     Err(_) => Ok(Response::with(status::UnprocessableEntity))
   }
 }
