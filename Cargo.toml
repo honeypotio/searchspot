@@ -6,6 +6,7 @@ authors = ["Giovanni Capuano <webmaster@giovannicapuano.net>"]
 license = "BSD-2-Clause"
 
 [dependencies]
+rs-es           = "0.2.5"
 rustc-serialize = "0.3"
 chrono          = "0.2"
 iron            = "0.2"
@@ -15,10 +16,6 @@ params          = "0.0.3"
 toml            = "0.1"
 lazy_static     = "0.1"
 maplit          = "0.1"
-
-[dependencies.rs-es]
-git    = "https://github.com/RoxasShadow/rs-es"
-branch = "fix-mapping-query"
 
 [lib]
 name = "searchspot"
