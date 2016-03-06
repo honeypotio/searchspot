@@ -100,6 +100,8 @@ impl Talent {
     }
   }
 
+  /// Reset the given index. All the data will be destroyed and then the index
+  /// will be created again. The map that will be used is hardcoded.
   pub fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
     let mapping = hashmap! {
       "talent" => hashmap! {
@@ -173,7 +175,8 @@ impl Talent {
       }
     };
 
-    es.delete_index(index);
+    es.delete_index(index)
+      .unwrap();
 
     MappingOperation::new(&mut es, index, &mapping).send()
   }
