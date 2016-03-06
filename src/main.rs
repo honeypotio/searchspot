@@ -51,6 +51,7 @@ fn main() {
   let mut router = Router::new();
   handle_talents_search(&mut router);
   handle_talents_indexing(&mut router);
+  handle_talents_reset(&mut router);
 
   let mut chain = Chain::new(router);
 
@@ -75,6 +76,14 @@ fn handle_talents_indexing(mut router: &mut Router) {
 
   router.post("/talents", move |r: &mut Request| {
     index_talents(r, &mut es.lock().unwrap(), &*config.es.index)
+  });
+}
+
+fn handle_talents_reset(mut router: &mut Router) {
+  let es = Arc::new(Mutex::new(Client::new(&*config.es.host, config.es.port)));
+
+  router.delete("/talents", move |r: &mut Request| {
+    reset_talents(r, &mut es.lock().unwrap(), &*config.es.index)
   });
 }
 
@@ -116,4 +125,11 @@ fn index_talents(req: &mut Request, mut es: &mut Client, index: &str) -> IronRes
   }
 
   Ok(Response::with(status::Ok))
+}
+
+fn reset_talents(_: &mut Request, mut es: &mut Client, index: &str) -> IronResult<Response> {
+  match Talent::reset_index(&mut es, index) {
+    Ok(_)  => Ok(Response::with(status::Ok)),
+    Err(_) => Ok(Response::with(status::UnprocessableEntity))
+  }
 }
