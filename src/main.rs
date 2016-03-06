@@ -32,7 +32,6 @@ mod resources;
 use resources::user::Talent;
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use std::io::Read;
 use std::env;
 
@@ -64,26 +63,23 @@ fn main() {
 }
 
 fn handle_talents_search(mut router: &mut Router) {
-  let es = Arc::new(Mutex::new(Client::new(&*config.es.host, config.es.port)));
-
   router.get("/talents", move |r: &mut Request| {
-    search_talents(r, &mut es.lock().unwrap(), &*config.es.index)
+    let mut es = Client::new(&*config.es.host, config.es.port);
+    search_talents(r, &mut es, &*config.es.index)
   });
 }
 
 fn handle_talents_indexing(mut router: &mut Router) {
-  let es = Arc::new(Mutex::new(Client::new(&*config.es.host, config.es.port)));
-
   router.post("/talents", move |r: &mut Request| {
-    index_talents(r, &mut es.lock().unwrap(), &*config.es.index)
+    let mut es = Client::new(&*config.es.host, config.es.port);
+    index_talents(r, &mut es, &*config.es.index)
   });
 }
 
 fn handle_talents_reset(mut router: &mut Router) {
-  let es = Arc::new(Mutex::new(Client::new(&*config.es.host, config.es.port)));
-
   router.delete("/talents", move |r: &mut Request| {
-    reset_talents(r, &mut es.lock().unwrap(), &*config.es.index)
+    let mut es = Client::new(&*config.es.host, config.es.port);
+    reset_talents(r, &mut es, &*config.es.index)
   });
 }
 
