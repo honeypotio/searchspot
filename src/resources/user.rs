@@ -19,7 +19,6 @@ pub struct Talent {
   pub id:                 u32,
   pub accepted:           bool,
   pub work_roles:         Vec<String>,
-  pub work_languages:     Vec<String>,
   pub work_experience:    String,
   pub work_locations:     Vec<String>,
   pub work_authorization: String,
@@ -88,6 +87,7 @@ impl Talent {
 
   /// Reset the given index. All the data will be destroyed and then the index
   /// will be created again. The map that will be used is hardcoded.
+  #[allow(unused_must_use)]
   pub fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
     let mapping = hashmap! {
       "talent" => hashmap! {
@@ -97,11 +97,6 @@ impl Talent {
         },
 
         "work_roles" => hashmap! {
-          "type" => "string",
-          "index" => "not_analyzed"
-        },
-
-        "work_languages" => hashmap! {
           "type" => "string",
           "index" => "not_analyzed"
         },
@@ -216,10 +211,11 @@ impl Talent {
   /// and the `epoch` (defined as UNIX time in seconds) for batches,
   /// return a `Query` for ElasticSearch.
   ///
-  /// `VectorOfTerms` are ORred, while `Filter`s are ANDed.
+  /// Considering a single row, the terms inside there are ORred,
+  /// while through the rows there is an AND.
   /// I.e.: given ["Fullstack", "DevOps"] as `work_roles`, found talents
   /// will present at least one of these roles), but both `work_roles`
-  /// and `work_languages`, if provided, must not be empty.
+  /// and `work_location`, if provided, must be matched successfully.
   fn search_filters(params: &Map, epoch: &str) -> Query {
     let company_id = i32_vec_from_params!(params, "company_id");
 
@@ -228,9 +224,6 @@ impl Talent {
                                    vec![
                                      <Filter as VectorOfTerms<String>>::build_terms(
                                        "work_roles", &vec_from_params!(params, "work_roles")),
-
-                                     <Filter as VectorOfTerms<String>>::build_terms(
-                                       "work_languages", &vec_from_params!(params, "work_languages")),
 
                                      <Filter as VectorOfTerms<String>>::build_terms(
                                        "work_experience", &vec_from_params!(params, "work_experience")),
@@ -307,7 +300,6 @@ mod tests {
         id:                 1,
         accepted:           true,
         work_roles:         vec![],
-        work_languages:     vec![],
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
@@ -323,7 +315,6 @@ mod tests {
         id:                 2,
         accepted:           true,
         work_roles:         vec![],
-        work_languages:     vec![],
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
@@ -339,7 +330,6 @@ mod tests {
         id:                 3,
         accepted:           false,
         work_roles:         vec![],
-        work_languages:     vec![],
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
@@ -355,7 +345,6 @@ mod tests {
         id:                 4,
         accepted:           true,
         work_roles:         vec!["Fullstack".to_owned(), "DevOps".to_owned()],
-        work_languages:     vec![],
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization:  "yes".to_owned(),
