@@ -13,6 +13,7 @@ use rs_es::error::EsError;
 
 extern crate searchspot;
 use searchspot::terms::VectorOfTerms;
+use searchspot::resource::*;
 
 #[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct Talent {
@@ -37,10 +38,10 @@ impl ToJson for Talent {
   }
 }
 
-impl Talent {
+impl Resource for Talent {
   /// Populate the ElasticSearch index with `self`.
   // I'm having problems with bulk actions. Let's wait for the next iteration.
-  pub fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
+  fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
     es.index(index, "talent")
       .with_doc(&self)
       .with_id(&*self.id.to_string())
@@ -49,7 +50,7 @@ impl Talent {
 
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
   /// the found talents.
-  pub fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Vec<u32> {
+  fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Vec<u32> {
     let now   = UTC::now().to_rfc3339();
     let epoch = match params.find(&["epoch"]) {
       Some(epoch) => String::from_value(&epoch).unwrap_or(now),
@@ -88,7 +89,7 @@ impl Talent {
   /// Reset the given index. All the data will be destroyed and then the index
   /// will be created again. The map that will be used is hardcoded.
   #[allow(unused_must_use)]
-  pub fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
+  fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
     let mapping = hashmap! {
       "talent" => hashmap! {
         "id" => hashmap! {
@@ -265,6 +266,7 @@ impl Talent {
 }
 
 #[cfg(test)]
+#[allow(non_upper_case_globals)]
 mod tests {
   use chrono::*;
 
@@ -274,6 +276,7 @@ mod tests {
 
   extern crate searchspot;
   use searchspot::config::*;
+  use searchspot::resource::*;
 
   use resources::user::Talent;
 
