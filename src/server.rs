@@ -21,7 +21,6 @@ use std::collections::HashMap;
 use std::env;
 use std::io::Read;
 use std::marker::PhantomData;
-use std::sync::{Mutex, Arc};
 
 macro_rules! try_or_422 {
   ($expr:expr) => (match $expr {
