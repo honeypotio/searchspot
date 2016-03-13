@@ -1,17 +1,14 @@
 Searchspot
 ==========
-This service is used as endpoint responsible for Honeypot's ElasticSearch data.
-Thanks to [benashford](https://github.com/benashford) for his client.
+This service is used as endpoint responsible for Honeypot's ElasticSearch data and it's powered by [benashford](https://github.com/benashford)'s rs-es.
 
-Our hope is to make this service usable by everyone who needs a search engine with a more-or-less complex system of data filtering (including string matching, dates, booleans and full text search).
-
-Every kind of contribution is more than well accepted!
+We hope that it will be useful to anyone who needs a search engine with a more-or-less complex system of data filtering (including string matching, dates, booleans and full text search).
 
 Things that are missing
 -----------------------
 - Proper pagination
 - Bulk indexing
-- Make [resources/user.rs](https://github.com/honeypotio/searchspot/blob/master/src/resources/user.rs) reusable
+- Better test coverage
 
 Setup
 -----
@@ -23,9 +20,15 @@ Then clone this repository to your computer and run the executable with
 $ cargo run examples/default.toml
 ````
 
-You can produce an optimized executable just appending `--release`, but the compile time will be longer.
+You can generate an optimized executable just appending `--release`, but the compile time will be longer.
 
-You can execute `$ cargo test` to run the tests and `$ cargo doc` to produce the documentation.
+You can execute `$ cargo test` to run the tests and `$ cargo doc` to generate the documentation.
+
+Example
+-------
+You can create your own searchspot creating a new executable with cargo, whose `main.rs` will look like our [src/main.rs](https://github.com/honeypotio/searchspot/blob/master/src/main.rs), but instead of using `searchspot::resources::user::Talent`, you'll need to replace it with a new resource made by you, according to your needs.
+
+Basically, a resource is any struct that implements the trait `searchspot::resource::Resource`.
 
 Heroku
 ------
@@ -39,27 +42,10 @@ $ heroku ps:scale web=1`
 You need also to set the following environment variables (example in parentheses):
 
 - `ES_HOST` (`$user`:`$pass`@`$host`)
-- `ES_INDEX` (`incubator_production_mahoshojos`)
+- `ES_INDEX` (`my_index`)
 - `ES_PORT` (`80`)
 - `HTTP_HOST` (`0.0.0.0`)
 
-Performance
------------
-MacBook Pro (Early 2015) on [11c5714](https://github.com/honeypotio/searchspot/commit/11c57149d88e1dca5cccf858d986894e878cc8f0):
+You can get the data for `ES_HOST` by adding an addon ((☞ﾟ∀ﾟ)☞) for ElasticSearch to `my-searchspot` and click on it.
 
-```
-┌[giovanni@lifestream-2] [/dev/ttys001] [master ⚡]
-└[~/Desktop/searchspot]> wrk -t12 -c400 -d30s "http://127.0.0.1:1234/talents?work_roles[]=DevOps"
-Running 30s test @ http://127.0.0.1:1234/talents?work_roles[]=DevOps
-  12 threads and 400 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    35.85ms    2.35ms  67.12ms   81.01%
-    Req/Sec     0.90k    38.54     0.95k    86.33%
-  26790 requests in 30.10s, 4.57MB read
-  Socket errors: connect 0, read 588, write 3, timeout 0
-Requests/sec:    890.00
-Transfer/sec:    155.58KB
-```
-
-
-P.S.: Companies on [Honeypot](http://www.honeypot.io?utm_source=github) use this service to search the developers they need to hire!
+P.S.: Companies on [Honeypot](https://www.honeypot.io/pages/how_does_it_work?utm_source=gh) use this service to search the developers they need to hire!
