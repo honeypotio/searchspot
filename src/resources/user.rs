@@ -1,17 +1,17 @@
-use chrono::UTC;
 use rustc_serialize::json::{self, Json, ToJson};
 
-use params::*;
+use super::chrono::UTC;
 
-use rs_es::Client;
-use rs_es::query::{Filter, Query};
-use rs_es::units::JsonVal;
-use rs_es::operations::search::{Sort, SortField, Order};
-use rs_es::operations::index::IndexResult;
-use rs_es::operations::mapping::*;
-use rs_es::error::EsError;
+use super::params::*;
 
-extern crate searchspot;
+use super::rs_es::Client;
+use super::rs_es::query::{Filter, Query};
+use super::rs_es::units::JsonVal;
+use super::rs_es::operations::search::{Sort, SortField, Order};
+use super::rs_es::operations::index::IndexResult;
+use super::rs_es::operations::mapping::*;
+use super::rs_es::error::EsError;
+
 use searchspot::terms::VectorOfTerms;
 use searchspot::resource::*;
 
@@ -268,11 +268,14 @@ impl Resource for Talent {
 #[cfg(test)]
 #[allow(non_upper_case_globals)]
 mod tests {
-  use chrono::*;
+  extern crate chrono;
+  use self::chrono::*;
 
-  use rs_es::Client;
+  extern crate rs_es;
+  use self::rs_es::Client;
 
-  use params::*;
+  extern crate params;
+  use self::params::*;
 
   extern crate searchspot;
   use searchspot::config::*;
