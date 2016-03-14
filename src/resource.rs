@@ -9,7 +9,9 @@ use rs_es::error::EsError;
 
 use params::*;
 
-pub trait Resource : Decodable {
+use std::fmt::Debug;
+
+pub trait Resource : Decodable + Debug {
   fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Vec<u32>;
   fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError>;
   fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError>;
