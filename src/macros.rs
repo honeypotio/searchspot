@@ -77,7 +77,8 @@ macro_rules! i32_vec_from_params {
 
 #[cfg(test)]
 mod tests {
-  use params::*;
+  extern crate params;
+  use self::params::*;
 
   #[test]
   fn test_vec_from_params() {
