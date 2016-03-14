@@ -9,9 +9,10 @@ use rs_es::error::EsError;
 
 use params::*;
 
+use std::any::Any;
 use std::fmt::Debug;
 
-pub trait Resource : Decodable + Debug {
+pub trait Resource : Send + Sync + Any + Decodable + Debug {
   fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Vec<u32>;
   fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError>;
   fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError>;
