@@ -124,10 +124,8 @@ impl<R: Resource> Server<R> {
     let mut payload = String::new();
     req.body.read_to_string(&mut payload).unwrap();
 
-    let resources: Vec<R> = try_or_422!(json::decode(&payload));
-    for resource in resources {
-      try_or_422!(resource.index(es, index));
-    }
+    let resource: R = try_or_422!(json::decode(&payload));
+    try_or_422!(resource.index(es, index));
 
     Ok(Response::with(status::Created))
   }
