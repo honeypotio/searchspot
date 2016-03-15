@@ -44,7 +44,7 @@ pub struct Server<R: Resource> {
   resource: PhantomData<R>
 }
 
-struct SearchableHandler<R> {
+pub struct SearchableHandler<R> {
   config:   Config,
   resource: PhantomData<R>,
 }
@@ -72,7 +72,7 @@ impl<R: Resource> Handler for SearchableHandler<R> {
   }
 }
 
-struct IndexableHandler<R> {
+pub struct IndexableHandler<R> {
   config:   Config,
   resource: PhantomData<R>,
 }
@@ -97,7 +97,7 @@ impl<R: Resource> Handler for IndexableHandler<R> {
   }
 }
 
-struct ResettableHandler<R> {
+pub struct ResettableHandler<R> {
   config:   Config,
   resource: PhantomData<R>,
 }
