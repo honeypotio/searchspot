@@ -268,6 +268,8 @@ impl Resource for Talent {
 #[cfg(test)]
 #[allow(non_upper_case_globals)]
 mod tests {
+  use rustc_serialize::json;
+
   extern crate chrono;
   use self::chrono::*;
 
@@ -424,5 +426,28 @@ mod tests {
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![2, 1], results);
     }
+  }
+
+  #[test]
+  fn test_json_decode() {
+    let payload = "{
+      \"id\":13,
+      \"work_roles\":[\"C/C++ Engineer\"],
+      \"work_languages\":[],
+      \"work_experience\":\"8+\",
+      \"work_locations\":[\"Berlin\"],
+      \"work_authorization\":\"yes\",
+      \"company_ids\":[],
+      \"accepted\":true,
+      \"batch_starts_at\":\"2016-03-04T12:24:00+01:00\",
+      \"batch_ends_at\":\"2016-04-11T12:24:00+02:00\",
+      \"added_to_batch_at\":\"2016-03-11T12:24:37+01:00\",
+      \"weight\":0,
+      \"blocked_companies\":[]
+    }".to_owned();
+
+    let resource: Result<Talent, _> = json::decode(&payload);
+    assert!(resource.is_ok());
+    assert_eq!(resource.unwrap().work_roles, vec!["C/C++ Engineer"]);
   }
 }
