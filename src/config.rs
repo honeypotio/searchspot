@@ -34,15 +34,17 @@ impl fmt::Display for ESConfig {
 /// listen to for new connections.
 #[derive(RustcEncodable, RustcDecodable, Debug, Clone)]
 pub struct HTTPConfig {
-  pub host: String,
-  pub port: u32
+  pub host:   String,
+  pub port:   u32,
+  pub secret: String
 }
 
 impl HTTPConfig {
   pub fn new() -> HTTPConfig {
     HTTPConfig {
-      host: "127.0.0.1".to_owned(),
-      port: 3000,
+      host:   "127.0.0.1".to_owned(),
+      port:   3000,
+      secret: ".///.".to_owned()
     }
   }
 }
@@ -86,7 +88,9 @@ impl Config {
       port: env::var("PORT").or(env::var("HTTP_PORT"))
                             .unwrap()
                             .parse::<u32>()
-                            .unwrap()
+                            .unwrap(),
+      secret: env::var("SECRET").unwrap()
+                                .to_owned()
     };
 
     let es_config = ESConfig {
@@ -155,23 +159,25 @@ mod tests {
     index = "save_meguka"
 
     [http]
-    host = "1.0.0.127"
-    port = 3000
+    host   = "1.0.0.127"
+    port   = 3000
+    secret = "iamwrong"
   "#;
 
   #[test]
   fn test_new() {
     // returns a Config fill with the default hardcoded data
     let config = Config::new();
-    assert_eq!(config.es.host,   "localhost".to_owned());
-    assert_eq!(config.http.host, "127.0.0.1".to_owned());
+    assert_eq!(config.es.host,     "localhost".to_owned());
+    assert_eq!(config.http.host,   "127.0.0.1".to_owned());
+    assert_eq!(config.http.secret, ".///.".to_owned());
   }
 
   #[test]
   fn test_parse() {
     // returns a Config fill with given TOML configuration file
     let config = Config::parse(Some(sample_config.to_owned()));
-    assert_eq!(config.es.host,   "123.0.123.0".to_owned());
-    assert_eq!(config.http.host, "1.0.0.127".to_owned());
+    assert_eq!(config.es.host,     "123.0.123.0".to_owned());
+    assert_eq!(config.http.secret, "iamwrong".to_owned());
   }
 }
