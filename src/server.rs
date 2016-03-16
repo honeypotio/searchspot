@@ -4,7 +4,7 @@ use rustc_serialize::json::{self, ToJson};
 use rs_es::Client;
 
 use iron::prelude::*;
-use iron::{status, Handler};
+use iron::{status, Handler, Headers};
 use iron::mime::Mime;
 
 use logger::Logger;
@@ -37,6 +37,14 @@ macro_rules! try_or_422 {
   })
 }
 
+macro_rules! unauthorized {
+  () => ({
+    return Ok(Response::with(
+      (status::Unauthorized)
+    ))
+  })
+}
+
 #[derive(Clone)]
 pub struct Server<R: Resource> {
   config:   Config,
@@ -44,9 +52,21 @@ pub struct Server<R: Resource> {
   resource: PhantomData<R>
 }
 
+trait AuthorizableEndpoint {
+  fn is_authorized(&self, secret: String, headers: &Headers) -> bool {
+    match headers.get_raw("X-Secret") {
+      Some(x_secret) => match String::from_utf8(x_secret[0].clone()) {
+        Ok(x_secret) => x_secret == secret,
+        Err(_)       => false
+      },
+      None => false
+    }
+  }
+}
+
 pub struct SearchableHandler<R> {
   config:   Config,
-  resource: PhantomData<R>,
+  resource: PhantomData<R>
 }
 
 impl<R: Resource> SearchableHandler<R> {
@@ -55,8 +75,14 @@ impl<R: Resource> SearchableHandler<R> {
   }
 }
 
+impl<R: Resource> AuthorizableEndpoint for SearchableHandler<R> {}
+
 impl<R: Resource> Handler for SearchableHandler<R> {
   fn handle(&self, req: &mut Request) -> IronResult<Response> {
+    if !self.is_authorized(self.config.http.secret.clone(), &req.headers) {
+      unauthorized!();
+    }
+
     let mut client = Client::new(&*self.config.es.host, self.config.es.port);
 
     let params   = try_or_422!(req.get_ref::<Params>());
@@ -74,7 +100,7 @@ impl<R: Resource> Handler for SearchableHandler<R> {
 
 pub struct IndexableHandler<R> {
   config:   Config,
-  resource: PhantomData<R>,
+  resource: PhantomData<R>
 }
 
 impl<R: Resource> IndexableHandler<R> {
@@ -83,12 +109,18 @@ impl<R: Resource> IndexableHandler<R> {
   }
 }
 
+impl<R: Resource> AuthorizableEndpoint for IndexableHandler<R> {}
+
 impl<R: Resource> Handler for IndexableHandler<R> {
   fn handle(&self, req: &mut Request) -> IronResult<Response> {
-    let mut client = Client::new(&*self.config.es.host, self.config.es.port);
+    if !self.is_authorized(self.config.http.secret.clone(), &req.headers) {
+      unauthorized!();
+    }
 
     let mut payload = String::new();
     req.body.read_to_string(&mut payload).unwrap();
+
+    let mut client = Client::new(&*self.config.es.host, self.config.es.port);
 
     let resource: R = try_or_422!(json::decode(&payload));
     try_or_422!(resource.index(&mut client, &*self.config.es.index));
@@ -99,7 +131,7 @@ impl<R: Resource> Handler for IndexableHandler<R> {
 
 pub struct ResettableHandler<R> {
   config:   Config,
-  resource: PhantomData<R>,
+  resource: PhantomData<R>
 }
 
 impl<R: Resource> ResettableHandler<R> {
@@ -108,10 +140,15 @@ impl<R: Resource> ResettableHandler<R> {
   }
 }
 
-impl<R: Resource> Handler for ResettableHandler<R> {
-  fn handle(&self, _: &mut Request) -> IronResult<Response> {
-    let mut client = Client::new(&*self.config.es.host, self.config.es.port);
+impl<R: Resource> AuthorizableEndpoint for ResettableHandler<R> {}
 
+impl<R: Resource> Handler for ResettableHandler<R> {
+  fn handle(&self, req: &mut Request) -> IronResult<Response> {
+    if !self.is_authorized(self.config.http.secret.clone(), &req.headers) {
+      unauthorized!();
+    }
+
+    let mut client = Client::new(&*self.config.es.host, self.config.es.port);
     match R::reset_index(&mut client, &*self.config.es.index) {
       Ok(_)  => Ok(Response::with(status::NoContent)),
       Err(_) => Ok(Response::with(status::UnprocessableEntity))
