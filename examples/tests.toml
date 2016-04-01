@@ -4,6 +4,10 @@ port  = 9200
 index = "sample_index"
 
 [http]
-host   = "127.0.0.1"
-port   = 3001
-secret = ".///."
+host = "127.0.0.1"
+port = 3001
+
+[auth]
+enabled = true
+token   = "あいことば"
+secret  = "249e3477ba50f15744cfbb797a2aa3fd2f635480358a3c6ea5d5d5b0337e500ad810a419f97ba0c7695c4cdcb16348650fffb8673888f7d1d56fd4ada0f90c9d"
