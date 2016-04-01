@@ -34,17 +34,15 @@ impl fmt::Display for ESConfig {
 /// listen to for new connections.
 #[derive(RustcEncodable, RustcDecodable, Debug, Clone)]
 pub struct HTTPConfig {
-  pub host:   String,
-  pub port:   u32,
-  pub secret: String
+  pub host: String,
+  pub port: u32
 }
 
 impl HTTPConfig {
   pub fn new() -> HTTPConfig {
     HTTPConfig {
-      host:   "127.0.0.1".to_owned(),
-      port:   3000,
-      secret: ".///.".to_owned()
+      host: "127.0.0.1".to_owned(),
+      port: 3000
     }
   }
 }
@@ -55,11 +53,36 @@ impl fmt::Display for HTTPConfig {
   }
 }
 
+/// Contain the secrets to grant read and write authorizations.
+#[derive(RustcEncodable, RustcDecodable, Debug, Clone)]
+pub struct AuthConfig {
+  pub enabled: bool,
+  pub token:   String,
+  pub secret:  String
+}
+
+impl AuthConfig {
+  pub fn new() -> AuthConfig {
+    AuthConfig {
+      enabled: false,
+      token:   "".to_owned(),
+      secret:  "".to_owned()
+    }
+  }
+}
+
+impl fmt::Display for AuthConfig {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "Authentication is {}", if self.enabled { "enabled" } else { "disabled" })
+  }
+}
+
 /// Container for ESConfig and HTTPConfig.
 #[derive(RustcEncodable, RustcDecodable, Debug, Clone)]
 pub struct Config {
   pub http: HTTPConfig,
-  pub es:   ESConfig
+  pub es:   ESConfig,
+  pub auth: AuthConfig
 }
 
 impl Config {
@@ -67,7 +90,8 @@ impl Config {
   pub fn new() -> Config {
     Config {
       es:   ESConfig::new(),
-      http: HTTPConfig::new()
+      http: HTTPConfig::new(),
+      auth: AuthConfig::new()
     }
   }
 
@@ -88,9 +112,7 @@ impl Config {
       port: env::var("PORT").or(env::var("HTTP_PORT"))
                             .unwrap()
                             .parse::<u32>()
-                            .unwrap(),
-      secret: env::var("SECRET").unwrap()
-                                .to_owned()
+                            .unwrap()
     };
 
     let es_config = ESConfig {
@@ -103,7 +125,17 @@ impl Config {
                                  .to_owned()
     };
 
-    Config { http: http_config, es: es_config }
+    let auth_config = AuthConfig {
+      enabled: env::var("AUTH_ENABLED").unwrap()
+                                       .parse::<bool>()
+                                       .unwrap(),
+      token: env::var("AUTH_TOKEN").unwrap()
+                                   .to_owned(),
+      secret: env::var("AUTH_SECRET").unwrap()
+                                     .to_owned()
+    };
+
+    Config { http: http_config, es: es_config, auth: auth_config }
   }
 
   /// Read a file from the given path and return its content
@@ -159,25 +191,31 @@ mod tests {
     index = "save_meguka"
 
     [http]
-    host   = "1.0.0.127"
-    port   = 3000
-    secret = "iamwrong"
+    host = "1.0.0.127"
+    port = 3000
+
+    [auth]
+    enabled = true
+    token   = "matchme"
+    secret  = "lazy_to_write_128_chars"
   "#;
 
   #[test]
   fn test_new() {
     // returns a Config fill with the default hardcoded data
     let config = Config::new();
-    assert_eq!(config.es.host,     "localhost".to_owned());
-    assert_eq!(config.http.host,   "127.0.0.1".to_owned());
-    assert_eq!(config.http.secret, ".///.".to_owned());
+    assert_eq!(config.es.host,      "localhost".to_owned());
+    assert_eq!(config.http.host,    "127.0.0.1".to_owned());
+    assert_eq!(config.auth.enabled, false);
+    assert_eq!(config.auth.token,   "".to_owned());
   }
 
   #[test]
   fn test_parse() {
     // returns a Config fill with given TOML configuration file
     let config = Config::parse(Some(sample_config.to_owned()));
-    assert_eq!(config.es.host,     "123.0.123.0".to_owned());
-    assert_eq!(config.http.secret, "iamwrong".to_owned());
+    assert_eq!(config.es.host,      "123.0.123.0".to_owned());
+    assert_eq!(config.auth.enabled, true);
+    assert_eq!(config.auth.token,   "matchme".to_owned());
   }
 }
