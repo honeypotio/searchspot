@@ -13,6 +13,8 @@ use router::Router;
 
 use params::*;
 
+use oath::*;
+
 use config::*;
 use search::SearchResult;
 use resource::Resource;
@@ -52,12 +54,52 @@ pub struct Server<R: Resource> {
   resource: PhantomData<R>
 }
 
-trait AuthorizableEndpoint {
-  fn is_authorized(&self, secret: String, headers: &Headers) -> bool {
-    match headers.get_raw("X-Secret") {
-      Some(x_secret) => match String::from_utf8(x_secret[0].clone()) {
-        Ok(x_secret) => x_secret == secret,
-        Err(_)       => false
+trait ReadableEndpoint {
+  fn is_authorized(&self, auth_config: AuthConfig, headers: &Headers) -> bool {
+    if auth_config.enabled == false {
+      return true;
+    }
+
+    match headers.get_raw("Authorization") {
+      Some(header) => match String::from_utf8(header[0].to_owned()) {
+        Ok(header) => {
+          match header.split("token ").collect::<Vec<&str>>().last() {
+            Some(token) => {
+              match token.parse::<u64>() {
+                Ok(token) => totp_raw(auth_config.read.as_bytes(), 6, 0, 30) == token,
+                Err(_)    => false,
+              }
+            },
+            None => false
+          }
+        },
+        Err(_) => false
+      },
+      None => false
+    }
+  }
+}
+
+trait WritableEndpoint {
+  fn is_authorized(&self, auth_config: AuthConfig, headers: &Headers) -> bool {
+    if auth_config.enabled == false {
+      return true;
+    }
+
+    match headers.get_raw("Authorization") {
+      Some(header) => match String::from_utf8(header[0].to_owned()) {
+        Ok(header) => {
+          match header.split("token ").collect::<Vec<&str>>().last() {
+            Some(token) => {
+              match token.parse::<u64>() {
+                Ok(token) => totp_raw(auth_config.write.as_bytes(), 6, 0, 30) == token,
+                Err(_)    => false,
+              }
+            },
+            None => false
+          }
+        },
+        Err(_) => false
       },
       None => false
     }
@@ -75,11 +117,11 @@ impl<R: Resource> SearchableHandler<R> {
   }
 }
 
-impl<R: Resource> AuthorizableEndpoint for SearchableHandler<R> {}
+impl<R: Resource> ReadableEndpoint for SearchableHandler<R> {}
 
 impl<R: Resource> Handler for SearchableHandler<R> {
   fn handle(&self, req: &mut Request) -> IronResult<Response> {
-    if !self.is_authorized(self.config.http.secret.clone(), &req.headers) {
+    if !self.is_authorized(self.config.auth.to_owned(), &req.headers) {
       unauthorized!();
     }
 
@@ -109,11 +151,11 @@ impl<R: Resource> IndexableHandler<R> {
   }
 }
 
-impl<R: Resource> AuthorizableEndpoint for IndexableHandler<R> {}
+impl<R: Resource> WritableEndpoint for IndexableHandler<R> {}
 
 impl<R: Resource> Handler for IndexableHandler<R> {
   fn handle(&self, req: &mut Request) -> IronResult<Response> {
-    if !self.is_authorized(self.config.http.secret.clone(), &req.headers) {
+    if !self.is_authorized(self.config.auth.to_owned(), &req.headers) {
       unauthorized!();
     }
 
@@ -140,11 +182,11 @@ impl<R: Resource> ResettableHandler<R> {
   }
 }
 
-impl<R: Resource> AuthorizableEndpoint for ResettableHandler<R> {}
+impl<R: Resource> WritableEndpoint for ResettableHandler<R> {}
 
 impl<R: Resource> Handler for ResettableHandler<R> {
   fn handle(&self, req: &mut Request) -> IronResult<Response> {
-    if !self.is_authorized(self.config.http.secret.clone(), &req.headers) {
+    if !self.is_authorized(self.config.auth.to_owned(), &req.headers) {
       unauthorized!();
     }
 

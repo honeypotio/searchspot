@@ -29,6 +29,10 @@ You can create your own searchspot creating a new executable with cargo, whose `
 
 Basically, a resource is any struct that implements the trait `searchspot::resource::Resource`.
 
+Authentication
+--------------
+When the authentication is enabled, the server accepts only requests that provide an `Authentication` header containing a valid [TOTP](https://en.wikipedia.org/wiki/HMAC-based_One-time_Password_Algorithm) token generated using the secrets defined in searchspot's `auth.read` or `auth.write` depending from the kind of request (either `GET` or `POST`/`DELETE`). I.e.: `{ "Authorize" => "token 492039" }`.
+
 Heroku
 ------
 To deploy this application on Heroku, just run
@@ -44,7 +48,12 @@ You need also to set the following environment variables (example in parentheses
 - `ES_INDEX` (`my_index`)
 - `ES_PORT` (`80`)
 - `HTTP_HOST` (`0.0.0.0`)
+- `AUTH_ENABLED` (`true`)
+- `AUTH_TOKEN` (`matchme`)
+- `AUTH_SECRET` (`thisisverylong`)
 
 You can get the data for `ES_HOST` by adding an addon ((☞ﾟ∀ﾟ)☞) for ElasticSearch to `my-searchspot` and click on it.
+
+`AUTH_` is optional – if omitted the feature will be turned off.
 
 P.S.: Companies on [Honeypot](https://www.honeypot.io/pages/how_does_it_work?utm_source=gh) use this service to search the developers they need to hire!
