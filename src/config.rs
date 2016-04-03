@@ -57,16 +57,16 @@ impl fmt::Display for HTTPConfig {
 #[derive(RustcEncodable, RustcDecodable, Debug, Clone)]
 pub struct AuthConfig {
   pub enabled: bool,
-  pub token:   String,
-  pub secret:  String
+  pub read:    String,
+  pub write:   String
 }
 
 impl AuthConfig {
   pub fn new() -> AuthConfig {
     AuthConfig {
       enabled: false,
-      token:   "".to_owned(),
-      secret:  "".to_owned()
+      read:    "".to_owned(),
+      write:   "".to_owned()
     }
   }
 }
@@ -129,10 +129,10 @@ impl Config {
       enabled: env::var("AUTH_ENABLED").unwrap()
                                        .parse::<bool>()
                                        .unwrap(),
-      token: env::var("AUTH_TOKEN").unwrap()
-                                   .to_owned(),
-      secret: env::var("AUTH_SECRET").unwrap()
-                                     .to_owned()
+      read: env::var("AUTH_READ").unwrap()
+                                 .to_owned(),
+      write: env::var("AUTH_WRITE").unwrap()
+                                   .to_owned()
     };
 
     Config { http: http_config, es: es_config, auth: auth_config }
@@ -196,8 +196,8 @@ mod tests {
 
     [auth]
     enabled = true
-    token   = "matchme"
-    secret  = "lazy_to_write_128_chars"
+    read    = "yxxz7oap7rsf67zl"
+    write   = "6po2okn3ddwv6ili"
   "#;
 
   #[test]
@@ -207,7 +207,7 @@ mod tests {
     assert_eq!(config.es.host,      "localhost".to_owned());
     assert_eq!(config.http.host,    "127.0.0.1".to_owned());
     assert_eq!(config.auth.enabled, false);
-    assert_eq!(config.auth.token,   "".to_owned());
+    assert_eq!(config.auth.read,    "".to_owned());
   }
 
   #[test]
@@ -216,6 +216,6 @@ mod tests {
     let config = Config::parse(Some(sample_config.to_owned()));
     assert_eq!(config.es.host,      "123.0.123.0".to_owned());
     assert_eq!(config.auth.enabled, true);
-    assert_eq!(config.auth.token,   "matchme".to_owned());
+    assert_eq!(config.auth.read,    "yxxz7oap7rsf67zl".to_owned());
   }
 }

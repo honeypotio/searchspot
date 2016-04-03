@@ -5,6 +5,7 @@ extern crate logger;
 extern crate router;
 extern crate params;
 extern crate toml;
+extern crate oath;
 
 #[macro_use] pub mod macros;
 
