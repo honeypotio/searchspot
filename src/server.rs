@@ -47,6 +47,36 @@ macro_rules! unauthorized {
   })
 }
 
+macro_rules! authorization {
+  ($trait_name:ident, $mode:ident) => {
+    trait $trait_name {
+      fn is_authorized(&self, auth_config: AuthConfig, headers: &Headers) -> bool {
+        if auth_config.enabled == false {
+          return true;
+        }
+
+        match headers.get_raw("Authorization") {
+          Some(header) => match String::from_utf8(header[0].to_owned()) {
+            Ok(header) => {
+              match header.split("token ").collect::<Vec<&str>>().last() {
+                Some(token) => {
+                  match token.parse::<u64>() {
+                    Ok(token) => totp_raw(auth_config.$mode.as_bytes(), 6, 0, 30) == token,
+                    Err(_)    => false,
+                  }
+                },
+                None => false
+              }
+            },
+            Err(_) => false
+          },
+          None => false
+        }
+      }
+    }
+  }
+}
+
 #[derive(Clone)]
 pub struct Server<R: Resource> {
   config:   Config,
@@ -54,57 +84,8 @@ pub struct Server<R: Resource> {
   resource: PhantomData<R>
 }
 
-trait ReadableEndpoint {
-  fn is_authorized(&self, auth_config: AuthConfig, headers: &Headers) -> bool {
-    if auth_config.enabled == false {
-      return true;
-    }
-
-    match headers.get_raw("Authorization") {
-      Some(header) => match String::from_utf8(header[0].to_owned()) {
-        Ok(header) => {
-          match header.split("token ").collect::<Vec<&str>>().last() {
-            Some(token) => {
-              match token.parse::<u64>() {
-                Ok(token) => totp_raw(auth_config.read.as_bytes(), 6, 0, 30) == token,
-                Err(_)    => false,
-              }
-            },
-            None => false
-          }
-        },
-        Err(_) => false
-      },
-      None => false
-    }
-  }
-}
-
-trait WritableEndpoint {
-  fn is_authorized(&self, auth_config: AuthConfig, headers: &Headers) -> bool {
-    if auth_config.enabled == false {
-      return true;
-    }
-
-    match headers.get_raw("Authorization") {
-      Some(header) => match String::from_utf8(header[0].to_owned()) {
-        Ok(header) => {
-          match header.split("token ").collect::<Vec<&str>>().last() {
-            Some(token) => {
-              match token.parse::<u64>() {
-                Ok(token) => totp_raw(auth_config.write.as_bytes(), 6, 0, 30) == token,
-                Err(_)    => false,
-              }
-            },
-            None => false
-          }
-        },
-        Err(_) => false
-      },
-      None => false
-    }
-  }
-}
+authorization!(ReadableEndpoint, read);
+authorization!(WritableEndpoint, write);
 
 pub struct SearchableHandler<R> {
   config:   Config,
