@@ -49,8 +49,8 @@ You need also to set the following environment variables (example in parentheses
 - `ES_PORT` (`80`)
 - `HTTP_HOST` (`0.0.0.0`)
 - `AUTH_ENABLED` (`true`)
-- `AUTH_TOKEN` (`matchme`)
-- `AUTH_SECRET` (`thisisverylong`)
+- `AUTH_READ` (`icsbqwdg7ukqluav`)
+- `AUTH_WRITE` (`7x2ockhyff4fmm5n`)
 
 You can get the data for `ES_HOST` by adding an addon ((☞ﾟ∀ﾟ)☞) for ElasticSearch to `my-searchspot` and click on it.
 
