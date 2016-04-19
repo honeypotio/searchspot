@@ -11,6 +11,6 @@ mod resources;
 use resources::user::Talent;
 
 fn main() {
-  let server = Server::<Talent>::new("/talents".to_owned());
+  let server = Server::<Talent>::new("/talents");
   server.start();
 }
