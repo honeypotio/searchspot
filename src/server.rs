@@ -111,7 +111,7 @@ impl<R: Resource> Handler for SearchableHandler<R> {
     let params   = try_or_422!(req.get_ref::<Params>());
     let response = SearchResult {
       results: R::search(&mut client, &*self.config.es.index, params),
-      params:  params.clone()
+      params:  params.to_owned()
     };
 
     let content_type = "application/json".parse::<Mime>().unwrap();
@@ -201,9 +201,9 @@ impl<R: Resource> Server<R> {
                                          self.config.http);
 
     let mut router = Router::new();
-    router.get(&self.endpoint,    SearchableHandler::<R>::new(self.config.clone()));
-    router.post(&self.endpoint,   IndexableHandler::<R>::new(self.config.clone()));
-    router.delete(&self.endpoint, ResettableHandler::<R>::new(self.config.clone()));
+    router.get(&self.endpoint,    SearchableHandler::<R>::new(self.config.to_owned()));
+    router.post(&self.endpoint,   IndexableHandler::<R>::new(self.config.to_owned()));
+    router.delete(&self.endpoint, ResettableHandler::<R>::new(self.config.to_owned()));
 
     match env::var("DYNO") { // for some reasons, chain::link makes heroku crash
       Ok(_)  => Iron::new(router).http(&*host),

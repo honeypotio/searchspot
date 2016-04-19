@@ -17,7 +17,7 @@ macro_rules! build_vector_of_terms_impl {
 
         vec![
           Filter::build_terms(key, values.iter()
-                                         .map(|v| JsonVal::from(v.clone()))
+                                         .map(|v| JsonVal::from(v.to_owned()))
                                          .collect::<Vec<JsonVal>>()).build()
         ]
       }
