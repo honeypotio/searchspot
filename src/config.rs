@@ -98,7 +98,7 @@ impl Config {
   /// Load, parse and return the configuration file
   /// wrapped inside a `Config`.
   pub fn from_file(path: String) -> Config {
-    let config_toml = Config::read_file(path).clone();
+    let config_toml = Config::read_file(path).to_owned();
     Config::parse(config_toml)
   }
 

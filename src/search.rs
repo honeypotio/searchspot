@@ -19,7 +19,7 @@ impl ToJson for SearchResult {
     let mut values: BTreeMap<String, Json> = BTreeMap::new();
 
     for (key_, value) in &self.params.0 {
-      let key = key_.clone();
+      let key = key_.to_owned();
 
       match Vec::<String>::from_value(value) {
         Some(value) => { values.insert(key, value.to_json()); },
@@ -62,7 +62,7 @@ mod tests {
 
       let response = SearchResult {
         results: vec![],
-        params:  params.clone()
+        params:  params.to_owned()
       };
 
       let json_response = json::encode(&response.to_json()).unwrap();
