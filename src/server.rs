@@ -180,7 +180,7 @@ impl<R: Resource> Handler for ResettableHandler<R> {
 }
 
 impl<R: Resource> Server<R> {
-  pub fn new(endpoint: String) -> Self {
+  pub fn new(endpoint: &str) -> Self {
     let config = match env::args().nth(1) {
       Some(file) => Config::from_file(file),
       None       => Config::from_env()
@@ -188,7 +188,7 @@ impl<R: Resource> Server<R> {
 
     Server {
       config:   config,
-      endpoint: endpoint,
+      endpoint: endpoint.to_owned(),
       resource: PhantomData
     }
   }
