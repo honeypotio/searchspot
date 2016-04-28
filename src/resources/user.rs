@@ -38,11 +38,14 @@ impl ToJson for Talent {
   }
 }
 
+/// The type that we use in ElasticSearch for defining a Talent.
+const ES_TYPE: &'static str = "talent";
+
 impl Resource for Talent {
   /// Populate the ElasticSearch index with `self`.
   // I'm having problems with bulk actions. Let's wait for the next iteration.
   fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
-    es.index(index, "talent")
+    es.index(index, ES_TYPE)
       .with_doc(&self)
       .with_id(&*self.id.to_string())
       .send()
@@ -91,7 +94,7 @@ impl Resource for Talent {
   #[allow(unused_must_use)]
   fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
     let mapping = hashmap! {
-      "talent" => hashmap! {
+      ES_TYPE => hashmap! {
         "id" => hashmap! {
           "type" => "integer",
           "index" => "not_analyzed"
