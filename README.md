@@ -9,6 +9,10 @@ Things that are missing
 - Bulk indexing
 - Proper pagination
 
+Dependencies
+------------
+* ElasticSearch 2.2.2
+
 Setup
 -----
 Install the latest stable release of Rust using the [official installer](https://www.rust-lang.org/downloads.html) or your package manager (i.e.: `brew install rust`).
@@ -22,6 +26,7 @@ $ cargo run examples/default.toml
 You can generate an optimized executable just appending `--release`, but the compile time will be longer.
 
 You can execute `$ cargo test` to run the tests and `$ cargo doc` to generate the documentation.
+P.S. Make sure you have ElasticSearch running.
 
 Example
 -------

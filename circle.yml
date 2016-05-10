@@ -2,12 +2,12 @@ dependencies:
   post:
     - git config --global user.email webmaster@giovannicapuano.net
     - git config --global user.name RoxasShadow
-    - "if [[ ! -e elasticsearch-2.1.1 ]]; then wget https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-2.1.1.tar.gz && tar -xvf elasticsearch-2.1.1.tar.gz; fi"
+    - "if [[ ! -e elasticsearch-2.2.2 ]]; then wget https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-2.2.2.tar.gz && tar -xvf elasticsearch-2.2.2.tar.gz; fi"
     - sudo chmod 777 /var/log/elasticsearch
-    - elasticsearch-2.1.1/bin/elasticsearch: { background: true }
+    - elasticsearch-2.2.2/bin/elasticsearch: { background: true }
 
   cache_directories:
-    - "elasticsearch-2.1.1"
+    - "elasticsearch-2.2.2"
 
 test:
   override:
@@ -18,4 +18,4 @@ machine:
     - curl -sf -L https://static.rust-lang.org/rustup.sh | sh /dev/stdin --yes
 
   environment:
-    PATH: ${PATH}:${HOME}/${CIRCLE_PROJECT_REPONAME}/elasticsearch-2.1.1/bin
+    PATH: ${PATH}:${HOME}/${CIRCLE_PROJECT_REPONAME}/elasticsearch-2.2.2/bin
