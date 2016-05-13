@@ -11,6 +11,7 @@ Things that are missing
 
 Dependencies
 ------------
+* Rust stable
 * ElasticSearch 1.6 - 2.2.2
 
 Setup
