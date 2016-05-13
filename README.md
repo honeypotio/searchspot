@@ -11,7 +11,7 @@ Things that are missing
 
 Dependencies
 ------------
-* ElasticSearch 2.2.2
+* ElasticSearch 1.6 - 2.2.2
 
 Setup
 -----
@@ -26,7 +26,8 @@ $ cargo run examples/default.toml
 You can generate an optimized executable just appending `--release`, but the compile time will be longer.
 
 You can execute `$ cargo test` to run the tests and `$ cargo doc` to generate the documentation.
-P.S. Make sure you have ElasticSearch running.
+
+Please make sure you have an ElasticSearch instance running.
 
 Example
 -------
