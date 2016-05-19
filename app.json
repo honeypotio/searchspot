@@ -1,0 +1,41 @@
+{
+  "name": "searchspot",
+  "scripts": {
+  },
+  "env": {
+    "AUTH_ENABLED": {
+      "required": true
+    },
+    "AUTH_READ": {
+      "required": true
+    },
+    "AUTH_WRITE": {
+      "required": true
+    },
+    "ES_HOST": {
+      "required": true
+    },
+    "ES_INDEX": {
+      "required": true
+    },
+    "ES_PORT": {
+      "required": true
+    },
+    "HTTP_HOST": {
+      "required": true
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1
+    }
+  },
+  "addons": [
+    "bonsai"
+  ],
+  "buildpacks": [
+    {
+      "url": "https://github.com/Hoverbear/heroku-buildpack-rust"
+    }
+  ]
+}
