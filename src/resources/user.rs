@@ -238,6 +238,9 @@ impl Resource for Talent {
                                      <Filter as VectorOfTerms<String>>::build_terms(
                                        "work_locations", &vec_from_params!(params, "work_locations")),
 
+                                     <Filter as VectorOfTerms<i32>>::build_terms(
+                                       "id", &vec_from_params!(params, "ids")),
+
                                      Talent::visibility_filters(epoch,
                                        i32_vec_from_params!(params, "presented_talents"))
                                    ].into_iter()
@@ -429,6 +432,17 @@ mod tests {
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![2, 1], results);
     }
+
+    // filtering for given bookmarks (ids)
+    {
+      let mut map = Map::new();
+      map.assign("ids[]", Value::U64(2)).unwrap();
+      map.assign("ids[]", Value::U64(4)).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![4, 2], results);
+    }
+
   }
 
   #[test]
