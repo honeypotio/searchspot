@@ -12,7 +12,7 @@ Things that are missing
 Dependencies
 ------------
 * Rust stable
-* ElasticSearch 1.6 - 2.2.2
+* ElasticSearch 1.6 (could work up to 2.x, depends on the feature you're going to use...)
 
 Setup
 -----
