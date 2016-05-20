@@ -23,6 +23,7 @@ pub struct Talent {
   pub work_experience:    String,
   pub work_locations:     Vec<String>,
   pub work_authorization: String,
+  pub skills:             Vec<String>,
   pub company_ids:        Vec<u32>,
   pub batch_starts_at:    String,
   pub batch_ends_at:      String,
@@ -65,12 +66,24 @@ impl Resource for Talent {
       _ => vec![default_index]
     };
 
-    let result = es.search_query()
-                   .with_indexes(&*index)
-                   .with_query(&Talent::search_filters(params, &*epoch))
-                   .with_sort(&Talent::sorting_criteria())
-                   .with_size(1000) // TODO
-                   .send();
+    let result = match Talent::full_text_search(params) {
+      Some(full_text_query) => {
+        es.search_query()
+          .with_indexes(&*index)
+          .with_query(&Talent::search_filters(params, &*epoch))
+          .with_query(&full_text_query)
+          .with_size(1000) // TODO
+          .send()
+      },
+      None => {
+        es.search_query()
+          .with_indexes(&*index)
+          .with_query(&Talent::search_filters(params, &*epoch))
+          .with_sort(&Talent::sorting_criteria())
+          .with_size(1000) // TODO
+          .send()
+      }
+    };
 
     match result {
       Ok(result) => {
@@ -96,65 +109,70 @@ impl Resource for Talent {
     let mapping = hashmap! {
       ES_TYPE => hashmap! {
         "id" => hashmap! {
-          "type" => "integer",
+          "type"  => "integer",
           "index" => "not_analyzed"
         },
 
         "work_roles" => hashmap! {
-          "type" => "string",
+          "type"  => "string",
           "index" => "not_analyzed"
         },
 
         "work_experience" => hashmap! {
-          "type" => "string",
+          "type"  => "string",
           "index" => "not_analyzed"
         },
 
         "work_locations" => hashmap! {
-          "type" => "string",
+          "type"  => "string",
           "index" => "not_analyzed"
         },
 
         "work_authorization" => hashmap! {
-          "type" => "string",
+          "type"  => "string",
           "index" => "not_analyzed"
         },
 
+        "skills" => hashmap! {
+          "type"  => "string",
+          "index" => "analyzed"
+        },
+
         "company_ids" => hashmap! {
-          "type" => "integer",
+          "type"  => "integer",
           "index" => "not_analyzed"
         },
 
         "accepted" => hashmap! {
-          "type" => "boolean",
+          "type"  => "boolean",
           "index" => "not_analyzed"
         },
 
         "batch_starts_at" => hashmap! {
-          "type" => "date",
+          "type"   => "date",
           "format" => "dateOptionalTime",
-          "index" => "not_analyzed"
+          "index"  => "not_analyzed"
         },
 
         "batch_ends_at" => hashmap! {
-          "type" => "date",
+          "type"   => "date",
           "format" => "dateOptionalTime",
-          "index" => "not_analyzed"
+          "index"  => "not_analyzed"
         },
 
         "added_to_batch_at" => hashmap! {
-          "type" => "date",
+          "type"   => "date",
           "format" => "dateOptionalTime",
-          "index" => "not_analyzed"
+          "index"  => "not_analyzed"
         },
 
         "weight" => hashmap! {
-          "type" => "integer",
+          "type"  => "integer",
           "index" => "not_analyzed"
         },
 
         "blocked_companies" => hashmap! {
-          "type" => "integer",
+          "type"  => "integer",
           "index" => "not_analyzed"
         }
       }
@@ -208,6 +226,16 @@ impl Resource for Talent {
     }
     else {
       vec![visibility_rules]
+    }
+  }
+
+  fn full_text_search(params: &Map) -> Option<Query> {
+    match params.get("keywords") {
+      Some(keywords) => match keywords {
+        &Value::String(ref keywords) => Some(Query::build_match("skills", keywords.clone()).build()),
+        _                            => None
+      },
+      None => None
     }
   }
 
@@ -317,6 +345,7 @@ mod tests {
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
+        skills:             vec!["Rust".to_owned(), "CSS3".to_owned(), "CSS".to_owned()],
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2006"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -332,6 +361,7 @@ mod tests {
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
+        skills:             vec!["Rust".to_owned(), "CSS3".to_owned()],
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2006"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -347,6 +377,7 @@ mod tests {
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
+        skills:             vec!["JavaScript".to_owned()],
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2007"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -362,6 +393,7 @@ mod tests {
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization:  "yes".to_owned(),
+        skills:             vec![],
         company_ids:        vec![6],
         batch_starts_at:    epoch_from_year!("2008"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -416,12 +448,22 @@ mod tests {
       assert!(results.is_empty());
     }
 
+    // searching for work roles
     {
       let mut map = Map::new();
       map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![4], results);
+    }
+
+    // searching for keywords
+    {
+      let mut map = Map::new();
+      map.assign("keywords", Value::String("Rust, CSS and CSS3".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![1, 2], results);
     }
 
     // filtering for given company_id
@@ -454,6 +496,7 @@ mod tests {
       \"work_experience\":\"8+\",
       \"work_locations\":[\"Berlin\"],
       \"work_authorization\":\"yes\",
+      \"skills\":[\"Rust\"],
       \"company_ids\":[],
       \"accepted\":true,
       \"batch_starts_at\":\"2016-03-04T12:24:00+01:00\",

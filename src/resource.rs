@@ -25,5 +25,6 @@ pub trait Resource : Send + Sync + Any + Decodable + Debug {
   /// Used internally. TODO: Move outside the trait.
   fn visibility_filters(epoch: &str, presented_talents: Vec<i32>) -> Vec<Filter>;
   fn search_filters(params: &Map, epoch: &str) -> Query;
+  fn full_text_search(params: &Map) -> Option<Query>;
   fn sorting_criteria() -> Sort;
 }
