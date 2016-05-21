@@ -1,4 +1,5 @@
-extern crate rustc_serialize;
+#![feature(custom_derive, plugin)]
+#![plugin(serde_macros)]
 
 extern crate searchspot;
 use searchspot::server::Server;

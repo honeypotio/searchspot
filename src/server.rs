@@ -1,6 +1,5 @@
 #![allow(non_upper_case_globals)]
-use rustc_serialize::json::{self, ToJson};
-
+use serde_json;
 use rs_es::Client;
 
 use iron::prelude::*;
@@ -33,7 +32,7 @@ macro_rules! try_or_422 {
 
       let content_type = "application/json".parse::<Mime>().unwrap();
       return Ok(Response::with(
-        (content_type, status::UnprocessableEntity, json::encode(&error).unwrap())
+        (content_type, status::UnprocessableEntity, serde_json::to_string(&error).unwrap())
       ))
     }
   })
@@ -108,15 +107,15 @@ impl<R: Resource> Handler for SearchableHandler<R> {
 
     let mut client = Client::new(&*self.config.es.host, self.config.es.port);
 
-    let params   = try_or_422!(req.get_ref::<Params>());
+    let params = try_or_422!(req.get_ref::<Params>());
+
     let response = SearchResult {
-      results: R::search(&mut client, &*self.config.es.index, params),
-      params:  params.to_owned()
+      results: R::search(&mut client, &*self.config.es.index, params)
     };
 
     let content_type = "application/json".parse::<Mime>().unwrap();
     Ok(Response::with(
-      (content_type, status::Ok, try_or_422!(json::encode(&response.to_json())))
+      (content_type, status::Ok, try_or_422!(serde_json::to_string(&response)))
     ))
   }
 }
@@ -145,7 +144,7 @@ impl<R: Resource> Handler for IndexableHandler<R> {
 
     let mut client = Client::new(&*self.config.es.host, self.config.es.port);
 
-    let resource: R = try_or_422!(json::decode(&payload));
+    let resource: R = try_or_422!(serde_json::from_str(&payload));
     try_or_422!(resource.index(&mut client, &*self.config.es.index));
 
     Ok(Response::with(status::Created))

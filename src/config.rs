@@ -6,7 +6,7 @@ use std::fmt;
 use std::env;
 
 /// Contain the configuration for ElasticSearch.
-#[derive(RustcEncodable, RustcDecodable, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ESConfig {
   pub host:  String,
   pub port:  u32,
@@ -32,7 +32,7 @@ impl fmt::Display for ESConfig {
 
 /// Contain instructions about where Searchspot must
 /// listen to for new connections.
-#[derive(RustcEncodable, RustcDecodable, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HTTPConfig {
   pub host: String,
   pub port: u32
@@ -54,7 +54,7 @@ impl fmt::Display for HTTPConfig {
 }
 
 /// Contain the secrets to grant read and write authorizations.
-#[derive(RustcEncodable, RustcDecodable, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AuthConfig {
   pub enabled: bool,
   pub read:    String,
@@ -78,7 +78,7 @@ impl fmt::Display for AuthConfig {
 }
 
 /// Container for ESConfig and HTTPConfig.
-#[derive(RustcEncodable, RustcDecodable, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
   pub http: HTTPConfig,
   pub es:   ESConfig,
