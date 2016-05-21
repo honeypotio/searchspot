@@ -15,7 +15,7 @@ test:
 
 machine:
   pre:
-    - curl -sf -L https://static.rust-lang.org/rustup.sh | sh /dev/stdin --yes
+    - curl -sf -L https://static.rust-lang.org/rustup.sh | sh /dev/stdin --yes -s -- --channel=nightly
 
   environment:
     PATH: ${PATH}:${HOME}/${CIRCLE_PROJECT_REPONAME}/elasticsearch-2.2.2/bin

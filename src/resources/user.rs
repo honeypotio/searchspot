@@ -1,13 +1,10 @@
-use rustc_serialize::json::{self, Json, ToJson};
-
 use super::chrono::UTC;
 
 use super::params::*;
 
 use super::rs_es::Client;
-use super::rs_es::query::{Filter, Query};
-use super::rs_es::units::JsonVal;
-use super::rs_es::operations::search::{Sort, SortField, Order};
+use super::rs_es::query::Query;
+use super::rs_es::operations::search::{Sort, SortField, Order, SearchType};
 use super::rs_es::operations::index::IndexResult;
 use super::rs_es::operations::mapping::*;
 use super::rs_es::error::EsError;
@@ -15,7 +12,7 @@ use super::rs_es::error::EsError;
 use searchspot::terms::VectorOfTerms;
 use searchspot::resource::*;
 
-#[derive(RustcEncodable, RustcDecodable, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Talent {
   pub id:                 u32,
   pub accepted:           bool,
@@ -30,13 +27,6 @@ pub struct Talent {
   pub added_to_batch_at:  String,
   pub weight:             i32,
   pub blocked_companies:  Vec<u32>
-}
-
-impl ToJson for Talent {
-  fn to_json(&self) -> Json {
-    json::encode(&self).unwrap()
-                       .to_json()
-  }
 }
 
 /// The type that we use in ElasticSearch for defining a Talent.
@@ -72,8 +62,9 @@ impl Resource for Talent {
           .with_indexes(&*index)
           .with_query(&Talent::search_filters(params, &*epoch))
           .with_query(&full_text_query)
+          .with_search_type(SearchType::DFSQueryThenFetch.to_string())
           .with_size(1000) // TODO
-          .send()
+          .send::<Talent>()
       },
       None => {
         es.search_query()
@@ -81,16 +72,14 @@ impl Resource for Talent {
           .with_query(&Talent::search_filters(params, &*epoch))
           .with_sort(&Talent::sorting_criteria())
           .with_size(1000) // TODO
-          .send()
+          .send::<Talent>()
       }
     };
 
     match result {
       Ok(result) => {
         let mut results = result.hits.hits.into_iter()
-                                          .map(|hit| hit.source.unwrap()["id"]
-                                                               .as_u64()
-                                                               .unwrap() as u32)
+                                          .map(|hit| hit.source.unwrap().id)
                                           .collect::<Vec<u32>>();
         results.dedup();
         results
@@ -183,7 +172,7 @@ impl Resource for Talent {
     MappingOperation::new(&mut es, index, &mapping).send()
   }
 
-  /// Return a `Vec<Filter>` with visibility criteria for the talents.
+  /// Return a `Vec<Query>` with visibility criteria for the talents.
   /// The `epoch` must be given as `I64` (UNIX time in seconds) and is
   /// the range in which batches are searched.
   /// If `presented_talents` is provided, talents who match the IDs
@@ -191,37 +180,37 @@ impl Resource for Talent {
   ///
   /// Basically, the talents must be accepted into the platform and must be
   /// inside a living batch to match the visibility criteria.
-  fn visibility_filters(epoch: &str, presented_talents: Vec<i32>) -> Vec<Filter> {
-    let visibility_rules = Filter::build_bool()
-                                  .with_must(
+  fn visibility_filters(epoch: &str, presented_talents: Vec<i32>) -> Vec<Query> {
+    let visibility_rules = Query::build_bool()
+                                 .with_must(
                                     vec![
-                                      Filter::build_term("accepted", true)
-                                             .build(),
-                                      Filter::build_range("batch_starts_at")
-                                             .with_lte(JsonVal::from(epoch))
-                                             .with_format("dateOptionalTime")
-                                             .build(),
-                                      Filter::build_range("batch_ends_at")
-                                             .with_gte(JsonVal::from(epoch))
-                                             .with_format("dateOptionalTime")
-                                             .build()
+                                      Query::build_term("accepted", true)
+                                            .build(),
+                                      Query::build_range("batch_starts_at")
+                                            .with_lte(epoch)
+                                            .with_format("dateOptionalTime")
+                                            .build(),
+                                      Query::build_range("batch_ends_at")
+                                            .with_gte(epoch)
+                                            .with_format("dateOptionalTime")
+                                            .build()
                                     ])
-                                  .build();
+                                 .build();
 
-    if presented_talents.len() > 0 { // preferred over !_.is_empty()
-      let presented_talents_filters = Filter::build_bool()
-                                             .with_must(
-                                               vec![
-                                                 <Filter as VectorOfTerms<i32>>::build_terms(
-                                                   "ids", &presented_talents)
-                                               ].into_iter()
-                                                .flat_map(|x| x)
-                                                .collect::<Vec<Filter>>())
-                                             .build();
+    if !presented_talents.is_empty() {
+      let presented_talents_filters = Query::build_bool()
+                                            .with_must(
+                                              vec![
+                                                <Query as VectorOfTerms<i32>>::build_terms(
+                                                  "ids", &presented_talents)
+                                              ].into_iter()
+                                               .flat_map(|x| x)
+                                               .collect::<Vec<Query>>())
+                                            .build();
       vec![
-        Filter::build_bool()
-               .with_should(vec![visibility_rules, presented_talents_filters])
-               .build()
+        Query::build_bool()
+              .with_should(vec![visibility_rules, presented_talents_filters])
+              .build()
       ]
     }
     else {
@@ -232,8 +221,9 @@ impl Resource for Talent {
   fn full_text_search(params: &Map) -> Option<Query> {
     match params.get("keywords") {
       Some(keywords) => match keywords {
-        &Value::String(ref keywords) => Some(Query::build_match("skills", keywords.clone()).build()),
-        _                            => None
+        &Value::String(ref keywords) => Some(
+            Query::build_match("skills", keywords.to_owned()).build()),
+        _ => None
       },
       None => None
     }
@@ -251,40 +241,39 @@ impl Resource for Talent {
   fn search_filters(params: &Map, epoch: &str) -> Query {
     let company_id = i32_vec_from_params!(params, "company_id");
 
-    Query::build_filtered(Filter::build_bool()
-                                 .with_must(
-                                   vec![
-                                     <Filter as VectorOfTerms<String>>::build_terms(
-                                       "work_roles", &vec_from_params!(params, "work_roles")),
+    Query::build_bool()
+          .with_must(
+             vec![
+               <Query as VectorOfTerms<String>>::build_terms(
+                 "work_roles", &vec_from_params!(params, "work_roles")),
 
-                                     <Filter as VectorOfTerms<String>>::build_terms(
-                                       "work_experience", &vec_from_params!(params, "work_experience")),
+               <Query as VectorOfTerms<String>>::build_terms(
+                 "work_experience", &vec_from_params!(params, "work_experience")),
 
-                                     <Filter as VectorOfTerms<String>>::build_terms(
-                                      "work_authorization", &vec_from_params!(params, "work_authorization")),
+               <Query as VectorOfTerms<String>>::build_terms(
+                 "work_authorization", &vec_from_params!(params, "work_authorization")),
 
-                                     <Filter as VectorOfTerms<String>>::build_terms(
-                                       "work_locations", &vec_from_params!(params, "work_locations")),
+               <Query as VectorOfTerms<String>>::build_terms(
+                 "work_locations", &vec_from_params!(params, "work_locations")),
 
-                                     <Filter as VectorOfTerms<i32>>::build_terms(
-                                       "id", &vec_from_params!(params, "ids")),
+               <Query as VectorOfTerms<i32>>::build_terms(
+                 "id", &vec_from_params!(params, "ids")),
 
-                                     Talent::visibility_filters(epoch,
-                                       i32_vec_from_params!(params, "presented_talents"))
-                                   ].into_iter()
-                                    .flat_map(|x| x)
-                                    .collect::<Vec<Filter>>())
-                                 .with_must_not(
-                                   vec![
-                                     <Filter as VectorOfTerms<i32>>::build_terms(
-                                       "company_ids", &company_id),
+               Talent::visibility_filters(epoch,
+                 i32_vec_from_params!(params, "presented_talents"))
+               ].into_iter()
+                .flat_map(|x| x)
+                .collect::<Vec<Query>>())
+                .with_must_not(
+                   vec![
+                     <Query as VectorOfTerms<i32>>::build_terms(
+                       "company_ids", &company_id),
 
-                                     <Filter as VectorOfTerms<i32>>::build_terms(
-                                       "blocked_companies", &company_id)
-                                   ].into_iter()
-                                    .flat_map(|x| x)
-                                    .collect::<Vec<Filter>>())
-                                 .build())
+                     <Query as VectorOfTerms<i32>>::build_terms(
+                       "blocked_companies", &company_id)
+                   ].into_iter()
+                    .flat_map(|x| x)
+                    .collect::<Vec<Query>>())
           .build()
   }
 
@@ -302,7 +291,7 @@ impl Resource for Talent {
 #[cfg(test)]
 #[allow(non_upper_case_globals)]
 mod tests {
-  use rustc_serialize::json;
+  extern crate serde_json;
 
   extern crate chrono;
   use self::chrono::*;
@@ -506,7 +495,7 @@ mod tests {
       \"blocked_companies\":[]
     }".to_owned();
 
-    let resource: Result<Talent, _> = json::decode(&payload);
+    let resource: Result<Talent, _> = serde_json::from_str(&payload);
     assert!(resource.is_ok());
     assert_eq!(resource.unwrap().work_roles, vec!["C/C++ Engineer"]);
   }

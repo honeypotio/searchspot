@@ -1,22 +1,32 @@
 [package]
 name    = "searchspot"
-version = "0.1.0"
+version = "0.2.0"
 
 authors = ["Giovanni Capuano <webmaster@giovannicapuano.net>"]
 license = "BSD-2-Clause"
 
 [dependencies]
-rs-es           = "0.2.5"
-rustc-serialize = "0.3"
 chrono          = "0.2"
 iron            = "0.3"
 router          = "0.1"
 logger          = "0.0"
 params          = "0.2"
-toml            = "0.1"
 lazy_static     = "0.2"
 maplit          = "0.1"
 oath            = "0.1"
+serde           = "0.7"
+serde_json      = "0.7"
+serde_macros    = "0.7"
+
+[dependencies.toml]
+version  = "0.1"
+features = ["serde"]
+default-features = false
+
+[dependencies.rs-es]
+version  = "0.3.4"
+features = ["nightly_without_ssl"]
+default-features = false
 
 [lib]
 name = "searchspot"
@@ -28,4 +38,4 @@ path = "src/main.rs"
 doc  = false
 
 [target.heroku]
-version = "stable"
+version = "nightly"

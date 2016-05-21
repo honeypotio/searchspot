@@ -1,24 +1,36 @@
-use rs_es::query::Filter;
-use rs_es::units::JsonVal;
+use rs_es::query::Query;
 
 pub trait VectorOfTerms<T> {
   /// Extract the elements inside `Vec<T>` into `Vec<Filter>`, if present.
   /// Every element will be mapped into a `JsonVal`.
-  fn build_terms(key: &str, values: &Vec<T>) -> Vec<Filter>;
+  fn build_terms(key: &str, values: &Vec<T>) -> Vec<Query>;
+}
+
+impl VectorOfTerms<String> for Query {
+  fn build_terms(key: &str, values: &Vec<String>) -> Vec<Query> {
+    if values.is_empty() {
+      return vec![];
+    }
+
+    vec![
+      Query::build_terms(key).with_values(values.iter()
+                                                .map(AsRef::as_ref)
+                                                .collect::<Vec<&str>>()).build()
+    ]
+  }
 }
 
 macro_rules! build_vector_of_terms_impl {
   ($t:ty) => {
-    impl VectorOfTerms<$t> for Filter {
-      fn build_terms(key: &str, values: &Vec<$t>) -> Vec<Filter> {
+    impl<'a> VectorOfTerms<$t> for Query {
+      fn build_terms(key: &str, values: &Vec<$t>) -> Vec<Query> {
         if values.is_empty() {
           return vec![];
         }
 
         vec![
-          Filter::build_terms(key, values.iter()
-                                         .map(|v| JsonVal::from(v.to_owned()))
-                                         .collect::<Vec<JsonVal>>()).build()
+          Query::build_terms(key).with_values(values.to_owned())
+                                 .build()
         ]
       }
     }
@@ -26,30 +38,30 @@ macro_rules! build_vector_of_terms_impl {
 }
 
 build_vector_of_terms_impl!(i32);
-build_vector_of_terms_impl!(String);
 
 #[cfg(test)]
 mod tests {
   use terms::*;
-  use rs_es::query::Filter;
-  use rustc_serialize::json::ToJson;
+  use rs_es::query::Query;
+  use serde_json;
 
   #[test]
   fn test_vector_of_terms() {
-    assert!(<Filter as VectorOfTerms<String>>::build_terms("work_roles", &vec![])
+    assert!(<Query as VectorOfTerms<String>>::build_terms("work_roles", &vec![])
                                               .is_empty());
 
     {
-      let filters = <Filter as VectorOfTerms<String>>::build_terms(
+      let filters = <Query as VectorOfTerms<String>>::build_terms(
                       "work_roles", &vec!["Fullstack".to_owned()]);
-      assert_eq!(filters[0].to_json().to_string(),
+      assert_eq!(serde_json::to_string(&filters[0]).unwrap(),
                   "{\"terms\":{\"work_roles\":[\"Fullstack\"]}}".to_owned());
     }
 
     {
-      let filters = <Filter as VectorOfTerms<i32>>::build_terms(
+      let filters = <Query as VectorOfTerms<i32>>::build_terms(
                   "work_roles", &vec![1]);
-      assert_eq!(filters[0].to_json().to_string(), "{\"terms\":{\"work_roles\":[1]}}".to_owned());
+      assert_eq!(serde_json::to_string(&filters[0]).unwrap(),
+                  "{\"terms\":{\"work_roles\":[1]}}".to_owned());
     }
   }
 }

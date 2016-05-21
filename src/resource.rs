@@ -1,7 +1,7 @@
-use rustc_serialize::Decodable;
+use serde::de::Deserialize;
 
 use rs_es::Client;
-use rs_es::query::{Filter, Query};
+use rs_es::query::Query;
 use rs_es::operations::search::Sort;
 use rs_es::operations::index::IndexResult;
 use rs_es::operations::mapping::*;
@@ -12,7 +12,7 @@ use params::*;
 use std::any::Any;
 use std::fmt::Debug;
 
-pub trait Resource : Send + Sync + Any + Decodable + Debug {
+pub trait Resource : Send + Sync + Any + Deserialize + Debug {
   /// Respond to GET requests returning an array with found  ids
   fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Vec<u32>;
 
@@ -23,7 +23,7 @@ pub trait Resource : Send + Sync + Any + Decodable + Debug {
   fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError>;
 
   /// Used internally. TODO: Move outside the trait.
-  fn visibility_filters(epoch: &str, presented_talents: Vec<i32>) -> Vec<Filter>;
+  fn visibility_filters(epoch: &str, presented_talents: Vec<i32>) -> Vec<Query>;
   fn search_filters(params: &Map, epoch: &str) -> Query;
   fn full_text_search(params: &Map) -> Option<Query>;
   fn sorting_criteria() -> Sort;

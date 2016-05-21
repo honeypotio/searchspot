@@ -1,4 +1,8 @@
-extern crate rustc_serialize;
+#![feature(custom_derive, plugin)]
+#![plugin(serde_macros)]
+
+extern crate serde;
+extern crate serde_json;
 extern crate rs_es;
 extern crate iron;
 extern crate logger;

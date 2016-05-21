@@ -11,8 +11,8 @@ Things that are missing
 
 Dependencies
 ------------
-* Rust stable
-* ElasticSearch 1.6 (could work up to 2.x, depends on the feature you're going to use...)
+* Rust Nightly
+* ElasticSearch 2.x (1.6+ [here](https://github.com/honeypotio/searchspot/tree/es-1.6))
 
 Setup
 -----
