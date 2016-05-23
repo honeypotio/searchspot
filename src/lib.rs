@@ -15,6 +15,5 @@ extern crate oath;
 
 pub mod terms;
 pub mod config;
-pub mod search;
 pub mod server;
 pub mod resource;

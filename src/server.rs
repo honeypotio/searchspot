@@ -15,7 +15,6 @@ use params::*;
 use oath::*;
 
 use config::*;
-use search::SearchResult;
 use resource::Resource;
 
 use std::collections::HashMap;
@@ -74,6 +73,12 @@ macro_rules! authorization {
       }
     }
   }
+}
+
+/// Struct for containing the search results
+#[derive(Serialize, Deserialize)]
+pub struct SearchResult {
+  pub results: Vec<u32>
 }
 
 #[derive(Clone)]
@@ -214,3 +219,23 @@ impl<R: Resource> Server<R> {
     }.unwrap();
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use server::SearchResult;
+  use serde_json;
+
+  #[test]
+  fn test_search_result_to_json() {
+    {
+      let response = SearchResult {
+        results: vec![]
+      };
+
+      let json_response = serde_json::to_string(&response).unwrap();
+      assert_eq!(json_response, "{\"results\":[]}");
+    }
+  }
+}
+
+
