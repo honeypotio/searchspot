@@ -32,6 +32,125 @@ pub struct Talent {
 /// The type that we use in ElasticSearch for defining a Talent.
 const ES_TYPE: &'static str = "talent";
 
+impl Talent {
+  /// Return a `Vec<Query>` with visibility criteria for the talents.
+  /// The `epoch` must be given as `I64` (UNIX time in seconds) and is
+  /// the range in which batches are searched.
+  /// If `presented_talents` is provided, talents who match the IDs
+  /// contained there skip the standard visibility criteria.
+  ///
+  /// Basically, the talents must be accepted into the platform and must be
+  /// inside a living batch to match the visibility criteria.
+  pub fn visibility_filters(epoch: &str, presented_talents: Vec<i32>) -> Vec<Query> {
+    let visibility_rules = Query::build_bool()
+                                 .with_must(
+                                    vec![
+                                      Query::build_term("accepted", true)
+                                            .build(),
+                                      Query::build_range("batch_starts_at")
+                                            .with_lte(epoch)
+                                            .with_format("dateOptionalTime")
+                                            .build(),
+                                      Query::build_range("batch_ends_at")
+                                            .with_gte(epoch)
+                                            .with_format("dateOptionalTime")
+                                            .build()
+                                    ])
+                                 .build();
+
+    if !presented_talents.is_empty() {
+      let presented_talents_filters = Query::build_bool()
+                                            .with_must(
+                                              vec![
+                                                <Query as VectorOfTerms<i32>>::build_terms(
+                                                  "ids", &presented_talents)
+                                              ].into_iter()
+                                               .flat_map(|x| x)
+                                               .collect::<Vec<Query>>())
+                                            .build();
+      vec![
+        Query::build_bool()
+              .with_should(vec![visibility_rules, presented_talents_filters])
+              .build()
+      ]
+    }
+    else {
+      vec![visibility_rules]
+    }
+  }
+
+  /// Given parameters inside the query string mapped inside a `Map`,
+  /// and the `epoch` (defined as UNIX time in seconds) for batches,
+  /// return a `Query` for ElasticSearch.
+  ///
+  /// Considering a single row, the terms inside there are ORred,
+  /// while through the rows there is an AND.
+  /// I.e.: given ["Fullstack", "DevOps"] as `work_roles`, found talents
+  /// will present at least one of these roles), but both `work_roles`
+  /// and `work_location`, if provided, must be matched successfully.
+  pub fn search_filters(params: &Map, epoch: &str) -> Query {
+    let company_id = i32_vec_from_params!(params, "company_id");
+
+    Query::build_bool()
+          .with_must(
+             vec![
+               <Query as VectorOfTerms<String>>::build_terms(
+                 "work_roles", &vec_from_params!(params, "work_roles")),
+
+               <Query as VectorOfTerms<String>>::build_terms(
+                 "work_experience", &vec_from_params!(params, "work_experience")),
+
+               <Query as VectorOfTerms<String>>::build_terms(
+                 "work_authorization", &vec_from_params!(params, "work_authorization")),
+
+               <Query as VectorOfTerms<String>>::build_terms(
+                 "work_locations", &vec_from_params!(params, "work_locations")),
+
+               <Query as VectorOfTerms<i32>>::build_terms(
+                 "id", &vec_from_params!(params, "ids")),
+
+               Talent::visibility_filters(epoch,
+                 i32_vec_from_params!(params, "presented_talents"))
+               ].into_iter()
+                .flat_map(|x| x)
+                .collect::<Vec<Query>>())
+                .with_must_not(
+                   vec![
+                     <Query as VectorOfTerms<i32>>::build_terms(
+                       "company_ids", &company_id),
+
+                     <Query as VectorOfTerms<i32>>::build_terms(
+                       "blocked_companies", &company_id)
+                   ].into_iter()
+                    .flat_map(|x| x)
+                    .collect::<Vec<Query>>())
+          .build()
+  }
+
+  pub fn full_text_search(params: &Map) -> Option<Query> {
+    match params.get("keywords") {
+      Some(keywords) => match keywords {
+        &Value::String(ref keywords) => match keywords.is_empty() {
+          true  => None,
+          false => Some(Query::build_match("skills", keywords.to_owned()).build())
+        },
+        _ => None
+      },
+      None => None
+    }
+  }
+
+  /// Return a `Sort` that makes values be sorted for given fields, descendently.
+  pub fn sorting_criteria() -> Sort {
+    Sort::new(
+      vec![
+        SortField::new("batch_starts_at",   Some(Order::Desc)).build(),
+        SortField::new("weight",            Some(Order::Desc)).build(),
+        SortField::new("added_to_batch_at", Some(Order::Desc)).build()
+      ])
+  }
+}
+
 impl Resource for Talent {
   /// Populate the ElasticSearch index with `self`.
   // I'm having problems with bulk actions. Let's wait for the next iteration.
@@ -170,123 +289,6 @@ impl Resource for Talent {
     es.delete_index(index);
 
     MappingOperation::new(&mut es, index, &mapping).send()
-  }
-
-  /// Return a `Vec<Query>` with visibility criteria for the talents.
-  /// The `epoch` must be given as `I64` (UNIX time in seconds) and is
-  /// the range in which batches are searched.
-  /// If `presented_talents` is provided, talents who match the IDs
-  /// contained there skip the standard visibility criteria.
-  ///
-  /// Basically, the talents must be accepted into the platform and must be
-  /// inside a living batch to match the visibility criteria.
-  fn visibility_filters(epoch: &str, presented_talents: Vec<i32>) -> Vec<Query> {
-    let visibility_rules = Query::build_bool()
-                                 .with_must(
-                                    vec![
-                                      Query::build_term("accepted", true)
-                                            .build(),
-                                      Query::build_range("batch_starts_at")
-                                            .with_lte(epoch)
-                                            .with_format("dateOptionalTime")
-                                            .build(),
-                                      Query::build_range("batch_ends_at")
-                                            .with_gte(epoch)
-                                            .with_format("dateOptionalTime")
-                                            .build()
-                                    ])
-                                 .build();
-
-    if !presented_talents.is_empty() {
-      let presented_talents_filters = Query::build_bool()
-                                            .with_must(
-                                              vec![
-                                                <Query as VectorOfTerms<i32>>::build_terms(
-                                                  "ids", &presented_talents)
-                                              ].into_iter()
-                                               .flat_map(|x| x)
-                                               .collect::<Vec<Query>>())
-                                            .build();
-      vec![
-        Query::build_bool()
-              .with_should(vec![visibility_rules, presented_talents_filters])
-              .build()
-      ]
-    }
-    else {
-      vec![visibility_rules]
-    }
-  }
-
-  fn full_text_search(params: &Map) -> Option<Query> {
-    match params.get("keywords") {
-      Some(keywords) => match keywords {
-        &Value::String(ref keywords) => match keywords.is_empty() {
-          true  => None,
-          false => Some(Query::build_match("skills", keywords.to_owned()).build())
-        },
-        _ => None
-      },
-      None => None
-    }
-  }
-
-  /// Given parameters inside the query string mapped inside a `Map`,
-  /// and the `epoch` (defined as UNIX time in seconds) for batches,
-  /// return a `Query` for ElasticSearch.
-  ///
-  /// Considering a single row, the terms inside there are ORred,
-  /// while through the rows there is an AND.
-  /// I.e.: given ["Fullstack", "DevOps"] as `work_roles`, found talents
-  /// will present at least one of these roles), but both `work_roles`
-  /// and `work_location`, if provided, must be matched successfully.
-  fn search_filters(params: &Map, epoch: &str) -> Query {
-    let company_id = i32_vec_from_params!(params, "company_id");
-
-    Query::build_bool()
-          .with_must(
-             vec![
-               <Query as VectorOfTerms<String>>::build_terms(
-                 "work_roles", &vec_from_params!(params, "work_roles")),
-
-               <Query as VectorOfTerms<String>>::build_terms(
-                 "work_experience", &vec_from_params!(params, "work_experience")),
-
-               <Query as VectorOfTerms<String>>::build_terms(
-                 "work_authorization", &vec_from_params!(params, "work_authorization")),
-
-               <Query as VectorOfTerms<String>>::build_terms(
-                 "work_locations", &vec_from_params!(params, "work_locations")),
-
-               <Query as VectorOfTerms<i32>>::build_terms(
-                 "id", &vec_from_params!(params, "ids")),
-
-               Talent::visibility_filters(epoch,
-                 i32_vec_from_params!(params, "presented_talents"))
-               ].into_iter()
-                .flat_map(|x| x)
-                .collect::<Vec<Query>>())
-                .with_must_not(
-                   vec![
-                     <Query as VectorOfTerms<i32>>::build_terms(
-                       "company_ids", &company_id),
-
-                     <Query as VectorOfTerms<i32>>::build_terms(
-                       "blocked_companies", &company_id)
-                   ].into_iter()
-                    .flat_map(|x| x)
-                    .collect::<Vec<Query>>())
-          .build()
-  }
-
-  /// Return a `Sort` that makes values be sorted for given fields, descendently.
-  fn sorting_criteria() -> Sort {
-    Sort::new(
-      vec![
-        SortField::new("batch_starts_at",   Some(Order::Desc)).build(),
-        SortField::new("weight",            Some(Order::Desc)).build(),
-        SortField::new("added_to_batch_at", Some(Order::Desc)).build()
-      ])
   }
 }
 
