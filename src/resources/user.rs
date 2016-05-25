@@ -221,8 +221,10 @@ impl Resource for Talent {
   fn full_text_search(params: &Map) -> Option<Query> {
     match params.get("keywords") {
       Some(keywords) => match keywords {
-        &Value::String(ref keywords) => Some(
-            Query::build_match("skills", keywords.to_owned()).build()),
+        &Value::String(ref keywords) => match keywords.is_empty() {
+          true  => None,
+          false => Some(Query::build_match("skills", keywords.to_owned()).build())
+        },
         _ => None
       },
       None => None
@@ -453,6 +455,15 @@ mod tests {
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![1, 2], results);
+    }
+
+    // searching for an empty keyword
+    {
+      let mut map = Map::new();
+      map.assign("keywords", Value::String("".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![4, 2, 1], results);
     }
 
     // filtering for given company_id
