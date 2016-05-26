@@ -109,6 +109,11 @@ impl Talent {
                <Query as VectorOfTerms<i32>>::build_terms(
                  "id", &vec_from_params!(params, "ids")),
 
+                match Talent::full_text_search(params) {
+                  Some(keywords) => vec![keywords],
+                  None           => vec![]
+                },
+
                Talent::visibility_filters(epoch,
                  i32_vec_from_params!(params, "presented_talents"))
                ].into_iter()
@@ -175,24 +180,29 @@ impl Resource for Talent {
       _ => vec![default_index]
     };
 
-    let result = match Talent::full_text_search(params) {
-      Some(full_text_query) => {
-        es.search_query()
-          .with_indexes(&*index)
-          .with_query(&Talent::search_filters(params, &*epoch))
-          .with_query(&full_text_query)
-          .with_search_type(SearchType::DFSQueryThenFetch.to_string())
-          .with_size(1000) // TODO
-          .send::<Talent>()
+    let keywords_present = match params.get("keywords") {
+      Some(keywords) => match keywords {
+        &Value::String(ref keywords) => !keywords.is_empty(),
+        _                            => false
       },
-      None => {
-        es.search_query()
-          .with_indexes(&*index)
-          .with_query(&Talent::search_filters(params, &*epoch))
-          .with_sort(&Talent::sorting_criteria())
-          .with_size(1000) // TODO
-          .send::<Talent>()
-      }
+      None => false
+    };
+
+    let result = if keywords_present {
+      es.search_query()
+        .with_indexes(&*index)
+        .with_query(&Talent::search_filters(params, &*epoch))
+        .with_search_type(SearchType::DFSQueryThenFetch.to_string())
+        .with_size(1000) // TODO
+        .send::<Talent>()
+    }
+    else {
+      es.search_query()
+        .with_indexes(&*index)
+        .with_query(&Talent::search_filters(params, &*epoch))
+        .with_sort(&Talent::sorting_criteria())
+        .with_size(1000) // TODO
+        .send::<Talent>()
     };
 
     match result {
@@ -352,7 +362,7 @@ mod tests {
         accepted:           true,
         work_roles:         vec![],
         work_experience:    "1..2".to_owned(),
-        work_locations:     vec!["Berlin".to_owned()],
+        work_locations:     vec!["Rome".to_owned(),"Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
         skills:             vec!["Rust".to_owned(), "CSS3".to_owned()],
         company_ids:        vec![],
@@ -450,6 +460,15 @@ mod tests {
       assert_eq!(vec![4], results);
     }
 
+    // searching for work locations
+    {
+      let mut map = Map::new();
+      map.assign("work_locations[]", Value::String("Rome".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![2], results);
+    }
+
     // searching for keywords
     {
       let mut map = Map::new();
@@ -457,6 +476,16 @@ mod tests {
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![1, 2], results);
+    }
+
+    // searching for keywords and filters
+    {
+      let mut map = Map::new();
+      map.assign("keywords", Value::String("Rust, CSS and CSS3".to_owned())).unwrap();
+      map.assign("work_locations[]", Value::String("Rome".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![2], results);
     }
 
     // searching for an empty keyword
