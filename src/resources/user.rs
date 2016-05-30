@@ -361,7 +361,7 @@ mod tests {
         id:                 2,
         accepted:           true,
         work_roles:         vec![],
-        work_experience:    "1..2".to_owned(),
+        work_experience:    "8+".to_owned(),
         work_locations:     vec!["Rome".to_owned(),"Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
         skills:             vec!["Rust".to_owned(), "CSS3".to_owned()],
@@ -458,6 +458,15 @@ mod tests {
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![4], results);
+    }
+
+    // searching for work experience
+    {
+      let mut map = Map::new();
+      map.assign("work_experience[]", Value::String("8+".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![2], results);
     }
 
     // searching for work locations
