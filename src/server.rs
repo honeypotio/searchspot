@@ -6,7 +6,7 @@ use iron::prelude::*;
 use iron::{status, Handler, Headers};
 use iron::mime::Mime;
 
-use logger::Logger;
+use http_logger::Logger as HTTPLogger;
 
 use router::Router;
 
@@ -16,6 +16,7 @@ use oath::*;
 
 use config::*;
 use resource::Resource;
+use logger::Logger;
 
 use std::collections::HashMap;
 use std::env;
@@ -26,8 +27,12 @@ macro_rules! try_or_422 {
   ($expr:expr) => (match $expr {
     Ok(val)  => val,
     Err(err) => {
+      let error_message = format!("{}", err);
+
+      error!("{}", error_message);
+
       let mut error = HashMap::new();
-      error.insert("error", format!("{}", err));
+      error.insert("error", error_message);
 
       let content_type = "application/json".parse::<Mime>().unwrap();
       return Ok(Response::with(
@@ -198,6 +203,8 @@ impl<R: Resource> Server<R> {
   }
 
   pub fn start(&self) {
+    Logger::init().unwrap();
+
     let host = format!("{}:{}", self.config.http.host, self.config.http.port);
 
     println!("Searchspot v{}\n{}\n{}\n", env!("CARGO_PKG_VERSION"),
@@ -213,7 +220,7 @@ impl<R: Resource> Server<R> {
       Ok(_)  => Iron::new(router).http(&*host),
       Err(_) => {
         let mut chain = Chain::new(router);
-        chain.link(Logger::new(None));
+        chain.link(HTTPLogger::new(None));
         Iron::new(chain).http(&*host)
       }
     }.unwrap();
