@@ -17,6 +17,7 @@ toml            = "0.1"
 lazy_static     = "0.2"
 maplit          = "0.1"
 oath            = "0.1"
+log             = "0.3"
 
 [lib]
 name = "searchspot"
