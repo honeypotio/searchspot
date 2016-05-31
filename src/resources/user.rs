@@ -137,7 +137,9 @@ impl Talent {
       Some(keywords) => match keywords {
         &Value::String(ref keywords) => match keywords.is_empty() {
           true  => None,
-          false => Some(Query::build_match("skills", keywords.to_owned()).build())
+          false => Some(
+              Query::build_match("skills", keywords.to_owned()).with_slop(6)
+                                                               .build())
         },
         _ => None
       },
@@ -252,8 +254,8 @@ impl Resource for Talent {
         },
 
         "skills" => hashmap! {
-          "type"  => "string",
-          "index" => "analyzed"
+          "type"     => "string",
+          "analyzer" => "simple"
         },
 
         "company_ids" => hashmap! {
@@ -478,6 +480,15 @@ mod tests {
       assert_eq!(vec![2], results);
     }
 
+   // searching for a single keyword
+    {
+      let mut map = Map::new();
+      map.assign("keywords", Value::String("CSS".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![1, 2], results);
+    }
+
     // searching for keywords
     {
       let mut map = Map::new();
@@ -495,6 +506,15 @@ mod tests {
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![2], results);
+    }
+
+    // searching for a non-matching keyword
+    {
+      let mut map = Map::new();
+      map.assign("keywords", Value::String("Criogenesi".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert!(results.is_empty());
     }
 
     // searching for an empty keyword
