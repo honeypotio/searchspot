@@ -1,10 +1,11 @@
 use super::chrono::UTC;
 
 use super::params::*;
+use super::serde_json::Value as JsonValue;
 
 use super::rs_es::Client;
 use super::rs_es::query::Query;
-use super::rs_es::operations::search::{Sort, SortField, Order, SearchType};
+use super::rs_es::operations::search::{Sort, SortField, Order};
 use super::rs_es::operations::index::IndexResult;
 use super::rs_es::operations::mapping::*;
 use super::rs_es::error::EsError;
@@ -27,6 +28,10 @@ pub struct Talent {
   pub added_to_batch_at:  String,
   pub weight:             i32,
   pub blocked_companies:  Vec<u32>
+}
+
+macro_rules! settings {
+  ($k:expr, $v:expr) => { Settings::new($k, $v) }
 }
 
 /// The type that we use in ElasticSearch for defining a Talent.
@@ -138,8 +143,8 @@ impl Talent {
         &Value::String(ref keywords) => match keywords.is_empty() {
           true  => None,
           false => Some(
-              Query::build_match("skills", keywords.to_owned()).with_slop(6)
-                                                               .build())
+              Query::build_match("skills", keywords.to_owned())
+                                                   .build())
         },
         _ => None
       },
@@ -194,7 +199,6 @@ impl Resource for Talent {
       es.search_query()
         .with_indexes(&*index)
         .with_query(&Talent::search_filters(params, &*epoch))
-        .with_search_type(SearchType::DFSQueryThenFetch.to_string())
         .with_size(1000) // TODO
         .send::<Talent>()
     }
@@ -210,6 +214,12 @@ impl Resource for Talent {
     match result {
       Ok(result) => {
         let mut results = result.hits.hits.into_iter()
+                                          .filter(|hit| {
+                                            match hit.score {
+                                              Some(score) => score > 0.9,
+                                              None        => true
+                                            }
+                                          })
                                           .map(|hit| hit.source.unwrap().id)
                                           .collect::<Vec<u32>>();
         results.dedup();
@@ -254,8 +264,9 @@ impl Resource for Talent {
         },
 
         "skills" => hashmap! {
-          "type"     => "string",
-          "analyzer" => "simple"
+          "type"            => "string",
+          "analyzer"        => "trigrams",
+          "search_analyzer" => "standard"
         },
 
         "company_ids" => hashmap! {
@@ -298,9 +309,37 @@ impl Resource for Talent {
       }
     };
 
+    let settings = Settings {
+      number_of_shards: 1,
+
+      analysis: Analysis {
+        filter: btreemap! {
+          "trigrams_filter".to_owned() => JsonValue::Object(btreemap! {
+            "type".to_owned()     => JsonValue::String("ngram".to_owned()),
+            "min_gram".to_owned() => JsonValue::U64(2),
+            "max_gram".to_owned() => JsonValue::U64(20)
+          })
+        },
+        analyzer: btreemap! {
+          "trigrams".to_owned() => JsonValue::Object(btreemap! {
+            "type".to_owned()      => JsonValue::String("custom".to_owned()),
+            "tokenizer".to_owned() => JsonValue::String("standard".into()),
+            "filter".to_owned()    => JsonValue::Array(
+                                        vec![
+                                          JsonValue::String("lowercase".into()),
+                                          JsonValue::String("trigrams_filter".into()),
+                                        ])
+          })
+        }
+      }
+    };
+
     es.delete_index(index);
 
-    MappingOperation::new(&mut es, index, &mapping).send()
+    MappingOperation::new(&mut es, index)
+      .with_mapping(&mapping)
+      .with_settings(&settings)
+      .send()
   }
 }
 
@@ -350,7 +389,7 @@ mod tests {
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
-        skills:             vec!["Rust".to_owned(), "CSS3".to_owned(), "CSS".to_owned()],
+        skills:             vec!["Rust".to_owned(), "HTML5".to_owned(), "HTML".to_owned()],
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2006"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -366,7 +405,7 @@ mod tests {
         work_experience:    "8+".to_owned(),
         work_locations:     vec!["Rome".to_owned(),"Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
-        skills:             vec!["Rust".to_owned(), "CSS3".to_owned()],
+        skills:             vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned()],
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2006"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -382,7 +421,7 @@ mod tests {
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
-        skills:             vec!["JavaScript".to_owned()],
+        skills:             vec![],
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2007"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -397,8 +436,24 @@ mod tests {
         work_roles:         vec!["Fullstack".to_owned(), "DevOps".to_owned()],
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
-        work_authorization:  "yes".to_owned(),
-        skills:             vec![],
+        work_authorization: "yes".to_owned(),
+        skills:             vec!["ClojureScript".to_owned()],
+        company_ids:        vec![6],
+        batch_starts_at:    epoch_from_year!("2008"),
+        batch_ends_at:      epoch_from_year!("2020"),
+        added_to_batch_at:  epoch_from_year!("2011"),
+        weight:             0,
+        blocked_companies:  vec![]
+      },
+
+      Talent {
+        id:                 5,
+        accepted:           true,
+        work_roles:         vec!["Fullstack".to_owned(), "DevOps".to_owned()],
+        work_experience:    "1..2".to_owned(),
+        work_locations:     vec!["Berlin".to_owned()],
+        work_authorization: "yes".to_owned(),
+        skills:             vec!["JavaScript".to_owned()],
         company_ids:        vec![6],
         batch_starts_at:    epoch_from_year!("2008"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -432,7 +487,7 @@ mod tests {
     // no parameters are given
     {
       let results = Talent::search(&mut client, &*config.es.index, &Map::new());
-      assert_eq!(vec![4, 2, 1], results);
+      assert_eq!(vec![4, 5, 2, 1], results);
     }
 
     // a non existing index is given
@@ -459,7 +514,7 @@ mod tests {
       map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![4], results);
+      assert_eq!(vec![4, 5], results);
     }
 
     // searching for work experience
@@ -480,19 +535,19 @@ mod tests {
       assert_eq!(vec![2], results);
     }
 
-   // searching for a single keyword
+     // searching for a single keyword
     {
       let mut map = Map::new();
-      map.assign("keywords", Value::String("CSS".to_owned())).unwrap();
+      map.assign("keywords", Value::String("HTML5".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![1, 2], results);
     }
 
-    // searching for keywords
+    // searching for a single, differently cased and incomplete keyword
     {
       let mut map = Map::new();
-      map.assign("keywords", Value::String("Rust, CSS and CSS3".to_owned())).unwrap();
+      map.assign("keywords", Value::String("html".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![1, 2], results);
@@ -501,7 +556,7 @@ mod tests {
     // searching for keywords and filters
     {
       let mut map = Map::new();
-      map.assign("keywords", Value::String("Rust, CSS and CSS3".to_owned())).unwrap();
+      map.assign("keywords", Value::String("Rust, HTML5 and HTML".to_owned())).unwrap();
       map.assign("work_locations[]", Value::String("Rome".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
@@ -523,7 +578,38 @@ mod tests {
       map.assign("keywords", Value::String("".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![4, 2, 1], results);
+      assert_eq!(vec![4, 5, 2, 1], results);
+    }
+
+    // searching for different parts of a single keyword
+    // (Java, JavaScript, ClojureScript)
+    {
+      // JavaScript, Java
+      {
+        let mut map = Map::new();
+        map.assign("keywords", Value::String("Java".to_owned())).unwrap();
+
+        let results = Talent::search(&mut client, &*config.es.index, &map);
+        assert_eq!(vec![5, 2], results);
+      }
+
+      // JavaScript
+      {
+        let mut map = Map::new();
+        map.assign("keywords", Value::String("javascript".to_owned())).unwrap();
+
+        let results = Talent::search(&mut client, &*config.es.index, &map);
+        assert_eq!(vec![5], results);
+      }
+
+      // JavaScript, ClojureScript
+      {
+        let mut map = Map::new();
+        map.assign("keywords", Value::String("script".to_owned())).unwrap();
+
+        let results = Talent::search(&mut client, &*config.es.index, &map);
+        assert_eq!(vec![4, 5], results);
+      }
     }
 
     // filtering for given company_id
