@@ -30,10 +30,6 @@ pub struct Talent {
   pub blocked_companies:  Vec<u32>
 }
 
-macro_rules! settings {
-  ($k:expr, $v:expr) => { Settings::new($k, $v) }
-}
-
 /// The type that we use in ElasticSearch for defining a Talent.
 const ES_TYPE: &'static str = "talent";
 
