@@ -22,6 +22,7 @@ pub struct Talent {
   pub work_locations:     Vec<String>,
   pub work_authorization: String,
   pub skills:             Vec<String>,
+  pub summary:            String,
   pub company_ids:        Vec<u32>,
   pub batch_starts_at:    String,
   pub batch_ends_at:      String,
@@ -139,8 +140,10 @@ impl Talent {
         &Value::String(ref keywords) => match keywords.is_empty() {
           true  => None,
           false => Some(
-              Query::build_match("skills", keywords.to_owned())
-                                                   .build())
+              Query::build_multi_match(
+                  vec!["skills".to_owned(), "summary".to_owned()],
+                  keywords.to_owned())
+             .build())
         },
         _ => None
       },
@@ -262,7 +265,13 @@ impl Resource for Talent {
         "skills" => hashmap! {
           "type"            => "string",
           "analyzer"        => "trigrams",
-          "search_analyzer" => "standard"
+          "search_analyzer" => "words"
+        },
+
+        "summary" => hashmap! {
+          "type"            => "string",
+          "analyzer"        => "trigrams",
+          "search_analyzer" => "words"
         },
 
         "company_ids" => hashmap! {
@@ -314,16 +323,32 @@ impl Resource for Talent {
             "type".to_owned()     => JsonValue::String("ngram".to_owned()),
             "min_gram".to_owned() => JsonValue::U64(2),
             "max_gram".to_owned() => JsonValue::U64(20)
+          }),
+
+          "words_filter".to_owned() => JsonValue::Object(btreemap! {
+            "type".to_owned()              => JsonValue::String("word_delimiter".to_owned()),
+            "preserve_original".to_owned() => JsonValue::Bool(true)
           })
         },
         analyzer: btreemap! {
           "trigrams".to_owned() => JsonValue::Object(btreemap! {
             "type".to_owned()      => JsonValue::String("custom".to_owned()),
-            "tokenizer".to_owned() => JsonValue::String("standard".into()),
+            "tokenizer".to_owned() => JsonValue::String("whitespace".into()),
             "filter".to_owned()    => JsonValue::Array(
                                         vec![
                                           JsonValue::String("lowercase".into()),
+                                          JsonValue::String("words_filter".into()),
                                           JsonValue::String("trigrams_filter".into()),
+                                        ])
+          }),
+
+          "words".to_owned() => JsonValue::Object(btreemap! {
+            "type".to_owned()      => JsonValue::String("custom".to_owned()),
+            "tokenizer".to_owned() => JsonValue::String("whitespace".into()),
+            "filter".to_owned()    => JsonValue::Array(
+                                        vec![
+                                          JsonValue::String("lowercase".into()),
+                                          JsonValue::String("words_filter".into())
                                         ])
           })
         }
@@ -386,6 +411,7 @@ mod tests {
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
         skills:             vec!["Rust".to_owned(), "HTML5".to_owned(), "HTML".to_owned()],
+        summary:            "I'm a Rust developer and sometimes I do also HTML.".to_owned(),
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2006"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -402,6 +428,7 @@ mod tests {
         work_locations:     vec!["Rome".to_owned(),"Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
         skills:             vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned()],
+        summary:            "I'm a java dev with some tricks up my sleeves".to_owned(),
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2006"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -418,6 +445,7 @@ mod tests {
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
         skills:             vec![],
+        summary:            "".to_owned(),
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2007"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -434,6 +462,7 @@ mod tests {
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
         skills:             vec!["ClojureScript".to_owned()],
+        summary:            "ClojureScript right now, previously C++".to_owned(),
         company_ids:        vec![6],
         batch_starts_at:    epoch_from_year!("2008"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -449,7 +478,8 @@ mod tests {
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
-        skills:             vec!["JavaScript".to_owned()],
+        skills:             vec!["JavaScript".to_owned(), "C++".to_owned()],
+        summary:            "Frontend dev. HTML, JavaScript and C#.".to_owned(),
         company_ids:        vec![6],
         batch_starts_at:    epoch_from_year!("2008"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -546,7 +576,7 @@ mod tests {
       map.assign("keywords", Value::String("html".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![1, 2], results);
+      assert_eq!(vec![1, 2, 5], results);
     }
 
     // searching for keywords and filters
@@ -578,7 +608,7 @@ mod tests {
     }
 
     // searching for different parts of a single keyword
-    // (Java, JavaScript, ClojureScript)
+    // (Java, JavaScript)
     {
       // JavaScript, Java
       {
@@ -605,6 +635,33 @@ mod tests {
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
         assert_eq!(vec![4, 5], results);
+      }
+    }
+
+    // Searching for summary
+    {
+      {
+        let mut map = Map::new();
+        map.assign("keywords", Value::String("right now".to_owned())).unwrap();
+
+        let results = Talent::search(&mut client, &*config.es.index, &map);
+        assert_eq!(vec![4], results);
+      }
+
+      {
+        let mut map = Map::new();
+        map.assign("keywords", Value::String("C++".to_owned())).unwrap();
+
+        let results = Talent::search(&mut client, &*config.es.index, &map);
+        assert_eq!(vec![5, 4], results);
+      }
+
+      {
+        let mut map = Map::new();
+        map.assign("keywords", Value::String("C#".to_owned())).unwrap();
+
+        let results = Talent::search(&mut client, &*config.es.index, &map);
+        assert_eq!(vec![5], results);
       }
     }
 
@@ -639,6 +696,7 @@ mod tests {
       \"work_locations\":[\"Berlin\"],
       \"work_authorization\":\"yes\",
       \"skills\":[\"Rust\"],
+      \"summary\":\"\",
       \"company_ids\":[],
       \"accepted\":true,
       \"batch_starts_at\":\"2016-03-04T12:24:00+01:00\",
