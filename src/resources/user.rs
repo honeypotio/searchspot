@@ -143,6 +143,7 @@ impl Talent {
               Query::build_multi_match(
                   vec!["skills".to_owned(), "summary".to_owned()],
                   keywords.to_owned())
+              .with_boost(1)
              .build())
         },
         _ => None
@@ -461,7 +462,7 @@ mod tests {
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
-        skills:             vec!["ClojureScript".to_owned()],
+        skills:             vec!["ClojureScript".to_owned(), "C++".to_owned()],
         summary:            "ClojureScript right now, previously C++".to_owned(),
         company_ids:        vec![6],
         batch_starts_at:    epoch_from_year!("2008"),
@@ -653,7 +654,7 @@ mod tests {
         map.assign("keywords", Value::String("C++".to_owned())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
-        assert_eq!(vec![5, 4], results);
+        assert_eq!(vec![4, 5], results);
       }
 
       {
