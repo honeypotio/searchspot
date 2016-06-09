@@ -8,6 +8,7 @@ use super::rs_es::query::Query;
 use super::rs_es::operations::search::{Sort, SortField, Order};
 use super::rs_es::operations::index::IndexResult;
 use super::rs_es::operations::mapping::*;
+use super::rs_es::query::full_text::MatchQueryType;
 use super::rs_es::error::EsError;
 
 use searchspot::terms::VectorOfTerms;
@@ -143,7 +144,8 @@ impl Talent {
               Query::build_multi_match(
                   vec!["skills".to_owned(), "summary".to_owned()],
                   keywords.to_owned())
-              .with_boost(1)
+             .with_type(MatchQueryType::CrossFields)
+             .with_tie_breaker(0.0)
              .build())
         },
         _ => None
@@ -562,7 +564,7 @@ mod tests {
       assert_eq!(vec![2], results);
     }
 
-     // searching for a single keyword
+    // searching for a single keyword
     {
       let mut map = Map::new();
       map.assign("keywords", Value::String("HTML5".to_owned())).unwrap();
