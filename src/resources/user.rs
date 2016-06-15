@@ -169,6 +169,8 @@ impl Talent {
 }
 
 impl Resource for Talent {
+  type Results = Vec<u32>;
+
   /// Populate the ElasticSearch index with `self`.
   // I'm having problems with bulk actions. Let's wait for the next iteration.
   fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
@@ -180,7 +182,7 @@ impl Resource for Talent {
 
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
   /// the found talents.
-  fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Vec<u32> {
+  fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Self::Results {
     let now   = UTC::now().to_rfc3339();
     let epoch = match params.find(&["epoch"]) {
       Some(epoch) => String::from_value(&epoch).unwrap_or(now),
@@ -226,7 +228,7 @@ impl Resource for Talent {
                                             }
                                           })
                                           .map(|hit| hit.source.unwrap().id)
-                                          .collect::<Vec<u32>>();
+                                          .collect::<Self::Results>();
         results.dedup();
         results
       },
