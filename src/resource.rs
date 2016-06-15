@@ -1,4 +1,5 @@
 use serde::de::Deserialize;
+use serde::ser::Serialize;
 
 use rs_es::Client;
 use rs_es::operations::index::IndexResult;
@@ -10,9 +11,11 @@ use params::*;
 use std::any::Any;
 use std::fmt::Debug;
 
-pub trait Resource : Send + Sync + Any + Deserialize + Debug {
+pub trait Resource: Send + Sync + Any + Deserialize + Debug {
+  type Results: Serialize + Deserialize;
+
   /// Respond to GET requests returning an array with found ids
-  fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Vec<u32>;
+  fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Self::Results;
 
   /// Respond to POST requests indexing given entity
   fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError>;
