@@ -81,13 +81,6 @@ macro_rules! authorization {
   }
 }
 
-/// Struct for containing the search results
-#[derive(Serialize, Deserialize)]
-pub struct SearchResult<R: Resource> {
-  pub results: R::Results
-}
-
-#[derive(Clone)]
 pub struct Server<R: Resource> {
   config:   Config,
   endpoint: String,
@@ -120,9 +113,7 @@ impl<R: Resource> Handler for SearchableHandler<R> {
 
     let params = try_or_422!(req.get_ref::<Params>());
 
-    let response: SearchResult<R> = SearchResult {
-      results: R::search(&mut client, &*self.config.es.index, params)
-    };
+    let response = R::search(&mut client, &*self.config.es.index, params);
 
     let content_type = "application/json".parse::<Mime>().unwrap();
     Ok(Response::with(
@@ -230,9 +221,6 @@ impl<R: Resource> Server<R> {
 
 #[cfg(test)]
 mod tests {
-  use serde_json;
-
-  use server::SearchResult;
   use resource::Resource;
 
   use params::*;
@@ -266,18 +254,6 @@ mod tests {
 
     fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
       MappingOperation::new(&mut es, index).send()
-    }
-  }
-
-  #[test]
-  fn test_search_result_to_json() {
-    {
-      let response: SearchResult<TestResource> = SearchResult {
-        results: vec![]
-      };
-
-      let json_response = serde_json::to_string(&response).unwrap();
-      assert_eq!(json_response, "{\"results\":[]}");
     }
   }
 }
