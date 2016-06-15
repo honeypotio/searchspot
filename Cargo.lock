@@ -16,6 +16,10 @@ dependencies = [
  "serde 0.7.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_macros 0.7.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rs-es 0.4.1 (git+https://github.com/RoxasShadow/rs-es?branch=highlight)",
+ "serde 0.7.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_macros 0.7.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.1.30 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -659,8 +663,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tempdir"
-version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
