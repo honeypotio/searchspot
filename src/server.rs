@@ -1,5 +1,6 @@
 #![allow(non_upper_case_globals)]
 use serde_json;
+
 use rs_es::Client;
 
 use iron::prelude::*;
@@ -82,8 +83,8 @@ macro_rules! authorization {
 
 /// Struct for containing the search results
 #[derive(Serialize, Deserialize)]
-pub struct SearchResult {
-  pub results: Vec<u32>
+pub struct SearchResult<R: Resource> {
+  pub results: R::Results
 }
 
 #[derive(Clone)]
@@ -119,7 +120,7 @@ impl<R: Resource> Handler for SearchableHandler<R> {
 
     let params = try_or_422!(req.get_ref::<Params>());
 
-    let response = SearchResult {
+    let response: SearchResult<R> = SearchResult {
       results: R::search(&mut client, &*self.config.es.index, params)
     };
 
@@ -229,13 +230,49 @@ impl<R: Resource> Server<R> {
 
 #[cfg(test)]
 mod tests {
-  use server::SearchResult;
   use serde_json;
+
+  use server::SearchResult;
+  use resource::Resource;
+
+  use params::*;
+
+  use rs_es::Client;
+  use rs_es::operations::index::IndexResult;
+  use rs_es::operations::mapping::*;
+  use rs_es::error::EsError;
+
+  #[derive(Serialize, Deserialize, Clone, Debug)]
+  pub struct TestResource {
+    pub id: u32
+  }
+
+  const ES_TYPE: &'static str = "test_resource";
+
+  impl Resource for TestResource {
+    type Results = Vec<u32>;
+
+    fn search(_: &mut Client, _: &str, _: &Map) -> Self::Results {
+      vec![]
+    }
+
+    fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
+      es.index(index, ES_TYPE)
+        .with_doc(&self)
+        .with_id(&*self.id.to_string())
+        .send()
+    }
+
+
+    fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
+      MappingOperation::new(&mut es, index).send()
+    }
+  }
 
   #[test]
   fn test_search_result_to_json() {
     {
-      let response = SearchResult {
+      let response: SearchResult<TestResource> = SearchResult {
         results: vec![]
       };
 
