@@ -12,7 +12,7 @@ dependencies = [
  "oath 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "params 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "router 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "rs-es 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rs-es 0.4.1 (git+https://github.com/RoxasShadow/rs-es?branch=highlight)",
  "serde 0.7.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_macros 0.7.10 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -575,7 +575,7 @@ dependencies = [
 [[package]]
 name = "rs-es"
 version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/RoxasShadow/rs-es?branch=highlight#6ba6785e5a5cc513428510c53659ed11d46b15a0"
 dependencies = [
  "hyper 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -584,7 +584,7 @@ dependencies = [
  "serde 0.7.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_macros 0.7.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex 0.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex 0.35.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -660,15 +660,15 @@ dependencies = [
 
 [[package]]
 name = "syntex"
-version = "0.33.0"
+version = "0.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "syntex_syntax 0.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_syntax 0.35.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "syntex_syntax"
-version = "0.33.0"
+version = "0.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
