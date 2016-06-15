@@ -6,19 +6,20 @@ authors = ["Giovanni Capuano <webmaster@giovannicapuano.net>"]
 license = "BSD-2-Clause"
 
 [dependencies]
-chrono          = "0.2"
-iron            = "0.3"
-router          = "0.1"
-logger          = "0.0"
-params          = "0.2"
-lazy_static     = "0.2"
-maplit          = "0.1"
-oath            = "0.1"
-serde           = "0.7"
-serde_json      = "0.7"
-serde_macros    = "0.7"
-aster           = "0.19"
-log             = "0.3"
+chrono       = "0.2"
+iron         = "0.3"
+router       = "0.1"
+logger       = "0.0"
+params       = "0.2"
+lazy_static  = "0.2"
+maplit       = "0.1"
+oath         = "0.1"
+log          = "0.3"
+
+serde        = "0.7"
+serde_json   = "0.7"
+serde_macros = "0.7"
+aster        = "0.19"
 
 [dependencies.toml]
 version  = "0.1"
@@ -26,7 +27,8 @@ features = ["serde"]
 default-features = false
 
 [dependencies.rs-es]
-version  = "0.4.1"
+git = "https://github.com/RoxasShadow/rs-es"
+branch = "highlight"
 features = ["nightly_without_ssl"]
 default-features = false
 
