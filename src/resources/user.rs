@@ -10,6 +10,7 @@ use super::rs_es::operations::index::IndexResult;
 use super::rs_es::operations::mapping::*;
 use super::rs_es::query::full_text::MatchQueryType;
 use super::rs_es::error::EsError;
+use super::rs_es::operations::search::highlight::{Highlight, Setting, SettingTypes, HighlightResult};
 
 use searchspot::terms::VectorOfTerms;
 use searchspot::resource::*;
@@ -30,6 +31,38 @@ pub struct Talent {
   pub added_to_batch_at:  String,
   pub weight:             i32,
   pub blocked_companies:  Vec<u32>
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FoundTalents {
+  pub results: Vec<FoundTalent>
+}
+
+impl FoundTalents {
+  pub fn new(results: Vec<FoundTalent>) -> FoundTalents {
+    FoundTalents { results: results }
+  }
+
+  #[allow(dead_code)]
+  pub fn ids(&self) -> Vec<u32> {
+    self.results.iter().map(|r| r.id).collect()
+  }
+
+  #[allow(dead_code)]
+  pub fn highlights(&self) -> Vec<Option<HighlightResult>> {
+    self.results.iter().map(|r| r.highlight.clone()).collect()
+  }
+
+  #[allow(dead_code)]
+  pub fn is_empty(&self) -> bool {
+    self.results.is_empty()
+  }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FoundTalent {
+  pub id:        u32,
+  pub highlight: Option<HighlightResult>
 }
 
 /// The type that we use in ElasticSearch for defining a Talent.
@@ -166,7 +199,7 @@ impl Talent {
 }
 
 impl Resource for Talent {
-  type Results = Vec<u32>;
+  type Results = FoundTalents;
 
   /// Populate the ElasticSearch index with `self`.
   // I'm having problems with bulk actions. Let's wait for the next iteration.
@@ -200,9 +233,14 @@ impl Resource for Talent {
     };
 
     let result = if keywords_present {
+      let mut highlight = Highlight::new();
+      highlight.add("skills".to_owned(), Setting::with_type(SettingTypes::Plain));
+      highlight.add("summary".to_owned(), Setting::with_type(SettingTypes::Plain));
+
       es.search_query()
         .with_indexes(&*index)
         .with_query(&Talent::search_filters(params, &*epoch))
+        .with_highlight(&highlight)
         .with_size(1000) // TODO
         .send::<Talent>()
     }
@@ -217,21 +255,24 @@ impl Resource for Talent {
 
     match result {
       Ok(result) => {
-        let mut results = result.hits.hits.into_iter()
+        FoundTalents::new(result.hits.hits.into_iter()
                                           .filter(|hit| {
                                             match hit.score {
                                               Some(score) => score > 0.9,
                                               None        => true
                                             }
                                           })
-                                          .map(|hit| hit.source.unwrap().id)
-                                          .collect::<Self::Results>();
-        results.dedup();
-        results
+                                          .map(|hit| {
+                                            FoundTalent {
+                                              id: hit.source.unwrap().id,
+                                              highlight: hit.highlight
+                                            }
+                                          })
+                                          .collect::<Vec<FoundTalent>>())
       },
       Err(err) => {
         println!("{:?}", err);
-        vec![]
+        FoundTalents::new(vec![])
       }
     }
   }
@@ -379,6 +420,7 @@ mod tests {
 
   extern crate rs_es;
   use self::rs_es::Client;
+  use self::rs_es::operations::search::highlight::HighlightResult;
 
   extern crate params;
   use self::params::*;
@@ -518,7 +560,8 @@ mod tests {
     // no parameters are given
     {
       let results = Talent::search(&mut client, &*config.es.index, &Map::new());
-      assert_eq!(vec![4, 5, 2, 1], results);
+      assert_eq!(vec![4, 5, 2, 1], results.ids());
+      assert!(results.highlights().iter().all(|r| r.is_none()));
     }
 
     // a non existing index is given
@@ -545,7 +588,7 @@ mod tests {
       map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![4, 5], results);
+      assert_eq!(vec![4, 5], results.ids());
     }
 
     // searching for work experience
@@ -554,7 +597,7 @@ mod tests {
       map.assign("work_experience[]", Value::String("8+".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![2], results);
+      assert_eq!(vec![2], results.ids());
     }
 
     // searching for work locations
@@ -563,7 +606,7 @@ mod tests {
       map.assign("work_locations[]", Value::String("Rome".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![2], results);
+      assert_eq!(vec![2], results.ids());
     }
 
     // searching for a single keyword
@@ -572,7 +615,7 @@ mod tests {
       map.assign("keywords", Value::String("HTML5".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![1, 2], results);
+      assert_eq!(vec![1, 2], results.ids());
     }
 
     // searching for a single, differently cased and incomplete keyword
@@ -581,7 +624,7 @@ mod tests {
       map.assign("keywords", Value::String("html".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![1, 2, 5], results);
+      assert_eq!(vec![1, 2, 5], results.ids());
     }
 
     // searching for keywords and filters
@@ -591,7 +634,7 @@ mod tests {
       map.assign("work_locations[]", Value::String("Rome".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![2], results);
+      assert_eq!(vec![2], results.ids());
     }
 
     // searching for a non-matching keyword
@@ -609,7 +652,7 @@ mod tests {
       map.assign("keywords", Value::String("".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![4, 5, 2, 1], results);
+      assert_eq!(vec![4, 5, 2, 1], results.ids());
     }
 
     // searching for different parts of a single keyword
@@ -621,7 +664,7 @@ mod tests {
         map.assign("keywords", Value::String("Java".to_owned())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
-        assert_eq!(vec![5, 2], results);
+        assert_eq!(vec![5, 2], results.ids());
       }
 
       // JavaScript
@@ -630,7 +673,7 @@ mod tests {
         map.assign("keywords", Value::String("javascript".to_owned())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
-        assert_eq!(vec![5], results);
+        assert_eq!(vec![5], results.ids());
       }
 
       // JavaScript, ClojureScript
@@ -639,7 +682,7 @@ mod tests {
         map.assign("keywords", Value::String("script".to_owned())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
-        assert_eq!(vec![4, 5], results);
+        assert_eq!(vec![4, 5], results.ids());
       }
     }
 
@@ -650,7 +693,7 @@ mod tests {
         map.assign("keywords", Value::String("right now".to_owned())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
-        assert_eq!(vec![4], results);
+        assert_eq!(vec![4], results.ids());
       }
 
       {
@@ -658,7 +701,7 @@ mod tests {
         map.assign("keywords", Value::String("C++".to_owned())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
-        assert_eq!(vec![4, 5], results);
+        assert_eq!(vec![4, 5], results.ids());
       }
 
       {
@@ -666,8 +709,18 @@ mod tests {
         map.assign("keywords", Value::String("C#".to_owned())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
-        assert_eq!(vec![5], results);
+        assert_eq!(vec![5], results.ids());
       }
+    }
+
+    // highlight
+    {
+      let mut map = Map::new();
+      map.assign("keywords", Value::String("C#".to_owned())).unwrap();
+
+      let results    = Talent::search(&mut client, &*config.es.index, &map).results;
+      let highlights = results.into_iter().map(|r| r.highlight.unwrap()).collect::<Vec<HighlightResult>>();
+      assert_eq!(highlights[0].get("summary"), Some(&vec!["Frontend dev. HTML, JavaScript and <em>C#.</em>".to_owned()]));
     }
 
     // filtering for given company_id
@@ -676,7 +729,7 @@ mod tests {
       map.assign("company_id", Value::String("6".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![2, 1], results);
+      assert_eq!(vec![2, 1], results.ids());
     }
 
     // filtering for given bookmarks (ids)
@@ -686,9 +739,8 @@ mod tests {
       map.assign("ids[]", Value::U64(4)).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![4, 2], results);
+      assert_eq!(vec![4, 2], results.ids());
     }
-
   }
 
   #[test]
