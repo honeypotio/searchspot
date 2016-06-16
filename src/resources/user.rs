@@ -10,7 +10,7 @@ use super::rs_es::operations::index::IndexResult;
 use super::rs_es::operations::mapping::*;
 use super::rs_es::query::full_text::MatchQueryType;
 use super::rs_es::error::EsError;
-use super::rs_es::operations::search::highlight::{Highlight, Setting, SettingTypes, HighlightResult};
+use super::rs_es::operations::search::highlight::*;
 
 use searchspot::terms::VectorOfTerms;
 use searchspot::resource::*;
@@ -234,8 +234,12 @@ impl Resource for Talent {
 
     let result = if keywords_present {
       let mut highlight = Highlight::new();
-      highlight.add("skills".to_owned(), Setting::with_type(SettingTypes::Plain));
-      highlight.add("summary".to_owned(), Setting::with_type(SettingTypes::Plain));
+      let     settings  = Setting::new().with_type(SettingTypes::Plain)
+                                        .with_term_vector(TermVector::WithPositionsOffsets)
+                                        .with_fragment_size(1)
+                                        .to_owned();
+      highlight.add("skills".to_owned(),  settings.clone());
+      highlight.add("summary".to_owned(), settings);
 
       es.search_query()
         .with_indexes(&*index)
