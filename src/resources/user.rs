@@ -15,6 +15,46 @@ use super::rs_es::operations::search::highlight::*;
 use searchspot::terms::VectorOfTerms;
 use searchspot::resource::*;
 
+/// The type that we use in ElasticSearch for defining a Talent.
+const ES_TYPE: &'static str = "talent";
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SearchResults {
+  pub results: Vec<SearchResult>
+}
+
+impl SearchResults {
+  pub fn new(results: Vec<SearchResult>) -> SearchResults {
+    SearchResults { results: results }
+  }
+
+  #[allow(dead_code)]
+  pub fn ids(&self) -> Vec<u32> {
+    self.results.iter().map(|r| r.talent.id).collect()
+  }
+
+  #[allow(dead_code)]
+  pub fn highlights(&self) -> Vec<Option<HighlightResult>> {
+    self.results.iter().map(|r| r.highlight.clone()).collect()
+  }
+
+  #[allow(dead_code)]
+  pub fn is_empty(&self) -> bool {
+    self.results.is_empty()
+  }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SearchResult {
+  pub talent:    FoundTalent,
+  pub highlight: Option<HighlightResult>
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FoundTalent {
+  pub id: u32
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Talent {
   pub id:                 u32,
@@ -32,41 +72,6 @@ pub struct Talent {
   pub weight:             i32,
   pub blocked_companies:  Vec<u32>
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FoundTalents {
-  pub results: Vec<FoundTalent>
-}
-
-impl FoundTalents {
-  pub fn new(results: Vec<FoundTalent>) -> FoundTalents {
-    FoundTalents { results: results }
-  }
-
-  #[allow(dead_code)]
-  pub fn ids(&self) -> Vec<u32> {
-    self.results.iter().map(|r| r.id).collect()
-  }
-
-  #[allow(dead_code)]
-  pub fn highlights(&self) -> Vec<Option<HighlightResult>> {
-    self.results.iter().map(|r| r.highlight.clone()).collect()
-  }
-
-  #[allow(dead_code)]
-  pub fn is_empty(&self) -> bool {
-    self.results.is_empty()
-  }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FoundTalent {
-  pub id:        u32,
-  pub highlight: Option<HighlightResult>
-}
-
-/// The type that we use in ElasticSearch for defining a Talent.
-const ES_TYPE: &'static str = "talent";
 
 impl Talent {
   /// Return a `Vec<Query>` with visibility criteria for the talents.
@@ -199,7 +204,7 @@ impl Talent {
 }
 
 impl Resource for Talent {
-  type Results = FoundTalents;
+  type Results = SearchResults;
 
   /// Populate the ElasticSearch index with `self`.
   // I'm having problems with bulk actions. Let's wait for the next iteration.
@@ -241,8 +246,8 @@ impl Resource for Talent {
                                    .with_term_vector(TermVector::WithPositionsOffsets)
                                    .with_fragment_size(1)
                                    .to_owned();
-      highlight.add("skills".to_owned(),  settings.clone());
-      highlight.add("summary".to_owned(), settings);
+      highlight.add_setting("skills".to_owned(),  settings.clone());
+      highlight.add_setting("summary".to_owned(), settings);
 
       es.search_query()
         .with_indexes(&*index)
@@ -262,7 +267,7 @@ impl Resource for Talent {
 
     match result {
       Ok(result) => {
-        FoundTalents::new(result.hits.hits.into_iter()
+        SearchResults::new(result.hits.hits.into_iter()
                                           .filter(|hit| {
                                             match hit.score {
                                               Some(score) => score > 0.9,
@@ -270,16 +275,16 @@ impl Resource for Talent {
                                             }
                                           })
                                           .map(|hit| {
-                                            FoundTalent {
-                                              id: hit.source.unwrap().id,
+                                            SearchResult {
+                                              talent: FoundTalent { id: hit.source.unwrap().id },
                                               highlight: hit.highlight
                                             }
                                           })
-                                          .collect::<Vec<FoundTalent>>())
+                                          .collect::<Vec<SearchResult>>())
       },
       Err(err) => {
         println!("{:?}", err);
-        FoundTalents::new(vec![])
+        SearchResults::new(vec![])
       }
     }
   }
