@@ -233,11 +233,14 @@ impl Resource for Talent {
     };
 
     let result = if keywords_present {
-      let mut highlight = Highlight::new();
-      let     settings  = Setting::new().with_type(SettingTypes::Plain)
-                                        .with_term_vector(TermVector::WithPositionsOffsets)
-                                        .with_fragment_size(1)
-                                        .to_owned();
+      let mut highlight = Highlight::new().with_encoder(Encoders::HTML)
+                                          .with_pre_tags(vec!["".to_owned()])
+                                          .with_post_tags(vec!["".to_owned()])
+                                          .to_owned();
+      let settings = Setting::new().with_type(SettingTypes::Plain)
+                                   .with_term_vector(TermVector::WithPositionsOffsets)
+                                   .with_fragment_size(1)
+                                   .to_owned();
       highlight.add("skills".to_owned(),  settings.clone());
       highlight.add("summary".to_owned(), settings);
 
@@ -724,7 +727,7 @@ mod tests {
 
       let results    = Talent::search(&mut client, &*config.es.index, &map).results;
       let highlights = results.into_iter().map(|r| r.highlight.unwrap()).collect::<Vec<HighlightResult>>();
-      assert_eq!(highlights[0].get("summary"), Some(&vec!["Frontend dev. HTML, JavaScript and <em>C#.</em>".to_owned()]));
+      assert_eq!(highlights[0].get("summary"), Some(&vec![" C#.".to_owned()]));
     }
 
     // filtering for given company_id

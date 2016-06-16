@@ -575,7 +575,7 @@ dependencies = [
 [[package]]
 name = "rs-es"
 version = "0.4.1"
-source = "git+https://github.com/RoxasShadow/rs-es?branch=highlight#e27879cfd3d72a8cabdb5e4deba088f5f12f0b83"
+source = "git+https://github.com/RoxasShadow/rs-es?branch=highlight#0a5f888c7c3f162ce13247f942431e76e1aefd88"
 dependencies = [
  "hyper 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
