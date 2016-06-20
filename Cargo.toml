@@ -27,8 +27,7 @@ features = ["serde"]
 default-features = false
 
 [dependencies.rs-es]
-git = "https://github.com/RoxasShadow/rs-es"
-branch = "highlight"
+version  = "0.4.3"
 features = ["nightly_without_ssl"]
 default-features = false
 
