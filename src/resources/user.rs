@@ -693,7 +693,7 @@ mod tests {
     // ignoring contacted talents
     {
       let mut map = Map::new();
-      map.assign("contacted_talents[]", Value::U64(2)).unwrap();
+      map.assign("contacted_talents[]", Value::String("2".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![4, 5, 1], results);
