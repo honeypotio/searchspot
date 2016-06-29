@@ -17,7 +17,7 @@ oath            = "0.1"
 serde           = "0.7"
 serde_json      = "0.7"
 serde_macros    = "0.7"
-aster           = "0.18"
+aster           = "0.19"
 log             = "0.3"
 
 [dependencies.toml]
