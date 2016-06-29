@@ -128,7 +128,10 @@ impl Talent {
                        "company_ids", &company_id),
 
                      <Query as VectorOfTerms<i32>>::build_terms(
-                       "blocked_companies", &company_id)
+                       "blocked_companies", &company_id),
+
+                     <Query as VectorOfTerms<i32>>::build_terms(
+                       "id", &vec_from_params!(params, "contacted_talents"))
                    ].into_iter()
                     .flat_map(|x| x)
                     .collect::<Vec<Query>>())
@@ -687,6 +690,14 @@ mod tests {
       assert_eq!(vec![4, 2], results);
     }
 
+    // ignoring contacted talents
+    {
+      let mut map = Map::new();
+      map.assign("contacted_talents[]", Value::U64(2)).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![4, 5, 1], results);
+    }
   }
 
   #[test]
