@@ -8,7 +8,7 @@ use super::rs_es::query::Query;
 use super::rs_es::operations::search::{Sort, SortField, Order};
 use super::rs_es::operations::index::IndexResult;
 use super::rs_es::operations::mapping::*;
-use super::rs_es::query::full_text::MatchQueryType;
+use super::rs_es::query::full_text::{MatchType, MatchQueryType};
 use super::rs_es::error::EsError;
 
 use searchspot::terms::VectorOfTerms;
@@ -97,6 +97,11 @@ impl Talent {
     Query::build_bool()
           .with_must(
              vec![
+                match Talent::full_text_search(params) {
+                  Some(keywords) => vec![keywords],
+                  None           => vec![]
+                },
+
                <Query as VectorOfTerms<String>>::build_terms(
                  "work_roles", &vec_from_params!(params, "work_roles")),
 
@@ -111,11 +116,6 @@ impl Talent {
 
                <Query as VectorOfTerms<i32>>::build_terms(
                  "id", &vec_from_params!(params, "ids")),
-
-                match Talent::full_text_search(params) {
-                  Some(keywords) => vec![keywords],
-                  None           => vec![]
-                },
 
                Talent::visibility_filters(epoch,
                  i32_vec_from_params!(params, "presented_talents"))
@@ -277,7 +277,8 @@ impl Resource for Talent {
         "summary" => hashmap! {
           "type"            => "string",
           "analyzer"        => "trigrams",
-          "search_analyzer" => "words"
+          "search_analyzer" => "words",
+          "boost"           => "2.0"
         },
 
         "company_ids" => hashmap! {
@@ -485,7 +486,7 @@ mod tests {
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
         skills:             vec!["JavaScript".to_owned(), "C++".to_owned()],
-        summary:            "Frontend dev. HTML, JavaScript and C#.".to_owned(),
+        summary:            "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?".to_owned(),
         company_ids:        vec![6],
         batch_starts_at:    epoch_from_year!("2008"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -622,7 +623,7 @@ mod tests {
         map.assign("keywords", Value::String("Java".to_owned())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
-        assert_eq!(vec![5, 2], results);
+        assert_eq!(vec![2, 5], results);
       }
 
       // JavaScript
