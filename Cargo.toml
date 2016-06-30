@@ -27,7 +27,7 @@ features = ["serde"]
 default-features = false
 
 [dependencies.rs-es]
-version  = "0.4.3"
+version  = "0.4.4"
 features = ["nightly_without_ssl"]
 default-features = false
 
