@@ -19,7 +19,7 @@ log          = "0.3"
 serde        = "0.7"
 serde_json   = "0.7"
 serde_macros = "0.7"
-aster        = "0.19"
+aster        = "0.20"
 
 [dependencies.toml]
 version  = "0.1"
