@@ -5,7 +5,7 @@ version = "0.2.2"
 authors = ["Giovanni Capuano <webmaster@giovannicapuano.net>"]
 license = "BSD-2-Clause"
 
-build = "build.rs"
+build   = "build.rs"
 
 [features]
 default = ["serde_codegen"]
@@ -49,6 +49,3 @@ path = "src/lib.rs"
 name = "searchspot"
 path = "src/main.rs"
 doc  = false
-
-[target.heroku]
-version = "nightly"
