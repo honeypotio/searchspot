@@ -11,12 +11,14 @@ Things that are missing
 
 Dependencies
 ------------
-* Rust Nightly
+* Rust
 * ElasticSearch 2.x (1.6+ [here](https://github.com/honeypotio/searchspot/tree/es-1.6))
+
+Our target is Rust Stable. However, you can use Rust Nightly too by passing `--features nightly --no-default-features` to cargo.
 
 Setup
 -----
-Install the latest stable release of Rust using the [official installer](https://www.rust-lang.org/downloads.html) or your package manager (i.e.: `brew install rust`).
+Install the latest release of Rust using either [rustup](https://www.rustup.rs), the [official way](https://www.rust-lang.org/downloads.html) or your package manager (i.e.: `brew install rust`)).
 
 Then clone this repository to your computer and run the executable with
 
@@ -32,13 +34,16 @@ Please make sure you have an ElasticSearch instance running.
 
 Example
 -------
-You can create your own searchspot creating a new executable with cargo, whose `main.rs` will look like our [src/main.rs](https://github.com/honeypotio/searchspot/blob/master/src/main.rs), but instead of using `searchspot::resources::user::Talent`, you'll need to replace it with a new resource made by you, according to your needs.
+You can create your own searchspot creating a new executable with cargo, whose `main.rs` will look like ours, but instead of using `searchspot::resources::user::Talent`,
+you'll need to replace it with a new resource made by you, according to your needs.
 
 Basically, a resource is any struct that implements the trait `searchspot::resource::Resource`.
 
 Authentication
 --------------
-When the authentication is enabled, the server accepts only requests that provide an `Authentication` header containing a valid [TOTP](https://en.wikipedia.org/wiki/HMAC-based_One-time_Password_Algorithm) token generated using the secrets defined in searchspot's `auth.read` or `auth.write` depending from the kind of request (either `GET` or `POST`/`DELETE`). I.e.: `{ "Authorize" => "token 492039" }`.
+When the authentication is enabled, the server accepts only requests that provide an `Authentication` header containing a valid
+[TOTP](https://en.wikipedia.org/wiki/HMAC-based_One-time_Password_Algorithm) token generated using the secrets defined in searchspot's `auth.read` or `auth.write` depending from the kind of
+request (either `GET` or `POST`/`DELETE`), i.e.: `{ "Authorize" => "token 492039" }`.
 
 Heroku
 ------
@@ -63,4 +68,4 @@ You can get the data for `ES_HOST` by adding an addon ((☞ﾟ∀ﾟ)☞) for El
 
 `AUTH_` is optional – if omitted the feature will be turned off.
 
-P.S.: Companies on [Honeypot](https://www.honeypot.io/pages/how_does_it_work?utm_source=gh) use this service to search the developers they need to hire!
+P.S.: Companies on [Honeypot](https://www.honeypot.io/pages/how_does_it_work?utm_source=searchspot) use this service to search the developers they need to hire!
