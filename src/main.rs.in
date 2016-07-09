@@ -1,0 +1,11 @@
+use searchspot::server::Server;
+
+#[macro_use] pub mod macros;
+
+mod resources;
+use resources::user::Talent;
+
+fn main() {
+  let server = Server::<Talent>::new("/talents");
+  server.start();
+}
