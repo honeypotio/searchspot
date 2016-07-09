@@ -1,5 +1,5 @@
-#![feature(custom_derive, plugin)]
-#![plugin(serde_macros)]
+#![cfg_attr(feature = "serde_macros", feature(custom_derive, plugin))]
+#![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
 
 extern crate serde;
 extern crate serde_json;
@@ -12,10 +12,8 @@ extern crate toml;
 extern crate oath;
 #[macro_use] extern crate log;
 
-#[macro_use] pub mod macros;
+#[cfg(feature = "serde_macros")]
+include!("lib.rs.in");
 
-pub mod terms;
-pub mod config;
-pub mod server;
-pub mod resource;
-pub mod logger;
+#[cfg(not(feature = "serde_macros"))]
+include!(concat!(env!("OUT_DIR"), "/lib.rs"));

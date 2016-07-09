@@ -5,12 +5,20 @@ version = "0.2.2"
 authors = ["Giovanni Capuano <webmaster@giovannicapuano.net>"]
 license = "BSD-2-Clause"
 
+build = "build.rs"
+
+[features]
+default = ["serde_codegen"]
+nightly = ["serde_macros"]
+
 [dependencies]
 chrono       = "0.2"
+
 iron         = "0.3"
 router       = "0.1"
-logger       = "0.0"
+logger       = { git = "https://github.com/nevdelap/logger" }
 params       = "0.2"
+
 lazy_static  = "0.2"
 maplit       = "0.1"
 oath         = "0.1"
@@ -18,8 +26,10 @@ log          = "0.3"
 
 serde        = "0.7"
 serde_json   = "0.7"
-serde_macros = "0.7"
-aster        = "0.20"
+serde_macros = { version = "0.7.11", optional = true }
+
+[build-dependencies]
+serde_codegen = { version = "0.7", optional = true }
 
 [dependencies.toml]
 version  = "0.1"
@@ -28,7 +38,7 @@ default-features = false
 
 [dependencies.rs-es]
 version  = "0.4.4"
-features = ["nightly_without_ssl"]
+features = ["default_without_ssl"]
 default-features = false
 
 [lib]
