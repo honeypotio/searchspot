@@ -8,7 +8,7 @@ use super::rs_es::query::Query;
 use super::rs_es::operations::search::{Sort, SortField, Order};
 use super::rs_es::operations::index::IndexResult;
 use super::rs_es::operations::mapping::*;
-use super::rs_es::query::full_text::{MatchType, MatchQueryType};
+use super::rs_es::query::full_text::MatchQueryType;
 use super::rs_es::error::EsError;
 use super::rs_es::operations::search::highlight::*;
 
@@ -764,7 +764,7 @@ mod tests {
       map.assign("contacted_talents[]", Value::String("2".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![4, 5, 1], results);
+      assert_eq!(vec![4, 5, 1], results.ids());
     }
   }
 
