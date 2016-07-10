@@ -1,6 +1,6 @@
 [package]
 name    = "searchspot"
-version = "0.2.2"
+version = "0.3.0"
 
 authors = ["Giovanni Capuano <webmaster@giovannicapuano.net>"]
 license = "BSD-2-Clause"
