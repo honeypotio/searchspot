@@ -497,7 +497,7 @@ mod tests {
         batch_ends_at:      epoch_from_year!("2020"),
         added_to_batch_at:  epoch_from_year!("2006"),
         weight:             6,
-        blocked_companies:  vec![]
+        blocked_companies:  vec![22]
       },
 
       Talent {
@@ -523,7 +523,7 @@ mod tests {
         work_roles:         vec!["Fullstack".to_owned(), "DevOps".to_owned()],
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
-        work_authorization: "yes".to_owned(),
+        work_authorization: "no".to_owned(),
         skills:             vec!["ClojureScript".to_owned(), "C++".to_owned()],
         summary:            "ClojureScript right now, previously C++".to_owned(),
         company_ids:        vec![6],
@@ -758,10 +758,28 @@ mod tests {
       assert_eq!(vec![4, 2], results.ids());
     }
 
+    // filtering for work_authorization
+    {
+      let mut map = Map::new();
+      map.assign("work_authorization[]", Value::String("no".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![4], results.ids());
+    }
+
     // ignoring contacted talents
     {
       let mut map = Map::new();
       map.assign("contacted_talents[]", Value::String("2".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![4, 5, 1], results.ids());
+    }
+
+    // ignoring blocked companies
+    {
+      let mut map = Map::new();
+      map.assign("company_id", Value::U64(22)).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![4, 5, 1], results.ids());
