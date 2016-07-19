@@ -333,7 +333,7 @@ impl Resource for Talent {
           "type"            => "string",
           "analyzer"        => "trigrams",
           "search_analyzer" => "words",
-          "boost"           => "2.0"
+          "boost"           => "2.0",
         },
 
         "company_ids" => hashmap! {
@@ -382,35 +382,41 @@ impl Resource for Talent {
       analysis: Analysis {
         filter: btreemap! {
           "trigrams_filter".to_owned() => JsonValue::Object(btreemap! {
-            "type".to_owned()     => JsonValue::String("ngram".to_owned()),
+            "type".to_owned()     => JsonValue::String("ngram".into()),
             "min_gram".to_owned() => JsonValue::U64(2),
             "max_gram".to_owned() => JsonValue::U64(20)
           }),
 
           "words_filter".to_owned() => JsonValue::Object(btreemap! {
-            "type".to_owned()              => JsonValue::String("word_delimiter".to_owned()),
+            "type".to_owned()              => JsonValue::String("word_delimiter".into()),
             "preserve_original".to_owned() => JsonValue::Bool(true)
+          }),
+
+          "english_words_filter".to_owned() => JsonValue::Object(btreemap! {
+            "type".to_owned()       => JsonValue::String("stop".into()),
+            "stop_words".to_owned() => JsonValue::String("_english_".into())
           })
         },
         analyzer: btreemap! {
           "trigrams".to_owned() => JsonValue::Object(btreemap! {
-            "type".to_owned()      => JsonValue::String("custom".to_owned()),
+            "type".to_owned()      => JsonValue::String("custom".into()),
             "tokenizer".to_owned() => JsonValue::String("whitespace".into()),
             "filter".to_owned()    => JsonValue::Array(
                                         vec![
                                           JsonValue::String("lowercase".into()),
                                           JsonValue::String("words_filter".into()),
-                                          JsonValue::String("trigrams_filter".into()),
+                                          JsonValue::String("trigrams_filter".into())
                                         ])
           }),
 
           "words".to_owned() => JsonValue::Object(btreemap! {
-            "type".to_owned()      => JsonValue::String("custom".to_owned()),
+            "type".to_owned()      => JsonValue::String("custom".into()),
             "tokenizer".to_owned() => JsonValue::String("whitespace".into()),
             "filter".to_owned()    => JsonValue::Array(
                                         vec![
                                           JsonValue::String("lowercase".into()),
-                                          JsonValue::String("words_filter".into())
+                                          JsonValue::String("words_filter".into()),
+                                          JsonValue::String("english_words_filter".into())
                                         ])
           })
         }
@@ -583,7 +589,7 @@ mod tests {
     // a non existing index is given
     {
       let mut map = Map::new();
-      map.assign("index", Value::String("lololol".to_owned())).unwrap();
+      map.assign("index", Value::String("lololol".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert!(results.is_empty());
@@ -601,7 +607,7 @@ mod tests {
     // searching for work roles
     {
       let mut map = Map::new();
-      map.assign("work_roles[]", Value::String("Fullstack".to_owned())).unwrap();
+      map.assign("work_roles[]", Value::String("Fullstack".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![4, 5], results.ids());
@@ -610,7 +616,7 @@ mod tests {
     // searching for work experience
     {
       let mut map = Map::new();
-      map.assign("work_experience[]", Value::String("8+".to_owned())).unwrap();
+      map.assign("work_experience[]", Value::String("8+".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![2], results.ids());
@@ -619,7 +625,7 @@ mod tests {
     // searching for work locations
     {
       let mut map = Map::new();
-      map.assign("work_locations[]", Value::String("Rome".to_owned())).unwrap();
+      map.assign("work_locations[]", Value::String("Rome".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![2], results.ids());
@@ -628,7 +634,7 @@ mod tests {
     // searching for a single keyword
     {
       let mut map = Map::new();
-      map.assign("keywords", Value::String("HTML5".to_owned())).unwrap();
+      map.assign("keywords", Value::String("HTML5".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![1, 2], results.ids());
@@ -637,7 +643,7 @@ mod tests {
     // searching for a single, differently cased and incomplete keyword
     {
       let mut map = Map::new();
-      map.assign("keywords", Value::String("html".to_owned())).unwrap();
+      map.assign("keywords", Value::String("html".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![1, 2, 5], results.ids());
@@ -646,8 +652,8 @@ mod tests {
     // searching for keywords and filters
     {
       let mut map = Map::new();
-      map.assign("keywords", Value::String("Rust, HTML5 and HTML".to_owned())).unwrap();
-      map.assign("work_locations[]", Value::String("Rome".to_owned())).unwrap();
+      map.assign("keywords", Value::String("Rust, HTML5 and HTML".into())).unwrap();
+      map.assign("work_locations[]", Value::String("Rome".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![2], results.ids());
@@ -656,7 +662,7 @@ mod tests {
     // searching for a non-matching keyword
     {
       let mut map = Map::new();
-      map.assign("keywords", Value::String("Criogenesi".to_owned())).unwrap();
+      map.assign("keywords", Value::String("Criogenesi".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert!(results.is_empty());
@@ -665,7 +671,7 @@ mod tests {
     // searching for an empty keyword
     {
       let mut map = Map::new();
-      map.assign("keywords", Value::String("".to_owned())).unwrap();
+      map.assign("keywords", Value::String("".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![4, 5, 2, 1], results.ids());
@@ -677,7 +683,7 @@ mod tests {
       // JavaScript, Java
       {
         let mut map = Map::new();
-        map.assign("keywords", Value::String("Java".to_owned())).unwrap();
+        map.assign("keywords", Value::String("Java".into())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
         assert_eq!(vec![2, 5], results.ids());
@@ -686,7 +692,7 @@ mod tests {
       // JavaScript
       {
         let mut map = Map::new();
-        map.assign("keywords", Value::String("javascript".to_owned())).unwrap();
+        map.assign("keywords", Value::String("javascript".into())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
         assert_eq!(vec![5], results.ids());
@@ -695,7 +701,7 @@ mod tests {
       // JavaScript, ClojureScript
       {
         let mut map = Map::new();
-        map.assign("keywords", Value::String("script".to_owned())).unwrap();
+        map.assign("keywords", Value::String("script".into())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
         assert_eq!(vec![4, 5], results.ids());
@@ -706,7 +712,7 @@ mod tests {
     {
       {
         let mut map = Map::new();
-        map.assign("keywords", Value::String("right now".to_owned())).unwrap();
+        map.assign("keywords", Value::String("right now".into())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
         assert_eq!(vec![4], results.ids());
@@ -714,7 +720,7 @@ mod tests {
 
       {
         let mut map = Map::new();
-        map.assign("keywords", Value::String("C++".to_owned())).unwrap();
+        map.assign("keywords", Value::String("C++".into())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
         assert_eq!(vec![4, 5], results.ids());
@@ -722,17 +728,25 @@ mod tests {
 
       {
         let mut map = Map::new();
-        map.assign("keywords", Value::String("C#".to_owned())).unwrap();
+        map.assign("keywords", Value::String("C#".into())).unwrap();
 
         let results = Talent::search(&mut client, &*config.es.index, &map);
         assert_eq!(vec![5], results.ids());
+      }
+
+      {
+        let mut map = Map::new();
+        map.assign("keywords", Value::String("rust and".into())).unwrap();
+
+        let results = Talent::search(&mut client, &*config.es.index, &map);
+        assert_eq!(vec![1, 2], results.ids());
       }
     }
 
     // highlight
     {
       let mut map = Map::new();
-      map.assign("keywords", Value::String("C#".to_owned())).unwrap();
+      map.assign("keywords", Value::String("C#".into())).unwrap();
 
       let results    = Talent::search(&mut client, &*config.es.index, &map).results;
       let highlights = results.into_iter().map(|r| r.highlight.unwrap()).collect::<Vec<HighlightResult>>();
@@ -761,7 +775,7 @@ mod tests {
     // filtering for work_authorization
     {
       let mut map = Map::new();
-      map.assign("work_authorization[]", Value::String("no".to_owned())).unwrap();
+      map.assign("work_authorization[]", Value::String("no".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![4], results.ids());
@@ -770,7 +784,7 @@ mod tests {
     // ignoring contacted talents
     {
       let mut map = Map::new();
-      map.assign("contacted_talents[]", Value::String("2".to_owned())).unwrap();
+      map.assign("contacted_talents[]", Value::String("2".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![4, 5, 1], results.ids());
