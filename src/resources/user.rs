@@ -405,7 +405,8 @@ impl Resource for Talent {
                                         vec![
                                           JsonValue::String("lowercase".into()),
                                           JsonValue::String("words_filter".into()),
-                                          JsonValue::String("trigrams_filter".into())
+                                          JsonValue::String("trigrams_filter".into()),
+                                          JsonValue::String("english_words_filter".into())
                                         ])
           }),
 
