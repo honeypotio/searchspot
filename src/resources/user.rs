@@ -65,6 +65,7 @@ pub struct Talent {
   pub work_authorization: String,
   pub skills:             Vec<String>,
   pub summary:            String,
+  pub headline:           String,
   pub company_ids:        Vec<u32>,
   pub batch_starts_at:    String,
   pub batch_ends_at:      String,
@@ -183,8 +184,11 @@ impl Talent {
           true  => None,
           false => Some(
               Query::build_multi_match(
-                  vec!["skills".to_owned(), "summary".to_owned()],
-                  keywords.to_owned())
+                  vec![
+                    "skills".to_owned(),
+                    "summary".to_owned(),
+                    "headline".to_owned()
+                  ], keywords.to_owned())
              .with_type(MatchQueryType::CrossFields)
              .with_tie_breaker(0.0)
              .build())
@@ -250,7 +254,8 @@ impl Resource for Talent {
                                    .with_fragment_size(1)
                                    .to_owned();
       highlight.add_setting("skills".to_owned(),  settings.clone());
-      highlight.add_setting("summary".to_owned(), settings);
+      highlight.add_setting("summary".to_owned(), settings.clone());
+      highlight.add_setting("headline".to_owned(), settings);
 
       es.search_query()
         .with_indexes(&*index)
@@ -334,6 +339,13 @@ impl Resource for Talent {
           "analyzer"        => "trigrams",
           "search_analyzer" => "words",
           "boost"           => "2.0",
+        },
+
+        "headline" => hashmap! {
+          "type"            => "string",
+          "analyzer"        => "trigrams",
+          "search_analyzer" => "words",
+          "boost"           => "2.0"
         },
 
         "company_ids" => hashmap! {
@@ -481,7 +493,8 @@ mod tests {
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
         skills:             vec!["Rust".to_owned(), "HTML5".to_owned(), "HTML".to_owned()],
-        summary:            "I'm a Rust developer and sometimes I do also HTML.".to_owned(),
+        summary:            "I'm a senior Rust developer and sometimes I do also HTML.".to_owned(),
+        headline:           "Backend developer with Rust experience".to_owned(),
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2006"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -499,6 +512,7 @@ mod tests {
         work_authorization: "yes".to_owned(),
         skills:             vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned()],
         summary:            "I'm a java dev with some tricks up my sleeves".to_owned(),
+        headline:           "Senior Java engineer".to_owned(),
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2006"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -516,6 +530,7 @@ mod tests {
         work_authorization: "yes".to_owned(),
         skills:             vec![],
         summary:            "".to_owned(),
+        headline:           "".to_owned(),
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2007"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -533,6 +548,7 @@ mod tests {
         work_authorization: "no".to_owned(),
         skills:             vec!["ClojureScript".to_owned(), "C++".to_owned()],
         summary:            "ClojureScript right now, previously C++".to_owned(),
+        headline:           "Senior fullstack developer with sysadmin skills".to_owned(),
         company_ids:        vec![6],
         batch_starts_at:    epoch_from_year!("2008"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -550,6 +566,7 @@ mod tests {
         work_authorization: "yes".to_owned(),
         skills:             vec!["JavaScript".to_owned(), "C++".to_owned()],
         summary:            "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?".to_owned(),
+        headline:           "Amazing C developer".to_owned(),
         company_ids:        vec![6],
         batch_starts_at:    epoch_from_year!("2008"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -744,6 +761,14 @@ mod tests {
       }
     }
 
+    // Searching for headline and summary
+    {
+      let mut map = Map::new();
+      map.assign("keywords", Value::String("senior".to_owned())).unwrap();
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![2, 4, 1], results.ids());
+    }
+
     // highlight
     {
       let mut map = Map::new();
@@ -812,6 +837,7 @@ mod tests {
       \"work_authorization\":\"yes\",
       \"skills\":[\"Rust\"],
       \"summary\":\"\",
+      \"headline\":\"\",
       \"company_ids\":[],
       \"accepted\":true,
       \"batch_starts_at\":\"2016-03-04T12:24:00+01:00\",
