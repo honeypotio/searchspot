@@ -5,4 +5,5 @@ extern crate rs_es;
 extern crate searchspot;
 extern crate params;
 
-pub mod user;
+mod talent;
+pub use self::talent::Talent;

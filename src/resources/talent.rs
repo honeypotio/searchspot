@@ -464,7 +464,7 @@ mod tests {
   use searchspot::config::*;
   use searchspot::resource::*;
 
-  use resources::user::Talent;
+  use resources::Talent;
 
   const CONFIG_FILE: &'static str = "examples/tests.toml";
 
