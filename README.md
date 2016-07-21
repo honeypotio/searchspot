@@ -1,5 +1,7 @@
 Searchspot
 ==========
+[![CircleCI](https://circleci.com/gh/honeypotio/searchspot.svg?style=svg)](https://circleci.com/gh/honeypotio/searchspot)
+
 This service is used as endpoint responsible for Honeypot's ElasticSearch data and it's powered by [benashford](https://github.com/benashford)'s rs-es.
 
 We hope that it will be useful to anyone who needs a search engine with a more-or-less complex system of data filtering
