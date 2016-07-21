@@ -2,7 +2,8 @@ Searchspot
 ==========
 [![CircleCI](https://circleci.com/gh/honeypotio/searchspot.svg?style=svg)](https://circleci.com/gh/honeypotio/searchspot)
 
-This service is used as endpoint responsible for Honeypot's ElasticSearch data and it's powered by [benashford](https://github.com/benashford)'s rs-es.
+This service is responsible for Honeypot's ElasticSearch data and is mainly powered by [rs-es](https://github.com/benashford/rs-es) and [iron](https://github.com/iron/iron).
+Companies on [Honeypot](https://www.honeypot.io/pages/how_does_it_work?utm_source=searchspot) use it to search the developers they need to hire.
 
 We hope that it will be useful to anyone who needs a search engine with a more-or-less complex system of data filtering
 (including strings, dates and booleans querying and full text search).
@@ -73,5 +74,15 @@ You can get the data for `ES_HOST` by adding an addon ((☞ﾟ∀ﾟ)☞) for El
 
 `AUTH_` is optional – if omitted the feature will be turned off.
 
-P.S.: Companies on [Honeypot](https://www.honeypot.io/pages/how_does_it_work?utm_source=searchspot) use this service to search the developers
-they need to hire!
+License
+-------
+Copyright © 2016 [Honeypot GmbH](https://www.honeypot.io/?utm_source=searchspot).
+It is free software, and may be redistributed under the terms specified in the [LICENSE](/LICENSE) file.
+
+About Honeypot
+--------------
+[![Honeypot](https://www.honeypot.io/logo.png)](https://www.honeypot.io/?utm_source=searchspot)
+
+Honeypot is a developer focused job platform.
+
+The names and logos for Honeypot are trademarks of Honeypot GmbH.
