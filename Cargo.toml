@@ -14,10 +14,10 @@ nightly = ["serde_macros"]
 [dependencies]
 chrono       = "0.2"
 
-iron         = "0.3"
-router       = "0.1"
-logger       = { git = "https://github.com/nevdelap/logger" }
-params       = "0.2"
+iron         = "0.4"
+router       = { git = "https://github.com/slashgrin/router",   branch = "update_to_iron_0.4" }
+logger       = { git = "https://github.com/RoxasShadow/logger", branch = "bug/compile-on-iron-0.4" }
+params       = "0.3"
 
 lazy_static  = "0.2"
 maplit       = "0.1"
