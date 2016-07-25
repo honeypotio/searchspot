@@ -16,7 +16,7 @@ chrono       = "0.2"
 
 iron         = "0.4"
 router       = { git = "https://github.com/slashgrin/router",   branch = "update_to_iron_0.4" }
-logger       = { git = "https://github.com/RoxasShadow/logger", branch = "bug/compile-on-iron-0.4" }
+logger       = "0.1"
 params       = "0.3"
 
 lazy_static  = "0.2"
