@@ -399,9 +399,10 @@ impl Resource for Talent {
             "max_gram".to_owned() => JsonValue::U64(20)
           }),
 
-          "words_filter".to_owned() => JsonValue::Object(btreemap! {
+          "words_splitter".to_owned() => JsonValue::Object(btreemap! {
             "type".to_owned()              => JsonValue::String("word_delimiter".into()),
-            "preserve_original".to_owned() => JsonValue::Bool(true)
+            "preserve_original".to_owned() => JsonValue::Bool(true),
+            "catenate_all".to_owned()      => JsonValue::Bool(true)
           }),
 
           "english_words_filter".to_owned() => JsonValue::Object(btreemap! {
@@ -410,28 +411,29 @@ impl Resource for Talent {
           })
         },
         analyzer: btreemap! {
-          "trigrams".to_owned() => JsonValue::Object(btreemap! {
+          "trigrams".to_owned() => JsonValue::Object(btreemap! { // index time
             "type".to_owned()      => JsonValue::String("custom".into()),
             "tokenizer".to_owned() => JsonValue::String("whitespace".into()),
             "filter".to_owned()    => JsonValue::Array(
                                         vec![
                                           JsonValue::String("lowercase".into()),
-                                          JsonValue::String("words_filter".into()),
+                                          JsonValue::String("words_splitter".into()),
                                           JsonValue::String("trigrams_filter".into()),
                                           JsonValue::String("english_words_filter".into())
                                         ])
           }),
 
-          "words".to_owned() => JsonValue::Object(btreemap! {
+          "words".to_owned() => JsonValue::Object(btreemap! { // query time
             "type".to_owned()      => JsonValue::String("custom".into()),
-            "tokenizer".to_owned() => JsonValue::String("whitespace".into()),
+            "tokenizer".to_owned() => JsonValue::String("keyword".into()),
             "filter".to_owned()    => JsonValue::Array(
                                         vec![
                                           JsonValue::String("lowercase".into()),
-                                          JsonValue::String("words_filter".into()),
+                                          JsonValue::String("words_splitter".into()),
                                           JsonValue::String("english_words_filter".into())
                                         ])
           })
+
         }
       }
     };
@@ -546,7 +548,7 @@ mod tests {
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "no".to_owned(),
-        skills:             vec!["ClojureScript".to_owned(), "C++".to_owned()],
+        skills:             vec!["ClojureScript".to_owned(), "C++".to_owned(), "React.js".to_owned()],
         summary:            "ClojureScript right now, previously C++".to_owned(),
         headline:           "Senior fullstack developer with sysadmin skills".to_owned(),
         company_ids:        vec![6],
@@ -667,6 +669,17 @@ mod tests {
       assert_eq!(vec![1, 2, 5], results.ids());
     }
 
+    // searching for a single word that's supposed to be split
+    {
+      let mut map = Map::new();
+      map.assign("keywords", Value::String("reactjs".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![4], results.ids());
+    }
+
+
+
     // searching for keywords and filters
     {
       let mut map = Map::new();
@@ -776,7 +789,7 @@ mod tests {
 
       let results    = Talent::search(&mut client, &*config.es.index, &map).results;
       let highlights = results.into_iter().map(|r| r.highlight.unwrap()).collect::<Vec<HighlightResult>>();
-      assert_eq!(highlights[0].get("summary"), Some(&vec![" C#.".to_owned()]));
+      assert_eq!(Some(&vec![" C#.".to_owned()]), highlights[0].get("summary"));
     }
 
     // filtering for given company_id
