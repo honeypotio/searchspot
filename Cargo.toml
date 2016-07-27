@@ -8,14 +8,14 @@ license = "BSD-2-Clause"
 build   = "build.rs"
 
 [features]
-default = ["serde_codegen"]
-nightly = ["serde_macros"]
+default = ["serde_codegen", "rs-es/default_without_ssl"]
+nightly = ["serde_macros", "rs-es/nightly_without_ssl"]
 
 [dependencies]
 chrono       = "0.2"
 
 iron         = "0.4"
-router       = { git = "https://github.com/slashgrin/router",   branch = "update_to_iron_0.4" }
+router       = "0.2"
 logger       = "0.1"
 params       = "0.3"
 
@@ -26,7 +26,7 @@ log          = "0.3"
 
 serde        = "0.7"
 serde_json   = "0.7"
-serde_macros = { version = "0.7.11", optional = true }
+serde_macros = { version = "0.7", optional = true }
 
 [build-dependencies]
 serde_codegen = { version = "0.7", optional = true }
@@ -37,8 +37,7 @@ features = ["serde"]
 default-features = false
 
 [dependencies.rs-es]
-version  = "0.4"
-features = ["default_without_ssl"]
+version = "0.4"
 default-features = false
 
 [lib]
