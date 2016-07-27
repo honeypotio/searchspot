@@ -15,7 +15,7 @@ nightly = ["serde_macros"]
 chrono       = "0.2"
 
 iron         = "0.4"
-router       = { git = "https://github.com/slashgrin/router",   branch = "update_to_iron_0.4" }
+router       = "0.2"
 logger       = "0.1"
 params       = "0.3"
 
@@ -24,12 +24,12 @@ maplit       = "0.1"
 oath         = "0.1"
 log          = "0.3"
 
-serde        = "0.7"
+serde        = "=0.7.14"
 serde_json   = "0.7"
-serde_macros = { version = "0.7.11", optional = true }
+serde_macros = { version = "=0.7.11", optional = true }
 
 [build-dependencies]
-serde_codegen = { version = "0.7", optional = true }
+serde_codegen = { version = "=0.7.14", optional = true }
 
 [dependencies.toml]
 version  = "0.1"
