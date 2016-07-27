@@ -1,6 +1,6 @@
 Searchspot
 ==========
-[![CircleCI](https://circleci.com/gh/honeypotio/searchspot.svg?style=svg)](https://circleci.com/gh/honeypotio/searchspot)
+[![Build Status](https://travis-ci.org/honeypotio/searchspot.svg)](https://travis-ci.org/honeypotio/searchspot)
 
 This service is responsible for Honeypot's ElasticSearch data and is mainly powered by [rs-es](https://github.com/benashford/rs-es) and [iron](https://github.com/iron/iron).
 Companies on [Honeypot](https://www.honeypot.io/pages/how_does_it_work?utm_source=searchspot) use it to search the developers they need to hire.
