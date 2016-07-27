@@ -1,0 +1,27 @@
+language: rust
+matrix:
+  include:
+    - rust: stable
+    - rust: nightly
+      env:
+       - FEATURES='nightly'
+
+cache:
+  cargo: true
+  directories:
+    - elasticsearch-2.2.2
+
+before_install:
+  - wget https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-2.2.2.tar.gz
+  - tar -xvf elasticsearch-2.2.2.tar.gz
+  - sudo chmod 777 /var/log/elasticsearch
+  - elasticsearch-2.2.2/bin/elasticsearch > /tmp/es.log &
+
+env:
+  - PATH: ${PATH}:${TRAVIS_BUILD_DIR}/elasticsearch-2.2.2/bin
+
+script:
+  - |
+      cargo build && cargo test &&
+      ([ -z "$FEATURES" ] || cargo build --features "$FEATURES" --no-default-features) &&
+      ([ -z "$FEATURES" ] || cargo test  --features "$FEATURES" --no-default-features)
