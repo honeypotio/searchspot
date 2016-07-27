@@ -406,8 +406,16 @@ impl Resource for Talent {
           }),
 
           "english_words_filter".to_owned() => JsonValue::Object(btreemap! {
-            "type".to_owned()       => JsonValue::String("stop".into()),
-            "stop_words".to_owned() => JsonValue::String("_english_".into())
+            "type".to_owned()      => JsonValue::String("stop".into()),
+            "stopwords".to_owned() => JsonValue::String("_english_".into())
+          }),
+
+          "tech_words_filter".to_owned() => JsonValue::Object(btreemap! {
+            "type".to_owned()      => JsonValue::String("stop".into()),
+            "stopwords".to_owned() => JsonValue::Array(
+                                        vec![
+                                          JsonValue::String("js".into())
+                                        ])
           })
         },
         analyzer: btreemap! {
@@ -419,7 +427,8 @@ impl Resource for Talent {
                                           JsonValue::String("lowercase".into()),
                                           JsonValue::String("words_splitter".into()),
                                           JsonValue::String("trigrams_filter".into()),
-                                          JsonValue::String("english_words_filter".into())
+                                          JsonValue::String("english_words_filter".into()),
+                                          JsonValue::String("tech_words_filter".into())
                                         ])
           }),
 
@@ -430,7 +439,8 @@ impl Resource for Talent {
                                         vec![
                                           JsonValue::String("lowercase".into()),
                                           JsonValue::String("words_splitter".into()),
-                                          JsonValue::String("english_words_filter".into())
+                                          JsonValue::String("english_words_filter".into()),
+                                          JsonValue::String("tech_words_filter".into())
                                         ])
           })
 
@@ -566,7 +576,7 @@ mod tests {
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
-        skills:             vec!["JavaScript".to_owned(), "C++".to_owned()],
+        skills:             vec!["JavaScript".to_owned(), "C++".to_owned(), "Ember.js".to_owned()],
         summary:            "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?".to_owned(),
         headline:           "Amazing C developer".to_owned(),
         company_ids:        vec![6],
@@ -669,6 +679,16 @@ mod tests {
       assert_eq!(vec![1, 2, 5], results.ids());
     }
 
+    // searching for keywords and filters
+    {
+      let mut map = Map::new();
+      map.assign("keywords", Value::String("Rust, HTML5 and HTML".into())).unwrap();
+      map.assign("work_locations[]", Value::String("Rome".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![2], results.ids());
+    }
+
     // searching for a single word that's supposed to be split
     {
       let mut map = Map::new();
@@ -678,16 +698,15 @@ mod tests {
       assert_eq!(vec![4], results.ids());
     }
 
-
-
-    // searching for keywords and filters
+    // searching for the original dotted string
     {
       let mut map = Map::new();
-      map.assign("keywords", Value::String("Rust, HTML5 and HTML".into())).unwrap();
-      map.assign("work_locations[]", Value::String("Rome".into())).unwrap();
+      map.assign("keywords", Value::String("react.js".into())).unwrap();
+      map.assign("work_locations[]", Value::String("Berlin".into())).unwrap();
+      map.assign("work_roles[]", Value::String("Fullstack".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![2], results.ids());
+      assert_eq!(vec![4], results.ids());
     }
 
     // searching for a non-matching keyword
