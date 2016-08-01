@@ -276,19 +276,19 @@ impl Resource for Talent {
     match result {
       Ok(result) => {
         SearchResults::new(result.hits.hits.into_iter()
-                                          .filter(|hit| {
-                                            match hit.score {
-                                              Some(score) => score > 0.9,
-                                              None        => true
-                                            }
-                                          })
-                                          .map(|hit| {
-                                            SearchResult {
-                                              talent: FoundTalent { id: hit.source.unwrap().id },
-                                              highlight: hit.highlight
-                                            }
-                                          })
-                                          .collect::<Vec<SearchResult>>())
+                                           .filter(|hit| {
+                                              match hit.score {
+                                                Some(score) => score > 0.55,
+                                                None        => true
+                                              }
+                                            })
+                                           .map(|hit| {
+                                             SearchResult {
+                                               talent: FoundTalent { id: hit.source.unwrap().id },
+                                               highlight: hit.highlight
+                                             }
+                                           })
+                                           .collect::<Vec<SearchResult>>())
       },
       Err(err) => {
         println!("{:?}", err);
@@ -667,7 +667,7 @@ mod tests {
       map.assign("keywords", Value::String("HTML5".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![1, 2], results.ids());
+      assert_eq!(vec![1, 2, 5], results.ids());
     }
 
     // searching for a single, differently cased and incomplete keyword
