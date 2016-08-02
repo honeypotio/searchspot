@@ -67,6 +67,7 @@ pub struct Talent {
   pub skills:             Vec<String>,
   pub summary:            String,
   pub headline:           String,
+  pub job_titles:         Vec<String>,
   pub company_ids:        Vec<u32>,
   pub batch_starts_at:    String,
   pub batch_ends_at:      String,
@@ -189,7 +190,8 @@ impl Talent {
                     "skills".to_owned(),
                     "summary".to_owned(),
                     "headline".to_owned(),
-                    "work_roles".to_owned()
+                    "work_roles".to_owned(),
+                    "job_titles".to_owned()
                   ], keywords.to_owned())
              .with_type(MatchQueryType::CrossFields)
              .with_tie_breaker(0.0)
@@ -258,7 +260,8 @@ impl Resource for Talent {
       highlight.add_setting("skills".to_owned(),  settings.clone());
       highlight.add_setting("summary".to_owned(), settings.clone());
       highlight.add_setting("headline".to_owned(), settings.clone());
-      highlight.add_setting("work_roles".to_owned(), settings);
+      highlight.add_setting("work_roles".to_owned(), settings.clone());
+      highlight.add_setting("job_titles".to_owned(), settings);
 
       es.search_query()
         .with_indexes(&*index)
@@ -350,6 +353,12 @@ impl Resource for Talent {
           "analyzer"        => "trigrams",
           "search_analyzer" => "words",
           "boost"           => "2.0"
+        },
+
+        "job_titles" => hashmap! {
+          "type"            => "string",
+          "analyzer"        => "trigrams",
+          "search_analyzer" => "words"
         },
 
         "company_ids" => hashmap! {
@@ -510,6 +519,7 @@ mod tests {
         skills:             vec!["Rust".to_owned(), "HTML5".to_owned(), "HTML".to_owned()],
         summary:            "I'm a senior Rust developer and sometimes I do also HTML.".to_owned(),
         headline:           "Backend developer with Rust experience".to_owned(),
+        job_titles:         vec!["Database Administrator".to_owned()],
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2006"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -528,6 +538,7 @@ mod tests {
         skills:             vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned()],
         summary:            "I'm a java dev with some tricks up my sleeves".to_owned(),
         headline:           "Senior Java engineer".to_owned(),
+        job_titles:         vec![],
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2006"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -546,6 +557,7 @@ mod tests {
         skills:             vec![],
         summary:            "".to_owned(),
         headline:           "".to_owned(),
+        job_titles:         vec![],
         company_ids:        vec![],
         batch_starts_at:    epoch_from_year!("2007"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -564,6 +576,7 @@ mod tests {
         skills:             vec!["ClojureScript".to_owned(), "C++".to_owned(), "React.js".to_owned()],
         summary:            "ClojureScript right now, previously C++".to_owned(),
         headline:           "Senior fullstack developer with sysadmin skills".to_owned(),
+        job_titles:         vec!["Backend Engineer".to_owned(), "Database Administrator".to_owned()],
         company_ids:        vec![6],
         batch_starts_at:    epoch_from_year!("2008"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -582,6 +595,7 @@ mod tests {
         skills:             vec!["JavaScript".to_owned(), "C++".to_owned(), "Ember.js".to_owned()],
         summary:            "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?".to_owned(),
         headline:           "Amazing C developer".to_owned(),
+        job_titles:         vec![],
         company_ids:        vec![6],
         batch_starts_at:    epoch_from_year!("2008"),
         batch_ends_at:      epoch_from_year!("2020"),
@@ -814,6 +828,15 @@ mod tests {
       assert_eq!(vec![4, 5], results.ids());
     }
 
+    // Searching for previous job title
+    {
+      let mut map = Map::new();
+      map.assign("keywords", Value::String("database admin".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![1, 4], results.ids());
+    }
+
     // highlight
     {
       let mut map = Map::new();
@@ -883,6 +906,7 @@ mod tests {
       \"skills\":[\"Rust\"],
       \"summary\":\"\",
       \"headline\":\"\",
+      \"job_titles\":[],
       \"company_ids\":[],
       \"accepted\":true,
       \"batch_starts_at\":\"2016-03-04T12:24:00+01:00\",
