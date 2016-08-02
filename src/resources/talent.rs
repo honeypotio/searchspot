@@ -13,6 +13,7 @@ use super::rs_es::error::EsError;
 use super::rs_es::operations::search::highlight::*;
 
 use searchspot::terms::VectorOfTerms;
+use searchspot::matches::VectorOfMatches;
 use searchspot::resource::*;
 
 /// The type that we use in ElasticSearch for defining a Talent.
@@ -141,7 +142,7 @@ impl Talent {
                   None           => vec![]
                 },
 
-               <Query as VectorOfTerms<String>>::build_terms(
+               <Query as VectorOfMatches<String>>::build_match(
                  "work_roles", &vec_from_params!(params, "work_roles")),
 
                <Query as VectorOfTerms<String>>::build_terms(
@@ -187,7 +188,8 @@ impl Talent {
                   vec![
                     "skills".to_owned(),
                     "summary".to_owned(),
-                    "headline".to_owned()
+                    "headline".to_owned(),
+                    "work_roles".to_owned()
                   ], keywords.to_owned())
              .with_type(MatchQueryType::CrossFields)
              .with_tie_breaker(0.0)
@@ -255,7 +257,8 @@ impl Resource for Talent {
                                    .to_owned();
       highlight.add_setting("skills".to_owned(),  settings.clone());
       highlight.add_setting("summary".to_owned(), settings.clone());
-      highlight.add_setting("headline".to_owned(), settings);
+      highlight.add_setting("headline".to_owned(), settings.clone());
+      highlight.add_setting("work_roles".to_owned(), settings);
 
       es.search_query()
         .with_indexes(&*index)
@@ -309,8 +312,9 @@ impl Resource for Talent {
         },
 
         "work_roles" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
+          "type"            => "string",
+          "analyzer"        => "trigrams",
+          "search_analyzer" => "words"
         },
 
         "work_experience" => hashmap! {
@@ -443,7 +447,6 @@ impl Resource for Talent {
                                           JsonValue::String("tech_words_filter".into())
                                         ])
           })
-
         }
       }
     };
@@ -797,8 +800,18 @@ mod tests {
     {
       let mut map = Map::new();
       map.assign("keywords", Value::String("senior".to_owned())).unwrap();
+
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![2, 4, 1], results.ids());
+    }
+
+    // Searching for ideal work roles
+    {
+      let mut map = Map::new();
+      map.assign("keywords", Value::String("Devops".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![4, 5], results.ids());
     }
 
     // highlight
