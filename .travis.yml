@@ -2,6 +2,7 @@ language: rust
 matrix:
   include:
     - rust: stable
+  allow_failures:
     - rust: nightly
       env:
        - FEATURES='nightly'
