@@ -40,7 +40,8 @@ features = ["serde"]
 default-features = false
 
 [dependencies.rs-es]
-version = "0.4"
+git    = "https://github.com/RoxasShadow/rs-es"
+branch = "fix-match-type"
 default-features = false
 
 [lib]

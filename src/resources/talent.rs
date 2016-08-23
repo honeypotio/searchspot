@@ -8,7 +8,7 @@ use super::rs_es::query::Query;
 use super::rs_es::operations::search::{Sort, SortField, Order};
 use super::rs_es::operations::index::IndexResult;
 use super::rs_es::operations::mapping::*;
-use super::rs_es::query::full_text::MatchQueryType;
+use super::rs_es::query::full_text::{MatchType, MatchQueryType};
 use super::rs_es::error::EsError;
 use super::rs_es::operations::search::highlight::*;
 
@@ -143,8 +143,12 @@ impl Talent {
                   None           => vec![]
                 },
 
-               <Query as VectorOfMatches<String>>::build_match(
-                 "work_roles", &vec_from_params!(params, "work_roles")),
+               vec![
+                 Query::build_bool().with_should(
+                   <Query as VectorOfMatches<String>>::build_match(
+                     "work_roles", &vec_from_params!(params, "work_roles"), Some(MatchType::Phrase))
+                 ).build()
+               ],
 
                <Query as VectorOfTerms<String>>::build_terms(
                  "work_experience", &vec_from_params!(params, "work_experience")),
