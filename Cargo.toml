@@ -1,6 +1,6 @@
 [package]
 name    = "searchspot"
-version = "0.6.1"
+version = "0.6.2"
 
 repository  = "https://github.com/honeypotio/searchspot"
 authors     = ["Giovanni Capuano <webmaster@giovannicapuano.net>"]
@@ -40,8 +40,7 @@ features = ["serde"]
 default-features = false
 
 [dependencies.rs-es]
-git    = "https://github.com/RoxasShadow/rs-es"
-branch = "fix-match-type"
+version = "0.4"
 default-features = false
 
 [lib]
