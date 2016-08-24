@@ -8,12 +8,11 @@ use super::rs_es::query::Query;
 use super::rs_es::operations::search::{Sort, SortField, Order};
 use super::rs_es::operations::index::IndexResult;
 use super::rs_es::operations::mapping::*;
-use super::rs_es::query::full_text::{MatchType, MatchQueryType};
+use super::rs_es::query::full_text::MatchQueryType;
 use super::rs_es::error::EsError;
 use super::rs_es::operations::search::highlight::*;
 
 use searchspot::terms::VectorOfTerms;
-use searchspot::matches::VectorOfMatches;
 use searchspot::resource::*;
 
 /// The type that we use in ElasticSearch for defining a Talent.
@@ -61,6 +60,7 @@ pub struct Talent {
   pub id:                 u32,
   pub accepted:           bool,
   pub work_roles:         Vec<String>,
+  pub work_roles_vanilla: Option<Vec<String>>,
   pub work_experience:    String,
   pub work_locations:     Vec<String>,
   pub work_authorization: String,
@@ -143,12 +143,8 @@ impl Talent {
                   None           => vec![]
                 },
 
-               vec![
-                 Query::build_bool().with_should(
-                   <Query as VectorOfMatches<String>>::build_match(
-                     "work_roles", &vec_from_params!(params, "work_roles"), Some(MatchType::Phrase))
-                 ).build()
-               ],
+               <Query as VectorOfTerms<String>>::build_terms(
+                 "work_roles_vanilla", &vec_from_params!(params, "work_roles")),
 
                <Query as VectorOfTerms<String>>::build_terms(
                  "work_experience", &vec_from_params!(params, "work_experience")),
@@ -224,8 +220,11 @@ impl Resource for Talent {
   /// Populate the ElasticSearch index with `self`.
   // I'm having problems with bulk actions. Let's wait for the next iteration.
   fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
+    let mut doc = self.to_owned();
+    doc.work_roles_vanilla = Some(doc.work_roles.to_owned());
+
     es.index(index, ES_TYPE)
-      .with_doc(&self)
+      .with_doc(&doc)
       .with_id(&*self.id.to_string())
       .send()
   }
@@ -322,6 +321,12 @@ impl Resource for Talent {
           "type"            => "string",
           "analyzer"        => "trigrams",
           "search_analyzer" => "words"
+        },
+
+        // TODO: use multi_field
+        "work_roles_vanilla" => hashmap! {
+          "type"  => "string",
+          "index" => "not_analyzed"
         },
 
         "work_experience" => hashmap! {
@@ -517,6 +522,7 @@ mod tests {
         id:                 1,
         accepted:           true,
         work_roles:         vec![],
+        work_roles_vanilla: None,
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
@@ -536,6 +542,7 @@ mod tests {
         id:                 2,
         accepted:           true,
         work_roles:         vec![],
+        work_roles_vanilla: None,
         work_experience:    "8+".to_owned(),
         work_locations:     vec!["Rome".to_owned(),"Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
@@ -555,6 +562,7 @@ mod tests {
         id:                 3,
         accepted:           false,
         work_roles:         vec![],
+        work_roles_vanilla: None,
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
@@ -574,6 +582,7 @@ mod tests {
         id:                 4,
         accepted:           true,
         work_roles:         vec!["Fullstack".to_owned(), "DevOps".to_owned()],
+        work_roles_vanilla: None,
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "no".to_owned(),
@@ -593,6 +602,7 @@ mod tests {
         id:                 5,
         accepted:           true,
         work_roles:         vec!["Fullstack".to_owned(), "DevOps".to_owned()],
+        work_roles_vanilla: None,
         work_experience:    "1..2".to_owned(),
         work_locations:     vec!["Berlin".to_owned()],
         work_authorization: "yes".to_owned(),
