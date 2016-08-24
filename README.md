@@ -75,6 +75,12 @@ You can get the data for `ES_HOST` by adding an addon ((☞ﾟ∀ﾟ)☞) for El
 
 `AUTH_` is optional – if omitted the feature will be turned off.
 
+Versioning
+----------
+Unfortunately we didn't use the semantic versioning from the very beginning. We'll bump the minor version
+when a relevant change is done or a reindex is needed, otherwise a patch will be released. No major version
+is currently planned to be released.
+
 License
 -------
 Copyright © 2016 [Honeypot GmbH](https://www.honeypot.io/?utm_source=searchspot).
