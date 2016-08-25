@@ -153,6 +153,37 @@ impl<R: Resource> Handler for IndexableHandler<R> {
   }
 }
 
+pub struct DeletableHandler<R> {
+  config:   Config,
+  resource: PhantomData<R>
+}
+
+impl<R: Resource> DeletableHandler<R> {
+  fn new(config: Config) -> Self {
+    DeletableHandler::<R> { resource: PhantomData, config: config }
+  }
+}
+
+impl<R: Resource> WritableEndpoint for DeletableHandler<R> {}
+
+impl<R: Resource> Handler for DeletableHandler<R> {
+  fn handle(&self, req: &mut Request) -> IronResult<Response> {
+    if !self.is_authorized(self.config.auth.to_owned(), &req.headers) {
+      unauthorized!();
+    }
+
+    let mut client = Client::new(&*self.config.es.host, self.config.es.port);
+    let ref id     = try_or_422!(req.extensions.get::<Router>().unwrap()
+                                                               .find("id")
+                                                               .ok_or("DELETE#:id not found"));
+
+    match R::delete(&mut client, id, &*self.config.es.index) {
+      Ok(_)  => Ok(Response::with(status::NoContent)),
+      Err(_) => Ok(Response::with(status::UnprocessableEntity))
+    }
+  }
+}
+
 pub struct ResettableHandler<R> {
   config:   Config,
   resource: PhantomData<R>
@@ -208,6 +239,9 @@ impl<R: Resource> Server<R> {
     router.post(&self.endpoint,   IndexableHandler::<R>::new(self.config.to_owned()));
     router.delete(&self.endpoint, ResettableHandler::<R>::new(self.config.to_owned()));
 
+    let deletable_endpoint = format!("{}/:id", self.endpoint);
+    router.delete(deletable_endpoint, DeletableHandler::<R>::new(self.config.to_owned()));
+
     match env::var("DYNO") { // for some reasons, chain::link makes heroku crash
       Ok(_)  => Iron::new(router).http(&*host),
       Err(_) => {
@@ -227,7 +261,8 @@ mod tests {
 
   use rs_es::Client;
   use rs_es::operations::index::IndexResult;
-  use rs_es::operations::mapping::*;
+  use rs_es::operations::delete::DeleteResult;
+  use rs_es::operations::mapping::{MappingOperation, MappingResult};
   use rs_es::error::EsError;
 
   #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -251,6 +286,10 @@ mod tests {
         .send()
     }
 
+    fn delete(mut es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError> {
+      es.delete(index, ES_TYPE, id)
+        .send()
+    }
 
     fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
       MappingOperation::new(&mut es, index).send()

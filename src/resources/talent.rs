@@ -7,6 +7,7 @@ use super::rs_es::Client;
 use super::rs_es::query::Query;
 use super::rs_es::operations::search::{Sort, SortField, Order};
 use super::rs_es::operations::index::IndexResult;
+use super::rs_es::operations::delete::DeleteResult;
 use super::rs_es::operations::mapping::*;
 use super::rs_es::query::full_text::MatchQueryType;
 use super::rs_es::error::EsError;
@@ -304,6 +305,12 @@ impl Resource for Talent {
         SearchResults::new(vec![])
       }
     }
+  }
+
+  /// Delete the talent associated to given id.
+  fn delete(mut es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError> {
+    es.delete(index, ES_TYPE, id)
+      .send()
   }
 
   /// Reset the given index. All the data will be destroyed and then the index
@@ -635,8 +642,10 @@ mod tests {
   #[test]
   fn test_search() {
     let mut client = make_client();
+
     assert!(Talent::reset_index(&mut client, &*config.es.index).is_ok());
     refresh_index(&mut client);
+
     assert!(populate_index(&mut client));
     refresh_index(&mut client);
 
@@ -645,6 +654,18 @@ mod tests {
       let results = Talent::search(&mut client, &*config.es.index, &Map::new());
       assert_eq!(vec![4, 5, 2, 1], results.ids());
       assert!(results.highlights().iter().all(|r| r.is_none()));
+    }
+
+    {
+      assert!(Talent::delete(&mut client, "1", &*config.es.index).is_ok());
+      assert!(Talent::delete(&mut client, "4", &*config.es.index).is_ok());
+      refresh_index(&mut client);
+
+      let results = Talent::search(&mut client, &*config.es.index, &Map::new());
+      assert_eq!(vec![5, 2], results.ids());
+
+      assert!(populate_index(&mut client));
+      refresh_index(&mut client);
     }
 
     // a non existing index is given

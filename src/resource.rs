@@ -3,7 +3,8 @@ use serde::ser::Serialize;
 
 use rs_es::Client;
 use rs_es::operations::index::IndexResult;
-use rs_es::operations::mapping::*;
+use rs_es::operations::delete::DeleteResult;
+use rs_es::operations::mapping::MappingResult;
 use rs_es::error::EsError;
 
 use params::*;
@@ -20,6 +21,9 @@ pub trait Resource: Send + Sync + Any + Deserialize + Debug {
   /// Respond to POST requests indexing given entity
   fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError>;
 
-  /// Respond to DELETE requests deleting all the entities from given index
+  /// Respond to DELETE requests on given id deleting it from given index
+  fn delete(mut es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError>;
+
+  /// Respond to DELETE requests rebuilding and reindexing given index
   fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError>;
 }
