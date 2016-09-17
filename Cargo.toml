@@ -27,20 +27,20 @@ maplit       = "0.1"
 oath         = "0.1"
 log          = "0.3"
 
-serde        = "0.7"
-serde_json   = "0.7"
-serde_macros = { version = "0.7", optional = true }
+serde        = "0.8"
+serde_json   = "0.8"
+serde_macros = { version = "0.8", optional = true }
 
 [build-dependencies]
-serde_codegen = { version = "0.7", optional = true }
+serde_codegen = { version = "0.8", optional = true }
 
 [dependencies.toml]
-version  = "0.1"
+version  = "0.2"
 features = ["serde"]
 default-features = false
 
 [dependencies.rs-es]
-version = "0.4"
+version = "0.5"
 default-features = false
 
 [lib]
