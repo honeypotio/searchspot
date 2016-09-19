@@ -6,7 +6,7 @@ use super::serde_json::Value as JsonValue;
 use super::rs_es::Client;
 use super::rs_es::query::Query;
 use super::rs_es::operations::search::{Sort, SortField, Order};
-use super::rs_es::operations::index::IndexResult;
+use super::rs_es::operations::bulk::{BulkResult, Action};
 use super::rs_es::operations::delete::DeleteResult;
 use super::rs_es::operations::mapping::*;
 use super::rs_es::query::full_text::MatchQueryType;
@@ -218,15 +218,17 @@ impl Talent {
 impl Resource for Talent {
   type Results = SearchResults;
 
-  /// Populate the ElasticSearch index with `self`.
-  // I'm having problems with bulk actions. Let's wait for the next iteration.
-  fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
-    let mut doc = self.to_owned();
-    doc.work_roles_vanilla = Some(doc.work_roles.to_owned());
-
-    es.index(index, ES_TYPE)
-      .with_doc(&doc)
-      .with_id(&*self.id.to_string())
+  /// Populate the ElasticSearch index with `Vec<Talent>`
+  fn index(mut es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
+    es.bulk(&resources.into_iter()
+                      .map(|mut r| {
+                          let id = r.id.to_string();
+                          r.work_roles_vanilla = Some(r.work_roles.to_owned());
+                          Action::index(r).with_id(id)
+                      })
+                      .collect::<Vec<Action<Talent>>>())
+      .with_index(index)
+      .with_doc_type(ES_TYPE)
       .send()
   }
 
@@ -524,7 +526,7 @@ mod tests {
   }
 
   pub fn populate_index(mut client: &mut Client) -> bool {
-    vec![
+    let talents = vec![
       Talent {
         id:                 1,
         accepted:           true,
@@ -624,12 +626,9 @@ mod tests {
         weight:             0,
         blocked_companies:  vec![]
       }
-    ].iter()
-     .map(|talent| talent.index(&mut client, &config.es.index)
-                         .is_ok())
-     .collect::<Vec<bool>>()
-     .into_iter()
-     .all(|result| result)
+    ];
+
+    Talent::index(&mut client, &config.es.index, talents).is_ok()
   }
 
   fn refresh_index(mut client: &mut Client) {

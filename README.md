@@ -11,7 +11,6 @@ We hope that it will be useful to anyone who needs a search engine with a more-o
 
 Things that are missing
 -----------------------
-- Bulk indexing
 - Proper indentation
 - Proper pagination
 

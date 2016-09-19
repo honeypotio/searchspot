@@ -146,8 +146,8 @@ impl<R: Resource> Handler for IndexableHandler<R> {
 
     let mut client = Client::new(&*self.config.es.host, self.config.es.port);
 
-    let resource: R = try_or_422!(serde_json::from_str(&payload));
-    try_or_422!(resource.index(&mut client, &*self.config.es.index));
+    let resources: Vec<R> = try_or_422!(serde_json::from_str(&payload));
+    try_or_422!(R::index(&mut client, &*self.config.es.index, resources));
 
     Ok(Response::with(status::Created))
   }
@@ -260,7 +260,7 @@ mod tests {
   use params::*;
 
   use rs_es::Client;
-  use rs_es::operations::index::IndexResult;
+  use rs_es::operations::bulk::{BulkResult, Action};
   use rs_es::operations::delete::DeleteResult;
   use rs_es::operations::mapping::{MappingOperation, MappingResult};
   use rs_es::error::EsError;
@@ -279,10 +279,15 @@ mod tests {
       vec![]
     }
 
-    fn index(&self, mut es: &mut Client, index: &str) -> Result<IndexResult, EsError> {
-      es.index(index, ES_TYPE)
-        .with_doc(&self)
-        .with_id(&*self.id.to_string())
+    fn index(mut es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
+      es.bulk(&resources.into_iter()
+                        .map(|r| {
+                            let id = r.id.to_string();
+                            Action::index(r).with_id(id)
+                        })
+                        .collect::<Vec<Action<TestResource>>>())
+        .with_index(index)
+        .with_doc_type(ES_TYPE)
         .send()
     }
 
