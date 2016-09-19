@@ -1,6 +1,6 @@
 [root]
 name = "searchspot"
-version = "0.8.1"
+version = "0.9.0"
 dependencies = [
  "chrono 0.2.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "iron 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
