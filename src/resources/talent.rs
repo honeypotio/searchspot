@@ -208,9 +208,9 @@ impl Talent {
   pub fn sorting_criteria() -> Sort {
     Sort::new(
       vec![
-        SortField::new("batch_starts_at",   Some(Order::Desc)).build(),
-        SortField::new("weight",            Some(Order::Desc)).build(),
-        SortField::new("added_to_batch_at", Some(Order::Desc)).build()
+        SortField::new("batch_starts_at",   Some(Order::Desc)).with_unmapped_type("date").build(),
+        SortField::new("weight",            Some(Order::Desc)).with_unmapped_type("integer").build(),
+        SortField::new("added_to_batch_at", Some(Order::Desc)).with_unmapped_type("date").build()
       ])
   }
 }
