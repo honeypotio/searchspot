@@ -40,7 +40,8 @@ features = ["serde"]
 default-features = false
 
 [dependencies.rs-es]
-version = "0.5"
+git    = "https://github.com/RoxasShadow/rs-es.git"
+branch = "fix-bulk-authorization"
 default-features = false
 
 [lib]
