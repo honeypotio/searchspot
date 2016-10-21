@@ -109,7 +109,7 @@ impl<R: Resource> Handler for SearchableHandler<R> {
       unauthorized!();
     }
 
-    let mut client = Client::new(&*self.config.es.host, self.config.es.port);
+    let mut client = Client::new(&*self.config.es.url).unwrap();
 
     let params = try_or_422!(req.get_ref::<Params>());
 
@@ -144,7 +144,7 @@ impl<R: Resource> Handler for IndexableHandler<R> {
     let mut payload = String::new();
     req.body.read_to_string(&mut payload).unwrap();
 
-    let mut client = Client::new(&*self.config.es.host, self.config.es.port);
+    let mut client = Client::new(&*self.config.es.url).unwrap();
 
     let resources: Vec<R> = try_or_422!(serde_json::from_str(&payload));
     try_or_422!(R::index(&mut client, &*self.config.es.index, resources));
@@ -172,7 +172,7 @@ impl<R: Resource> Handler for DeletableHandler<R> {
       unauthorized!();
     }
 
-    let mut client = Client::new(&*self.config.es.host, self.config.es.port);
+    let mut client = Client::new(&*self.config.es.url).unwrap();
     let ref id     = try_or_422!(req.extensions.get::<Router>().unwrap()
                                                                .find("id")
                                                                .ok_or("DELETE#:id not found"));
@@ -203,7 +203,7 @@ impl<R: Resource> Handler for ResettableHandler<R> {
       unauthorized!();
     }
 
-    let mut client = Client::new(&*self.config.es.host, self.config.es.port);
+    let mut client = Client::new(&*self.config.es.url).unwrap();
     match R::reset_index(&mut client, &*self.config.es.index) {
       Ok(_)  => Ok(Response::with(status::NoContent)),
       Err(_) => Ok(Response::with(status::UnprocessableEntity))
@@ -235,12 +235,12 @@ impl<R: Resource> Server<R> {
                                          self.config.http);
 
     let mut router = Router::new();
-    router.get(&self.endpoint,    SearchableHandler::<R>::new(self.config.to_owned()));
-    router.post(&self.endpoint,   IndexableHandler::<R>::new(self.config.to_owned()));
-    router.delete(&self.endpoint, ResettableHandler::<R>::new(self.config.to_owned()));
+    router.get(&self.endpoint,    SearchableHandler::<R>::new(self.config.to_owned()), "search");
+    router.post(&self.endpoint,   IndexableHandler::<R>::new(self.config.to_owned()),  "index");
+    router.delete(&self.endpoint, ResettableHandler::<R>::new(self.config.to_owned()), "reset");
 
     let deletable_endpoint = format!("{}/:id", self.endpoint);
-    router.delete(deletable_endpoint, DeletableHandler::<R>::new(self.config.to_owned()));
+    router.delete(deletable_endpoint, DeletableHandler::<R>::new(self.config.to_owned()), "delete");
 
     match env::var("DYNO") { // for some reasons, chain::link makes heroku crash
       Ok(_)  => Iron::new(router).http(&*host),

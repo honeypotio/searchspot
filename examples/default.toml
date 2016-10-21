@@ -1,6 +1,5 @@
 [es]
-host  = "user:pass@example.com"
-port  = 80
+url   = "https://user:pass@example.com:80"
 index = "my_index"
 
 [http]

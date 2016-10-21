@@ -8,16 +8,14 @@ use std::env;
 /// Contain the configuration for ElasticSearch.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ESConfig {
-  pub host:  String,
-  pub port:  u32,
+  pub url:   String,
   pub index: String
 }
 
 impl ESConfig {
   pub fn new() -> ESConfig {
     ESConfig {
-      host:  "localhost".to_owned(),
-      port:  9200,
+      url:  "http://localhost".to_owned(),
       index: "my_index".to_owned()
     }
   }
@@ -25,8 +23,8 @@ impl ESConfig {
 
 impl fmt::Display for ESConfig {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "ElasticSearch on http://{}:{} ({})",
-      self.host, self.port, self.index)
+    write!(f, "ElasticSearch on {} ({})",
+      self.url, self.index)
   }
 }
 
@@ -116,11 +114,8 @@ impl Config {
     };
 
     let es_config = ESConfig {
-      host: env::var("ES_HOST").unwrap()
-                               .to_owned(),
-      port: env::var("ES_PORT").unwrap()
-                               .parse::<u32>()
-                               .unwrap(),
+      url: env::var("ES_URL").unwrap()
+                             .to_owned(),
       index: env::var("ES_INDEX").unwrap()
                                  .to_owned()
     };
@@ -186,8 +181,7 @@ mod tests {
 
   const sample_config: &'static str = r#"
     [es]
-    host  = "123.0.123.0"
-    port  = 9000
+    url  = "https://123.0.123.0:9200"
     index = "save_meguka"
 
     [http]
@@ -204,7 +198,7 @@ mod tests {
   fn test_new() {
     // returns a Config fill with the default hardcoded data
     let config = Config::new();
-    assert_eq!(config.es.host,      "localhost".to_owned());
+    assert_eq!(config.es.url,       "http://localhost".to_owned());
     assert_eq!(config.http.host,    "127.0.0.1".to_owned());
     assert_eq!(config.auth.enabled, false);
     assert_eq!(config.auth.read,    "".to_owned());
@@ -214,7 +208,7 @@ mod tests {
   fn test_parse() {
     // returns a Config fill with given TOML configuration file
     let config = Config::parse(Some(sample_config.to_owned()));
-    assert_eq!(config.es.host,      "123.0.123.0".to_owned());
+    assert_eq!(config.es.url,       "https://123.0.123.0:9200".to_owned());
     assert_eq!(config.auth.enabled, true);
     assert_eq!(config.auth.read,    "yxxz7oap7rsf67zl".to_owned());
   }

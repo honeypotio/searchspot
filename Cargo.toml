@@ -8,7 +8,7 @@ license     = "BSD-2-Clause"
 description = "The service responsible for Honeypot's ElasticSearch data"
 keywords    = ["elasticsearch"]
 
-build   = "build.rs"
+build = "build.rs"
 
 [features]
 default = ["serde_codegen", "rs-es/default_without_ssl"]
@@ -18,9 +18,9 @@ nightly = ["serde_macros", "rs-es/nightly_without_ssl"]
 chrono       = "0.2"
 
 iron         = "0.4"
-router       = "0.2"
+router       = "0.4"
 logger       = "0.1"
-params       = "0.3"
+params       = "0.5"
 
 lazy_static  = "0.2"
 maplit       = "0.1"
@@ -40,7 +40,7 @@ features = ["serde"]
 default-features = false
 
 [dependencies.rs-es]
-version = "0.5"
+version = "0.6"
 default-features = false
 
 [lib]

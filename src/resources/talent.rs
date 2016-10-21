@@ -515,7 +515,7 @@ mod tests {
   }
 
   pub fn make_client() -> Client {
-    Client::new(&*config.es.host, config.es.port)
+    Client::new(&*config.es.url).unwrap()
   }
 
   macro_rules! epoch_from_year {

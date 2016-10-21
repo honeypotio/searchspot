@@ -62,15 +62,14 @@ $ heroku ps:scale web=1`
 
 You need also to set the following environment variables (example in parentheses):
 
-- `ES_HOST` (`$user`:`$pass`@`$host`)
+- `ES_URL` (`https://user:pass@some-server.io:80`)
 - `ES_INDEX` (`my_index`)
-- `ES_PORT` (`80`)
 - `HTTP_HOST` (`0.0.0.0`)
 - `AUTH_ENABLED` (`true`)
 - `AUTH_READ` (`icsbqwdg7ukqluav`)
 - `AUTH_WRITE` (`7x2ockhyff4fmm5n`)
 
-You can get the data for `ES_HOST` by adding an addon ((☞ﾟ∀ﾟ)☞) for ElasticSearch to `my-searchspot` and click on it.
+You can get the data for `ES_URL` by adding an addon ((☞ﾟ∀ﾟ)☞) for ElasticSearch to `my-searchspot` and click on it.
 
 `AUTH_` is optional – if omitted the feature will be turned off.
 
