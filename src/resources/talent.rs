@@ -182,11 +182,12 @@ impl Talent {
 
   pub fn full_text_search(params: &Map) -> Option<Query> {
     match params.get("keywords") {
-      Some(keywords) => match keywords {
-        &Value::String(ref keywords) => match keywords.is_empty() {
-          true  => None,
-          false => Some(
-              Query::build_multi_match(
+      Some(&Value::String(ref keywords)) => {
+          if keywords.is_empty() {
+              return None;
+          }
+
+          Some(Query::build_multi_match(
                   vec![
                     "skills".to_owned(),
                     "summary".to_owned(),
@@ -194,13 +195,11 @@ impl Talent {
                     "work_roles".to_owned(),
                     "job_titles".to_owned()
                   ], keywords.to_owned())
-             .with_type(MatchQueryType::CrossFields)
-             .with_tie_breaker(0.0)
-             .build())
-        },
-        _ => None
+              .with_type(MatchQueryType::CrossFields)
+              .with_tie_breaker(0.0)
+              .build())
       },
-      None => None
+      _ => None
     }
   }
 
@@ -235,15 +234,14 @@ impl Resource for Talent {
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
   /// the found talents.
   fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Self::Results {
-    let now   = UTC::now().to_rfc3339();
-    let epoch = match params.find(&["epoch"]) {
-      Some(epoch) => String::from_value(&epoch).unwrap_or(now),
-      _           => now
+    let epoch = match params.get("epoch") {
+      Some(&Value::String(ref epoch)) => epoch.to_owned(),
+      _                               => UTC::now().to_rfc3339()
     };
 
-    let index: Vec<&str> = match params.find(&["index"]) {
+    let index: Vec<&str> = match params.get("index") {
       Some(&Value::String(ref index)) => vec![&index[..]],
-      _ => vec![default_index]
+      _                               => vec![default_index]
     };
 
     let keywords_present = match params.get("keywords") {

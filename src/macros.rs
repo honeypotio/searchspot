@@ -42,7 +42,7 @@
 #[macro_export]
 macro_rules! vec_from_params {
   ($params:expr, $param:expr) => {
-    match $params.find(&[$param]) {
+    match $params.get($param) {
       Some(val) => Vec::from_value(val).unwrap_or(vec![]),
       None      => vec![]
     }
@@ -55,7 +55,7 @@ macro_rules! vec_from_params {
 #[macro_export]
 macro_rules! type_vec_from_params {
   ($t:ident, $params:expr, $param:expr) => {
-    match $params.find(&[$param]) {
+    match $params.get($param) {
       Some(val) => $t::from_value(val).map(|id| vec![id])
                                       .unwrap_or(vec![]),
       None => vec![]
