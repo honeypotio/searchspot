@@ -183,21 +183,21 @@ impl Talent {
   pub fn full_text_search(params: &Map) -> Option<Query> {
     match params.get("keywords") {
       Some(&Value::String(ref keywords)) => {
-          if keywords.is_empty() {
-              return None;
-          }
+        if keywords.is_empty() {
+          return None;
+        }
 
-          Some(Query::build_multi_match(
-                  vec![
-                    "skills".to_owned(),
-                    "summary".to_owned(),
-                    "headline".to_owned(),
-                    "work_roles".to_owned(),
-                    "job_titles".to_owned()
-                  ], keywords.to_owned())
-              .with_type(MatchQueryType::CrossFields)
-              .with_tie_breaker(0.0)
-              .build())
+        Some(Query::build_multi_match(
+                vec![
+                  "skills".to_owned(),
+                  "summary".to_owned(),
+                  "headline".to_owned(),
+                  "work_roles".to_owned(),
+                  "job_titles".to_owned()
+                ], keywords.to_owned())
+            .with_type(MatchQueryType::CrossFields)
+            .with_tie_breaker(0.0)
+            .build())
       },
       _ => None
     }
