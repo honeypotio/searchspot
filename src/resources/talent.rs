@@ -252,6 +252,16 @@ impl Resource for Talent {
       None => false
     };
 
+    let offset: u64 = match params.get("offset") {
+      Some(offset) => u64::from_value(&offset).unwrap_or(0),
+      _            => 0 as u64
+    };
+
+    let per_page: u64 = match params.get("per_page") {
+      Some(per_page) => u64::from_value(&per_page).unwrap_or(10),
+      _              => 10 as u64
+    };
+
     let result = if keywords_present {
       let mut highlight = Highlight::new().with_encoder(Encoders::HTML)
                                           .with_pre_tags(vec!["".to_owned()])
@@ -271,7 +281,8 @@ impl Resource for Talent {
         .with_indexes(&*index)
         .with_query(&Talent::search_filters(params, &*epoch))
         .with_highlight(&highlight)
-        .with_size(1000) // TODO
+        .with_from(offset)
+        .with_size(per_page)
         .send::<Talent>()
     }
     else {
@@ -279,7 +290,8 @@ impl Resource for Talent {
         .with_indexes(&*index)
         .with_query(&Talent::search_filters(params, &*epoch))
         .with_sort(&Talent::sorting_criteria())
-        .with_size(1000) // TODO
+        .with_from(offset)
+        .with_size(per_page)
         .send::<Talent>()
     };
 
