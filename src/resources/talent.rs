@@ -683,6 +683,15 @@ mod tests {
       assert!(results.is_empty());
     }
 
+    // a date that match only some talents is given
+    {
+      let mut map = Map::new();
+      map.assign("epoch", Value::String(epoch_from_year!("2006"))).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![2, 1], results.ids());
+    }
+
     // searching for work roles
     {
       let mut map = Map::new();
@@ -879,7 +888,7 @@ mod tests {
       assert_eq!(Some(&vec![" C#.".to_owned()]), highlights[0].get("summary"));
     }
 
-    // filtering for given company_id
+    // filtering for given company_id (skip contacted talents)
     {
       let mut map = Map::new();
       map.assign("company_id", Value::String("6".into())).unwrap();
