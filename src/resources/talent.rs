@@ -21,14 +21,11 @@ const ES_TYPE: &'static str = "talent";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchResults {
-  pub results: Vec<SearchResult>
+  pub total:   u64,
+  pub results: Vec<SearchResult>,
 }
 
 impl SearchResults {
-  pub fn new(results: Vec<SearchResult>) -> SearchResults {
-    SearchResults { results: results }
-  }
-
   #[allow(dead_code)]
   pub fn ids(&self) -> Vec<u32> {
     self.results.iter().map(|r| r.talent.id).collect()
@@ -297,7 +294,9 @@ impl Resource for Talent {
 
     match result {
       Ok(result) => {
-        SearchResults::new(result.hits.hits.into_iter()
+        SearchResults {
+            total:   result.hits.total,
+            results: result.hits.hits.into_iter()
                                            .filter(|hit| {
                                               match hit.score {
                                                 Some(score) => score > 0.55,
@@ -310,11 +309,12 @@ impl Resource for Talent {
                                                highlight: hit.highlight
                                              }
                                            })
-                                           .collect::<Vec<SearchResult>>())
+                                           .collect::<Vec<SearchResult>>()
+        }
       },
       Err(err) => {
         println!("{:?}", err);
-        SearchResults::new(vec![])
+        SearchResults { total: 0, results: vec![] }
       }
     }
   }
@@ -662,6 +662,7 @@ mod tests {
     {
       let results = Talent::search(&mut client, &*config.es.index, &Map::new());
       assert_eq!(vec![4, 5, 2, 1], results.ids());
+      assert_eq!(4, results.total);
       assert!(results.highlights().iter().all(|r| r.is_none()));
     }
 
