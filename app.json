@@ -12,13 +12,10 @@
     "AUTH_WRITE": {
       "required": true
     },
-    "ES_HOST": {
+    "ES_URL": {
       "required": true
     },
     "ES_INDEX": {
-      "required": true
-    },
-    "ES_PORT": {
       "required": true
     },
     "HTTP_HOST": {

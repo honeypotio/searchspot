@@ -21,14 +21,11 @@ const ES_TYPE: &'static str = "talent";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchResults {
-  pub results: Vec<SearchResult>
+  pub total:   u64,
+  pub results: Vec<SearchResult>,
 }
 
 impl SearchResults {
-  pub fn new(results: Vec<SearchResult>) -> SearchResults {
-    SearchResults { results: results }
-  }
-
   #[allow(dead_code)]
   pub fn ids(&self) -> Vec<u32> {
     self.results.iter().map(|r| r.talent.id).collect()
@@ -252,6 +249,16 @@ impl Resource for Talent {
       None => false
     };
 
+    let offset: u64 = match params.get("offset") {
+      Some(offset) => u64::from_value(&offset).unwrap_or(0),
+      _            => 0 as u64
+    };
+
+    let per_page: u64 = match params.get("per_page") {
+      Some(per_page) => u64::from_value(&per_page).unwrap_or(10),
+      _              => 10 as u64
+    };
+
     let result = if keywords_present {
       let mut highlight = Highlight::new().with_encoder(Encoders::HTML)
                                           .with_pre_tags(vec!["".to_owned()])
@@ -271,7 +278,8 @@ impl Resource for Talent {
         .with_indexes(&*index)
         .with_query(&Talent::search_filters(params, &*epoch))
         .with_highlight(&highlight)
-        .with_size(1000) // TODO
+        .with_from(offset)
+        .with_size(per_page)
         .send::<Talent>()
     }
     else {
@@ -279,13 +287,16 @@ impl Resource for Talent {
         .with_indexes(&*index)
         .with_query(&Talent::search_filters(params, &*epoch))
         .with_sort(&Talent::sorting_criteria())
-        .with_size(1000) // TODO
+        .with_from(offset)
+        .with_size(per_page)
         .send::<Talent>()
     };
 
     match result {
       Ok(result) => {
-        SearchResults::new(result.hits.hits.into_iter()
+        SearchResults {
+            total:   result.hits.total,
+            results: result.hits.hits.into_iter()
                                            .filter(|hit| {
                                               match hit.score {
                                                 Some(score) => score > 0.55,
@@ -298,11 +309,12 @@ impl Resource for Talent {
                                                highlight: hit.highlight
                                              }
                                            })
-                                           .collect::<Vec<SearchResult>>())
+                                           .collect::<Vec<SearchResult>>()
+        }
       },
       Err(err) => {
         println!("{:?}", err);
-        SearchResults::new(vec![])
+        SearchResults { total: 0, results: vec![] }
       }
     }
   }
@@ -650,6 +662,7 @@ mod tests {
     {
       let results = Talent::search(&mut client, &*config.es.index, &Map::new());
       assert_eq!(vec![4, 5, 2, 1], results.ids());
+      assert_eq!(4, results.total);
       assert!(results.highlights().iter().all(|r| r.is_none()));
     }
 
