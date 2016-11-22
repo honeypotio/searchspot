@@ -21,7 +21,7 @@ const ES_TYPE: &'static str = "talent";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchResults {
-  pub total:   u64,
+  pub total:   usize,
   pub results: Vec<SearchResult>,
 }
 
@@ -294,22 +294,23 @@ impl Resource for Talent {
 
     match result {
       Ok(result) => {
+        let results: Vec<SearchResult> = result.hits.hits.into_iter()
+                                                         .filter(|hit| {
+                                                             match hit.score {
+                                                               Some(score) => score > 0.55,
+                                                               None        => true
+                                                             }
+                                                          })
+                                                         .map(|hit| {
+                                                            SearchResult {
+                                                              talent: FoundTalent { id: hit.source.unwrap().id },
+                                                              highlight: hit.highlight
+                                                            }
+                                                          })
+                                                         .collect();
         SearchResults {
-            total:   result.hits.total,
-            results: result.hits.hits.into_iter()
-                                           .filter(|hit| {
-                                              match hit.score {
-                                                Some(score) => score > 0.55,
-                                                None        => true
-                                              }
-                                            })
-                                           .map(|hit| {
-                                             SearchResult {
-                                               talent: FoundTalent { id: hit.source.unwrap().id },
-                                               highlight: hit.highlight
-                                             }
-                                           })
-                                           .collect::<Vec<SearchResult>>()
+            total:   results.len(),
+            results: results
         }
       },
       Err(err) => {
