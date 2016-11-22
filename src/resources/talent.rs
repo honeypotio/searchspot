@@ -21,7 +21,7 @@ const ES_TYPE: &'static str = "talent";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchResults {
-  pub total:   usize,
+  pub total:   u64,
   pub results: Vec<SearchResult>,
 }
 
@@ -308,8 +308,9 @@ impl Resource for Talent {
                                                             }
                                                           })
                                                          .collect();
+
         SearchResults {
-            total:   results.len(),
+            total:   if results.is_empty() { 0 } else { result.hits.total },
             results: results
         }
       },
