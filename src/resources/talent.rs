@@ -280,6 +280,8 @@ impl Resource for Talent {
         .with_highlight(&highlight)
         .with_from(offset)
         .with_size(per_page)
+        .with_min_score(0.56)
+        .with_track_scores(true)
         .send::<Talent>()
     }
     else {
@@ -289,18 +291,14 @@ impl Resource for Talent {
         .with_sort(&Talent::sorting_criteria())
         .with_from(offset)
         .with_size(per_page)
+        .with_min_score(0.56)
+        .with_track_scores(true)
         .send::<Talent>()
     };
 
     match result {
       Ok(result) => {
         let results: Vec<SearchResult> = result.hits.hits.into_iter()
-                                                         .filter(|hit| {
-                                                             match hit.score {
-                                                               Some(score) => score > 0.55,
-                                                               None        => true
-                                                             }
-                                                          })
                                                          .map(|hit| {
                                                             SearchResult {
                                                               talent: FoundTalent { id: hit.source.unwrap().id },
@@ -310,7 +308,7 @@ impl Resource for Talent {
                                                          .collect();
 
         SearchResults {
-            total:   if results.is_empty() { 0 } else { result.hits.total },
+            total:   result.hits.total,
             results: results
         }
       },
