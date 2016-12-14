@@ -291,8 +291,6 @@ impl Resource for Talent {
         .with_sort(&Talent::sorting_criteria())
         .with_from(offset)
         .with_size(per_page)
-        .with_min_score(0.56)
-        .with_track_scores(true)
         .send::<Talent>()
     };
 
@@ -915,9 +913,16 @@ mod tests {
       let mut map = Map::new();
       map.assign("ids[]", Value::U64(2)).unwrap();
       map.assign("ids[]", Value::U64(4)).unwrap();
+      map.assign("ids[]", Value::U64(1)).unwrap();
+      map.assign("ids[]", Value::U64(3)).unwrap();
+      map.assign("ids[]", Value::U64(5)).unwrap();
+      map.assign("ids[]", Value::U64(6)).unwrap();
+      map.assign("ids[]", Value::U64(7)).unwrap();
+      map.assign("ids[]", Value::U64(8)).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
-      assert_eq!(vec![4, 2], results.ids());
+      assert_eq!(vec![4, 5, 2, 1], results.ids());
+      assert_eq!(4, results.total);
     }
 
     // filtering for work_authorization
