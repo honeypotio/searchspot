@@ -35,7 +35,7 @@
   ],
   "buildpacks": [
     {
-      "url": "https://github.com/RoxasShadow/heroku-buildpack-rust.git#patch-2"
+      "url": "https://github.com/Hoverbear/heroku-buildpack-rust"
     }
   ]
 }
