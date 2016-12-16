@@ -11,8 +11,8 @@ keywords    = ["elasticsearch"]
 build = "build.rs"
 
 [features]
-default = ["serde_codegen", "rs-es/default_without_ssl"]
-nightly = ["serde_macros", "rs-es/nightly_without_ssl"]
+default = ["serde_codegen", "rs-es/default"]
+nightly = ["serde_macros", "rs-es/nightly"]
 
 [dependencies]
 chrono       = "0.2"
