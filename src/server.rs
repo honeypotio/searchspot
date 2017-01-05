@@ -28,8 +28,7 @@ macro_rules! try_or_422 {
   ($expr:expr) => (match $expr {
     Ok(val)  => val,
     Err(err) => {
-      let error_message = format!("{}", err);
-
+      let error_message = err.to_string();
       error!("{}", error_message);
 
       let mut error = HashMap::new();
@@ -179,7 +178,15 @@ impl<R: Resource> Handler for DeletableHandler<R> {
 
     match R::delete(&mut client, id, &*self.config.es.index) {
       Ok(_)  => Ok(Response::with(status::NoContent)),
-      Err(_) => Ok(Response::with(status::UnprocessableEntity))
+      Err(e) => {
+        let error_message = e.to_string();
+        error!("{}", error_message);
+
+        let content_type = "application/json".parse::<Mime>().unwrap();
+        Ok(Response::with(
+          (content_type, status::UnprocessableEntity, error_message)
+        ))
+      }
     }
   }
 }
@@ -206,7 +213,15 @@ impl<R: Resource> Handler for ResettableHandler<R> {
     let mut client = Client::new(&*self.config.es.url).unwrap();
     match R::reset_index(&mut client, &*self.config.es.index) {
       Ok(_)  => Ok(Response::with(status::NoContent)),
-      Err(_) => Ok(Response::with(status::UnprocessableEntity))
+      Err(e) => {
+        let error_message = e.to_string();
+        error!("{}", error_message);
+
+        let content_type = "application/json".parse::<Mime>().unwrap();
+        Ok(Response::with(
+          (content_type, status::UnprocessableEntity, error_message)
+        ))
+      }
     }
   }
 }
