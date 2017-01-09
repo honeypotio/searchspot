@@ -55,23 +55,26 @@ pub struct FoundTalent {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Talent {
-  pub id:                 u32,
-  pub accepted:           bool,
-  pub work_roles:         Vec<String>,
-  pub work_roles_vanilla: Option<Vec<String>>,
-  pub work_experience:    String,
-  pub work_locations:     Vec<String>,
-  pub work_authorization: String,
-  pub skills:             Vec<String>,
-  pub summary:            String,
-  pub headline:           String,
-  pub job_titles:         Vec<String>,
-  pub company_ids:        Vec<u32>,
-  pub batch_starts_at:    String,
-  pub batch_ends_at:      String,
-  pub added_to_batch_at:  String,
-  pub weight:             i32,
-  pub blocked_companies:  Vec<u32>
+  pub id:                            u32,
+  pub accepted:                      bool,
+  pub desired_work_roles:            Vec<String>,
+  pub desired_work_roles_vanilla:    Option<Vec<String>>, // not processed by ES
+  pub desired_work_roles_experience: Vec<String>, // experience in the desired work roles
+  pub professional_experience:       String, // i.e. 2..6
+  pub work_locations:                Vec<String>, // wants to work in
+  pub work_authorization:            String, // yes/no/unsure (visa)
+  pub skills:                        Vec<String>,
+  pub summary:                       String,
+  pub headline:                      String,
+  pub contacted_company_ids:         Vec<u32>, // contacted companies
+  pub batch_starts_at:               String,
+  pub batch_ends_at:                 String,
+  pub added_to_batch_at:             String,
+  pub weight:                        i32,
+  pub blocked_companies:             Vec<u32>,
+  pub work_experiences:              Vec<String>, // past work experiences (i.e. ["Frontend developer", "SysAdmin"])
+  pub avatar_url:                    String,
+  pub salary_expectations:           Option<String>
 }
 
 impl Talent {
@@ -127,8 +130,8 @@ impl Talent {
   ///
   /// Considering a single row, the terms inside there are ORred,
   /// while through the rows there is an AND.
-  /// I.e.: given ["Fullstack", "DevOps"] as `work_roles`, found talents
-  /// will present at least one of these roles), but both `work_roles`
+  /// I.e.: given ["Fullstack", "DevOps"] as `desired_work_roles`, found talents
+  /// will present at least one of these roles), but both `desired_work_roles`
   /// and `work_location`, if provided, must be matched successfully.
   pub fn search_filters(params: &Map, epoch: &str) -> Query {
     let company_id = i32_vec_from_params!(params, "company_id");
@@ -142,10 +145,10 @@ impl Talent {
                 },
 
                <Query as VectorOfTerms<String>>::build_terms(
-                 "work_roles_vanilla", &vec_from_params!(params, "work_roles")),
+                 "desired_work_roles_vanilla", &vec_from_params!(params, "desired_work_roles")),
 
                <Query as VectorOfTerms<String>>::build_terms(
-                 "work_experience", &vec_from_params!(params, "work_experience")),
+                 "professional_experience", &vec_from_params!(params, "professional_experience")),
 
                <Query as VectorOfTerms<String>>::build_terms(
                  "work_authorization", &vec_from_params!(params, "work_authorization")),
@@ -164,7 +167,7 @@ impl Talent {
                 .with_must_not(
                    vec![
                      <Query as VectorOfTerms<i32>>::build_terms(
-                       "company_ids", &company_id),
+                       "contacted_company_ids", &company_id),
 
                      <Query as VectorOfTerms<i32>>::build_terms(
                        "blocked_companies", &company_id),
@@ -189,8 +192,8 @@ impl Talent {
                   "skills".to_owned(),
                   "summary".to_owned(),
                   "headline".to_owned(),
-                  "work_roles".to_owned(),
-                  "job_titles".to_owned()
+                  "desired_work_roles".to_owned(),
+                  "work_experiences".to_owned()
                 ], keywords.to_owned())
             .with_type(MatchQueryType::CrossFields)
             .with_tie_breaker(0.0)
@@ -219,7 +222,7 @@ impl Resource for Talent {
     es.bulk(&resources.into_iter()
                       .map(|mut r| {
                           let id = r.id.to_string();
-                          r.work_roles_vanilla = Some(r.work_roles.to_owned());
+                          r.desired_work_roles_vanilla = Some(r.desired_work_roles.to_owned());
                           Action::index(r).with_id(id)
                       })
                       .collect::<Vec<Action<Talent>>>())
@@ -271,8 +274,8 @@ impl Resource for Talent {
       highlight.add_setting("skills".to_owned(),  settings.clone());
       highlight.add_setting("summary".to_owned(), settings.clone());
       highlight.add_setting("headline".to_owned(), settings.clone());
-      highlight.add_setting("work_roles".to_owned(), settings.clone());
-      highlight.add_setting("job_titles".to_owned(), settings);
+      highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
+      highlight.add_setting("work_experiences".to_owned(), settings);
 
       es.search_query()
         .with_indexes(&*index)
@@ -334,19 +337,23 @@ impl Resource for Talent {
           "index" => "not_analyzed"
         },
 
-        "work_roles" => hashmap! {
+        "desired_work_roles" => hashmap! {
           "type"            => "string",
           "analyzer"        => "trigrams",
           "search_analyzer" => "words"
         },
 
-        // TODO: use multi_field
-        "work_roles_vanilla" => hashmap! {
+        "desired_work_roles_vanilla" => hashmap! {
           "type"  => "string",
           "index" => "not_analyzed"
         },
 
-        "work_experience" => hashmap! {
+        "desired_work_roles_experience" => hashmap! {
+          "type"  => "string",
+          "index" => "not_analyzed"
+        },
+
+        "professional_experience" => hashmap! {
           "type"  => "string",
           "index" => "not_analyzed"
         },
@@ -381,13 +388,13 @@ impl Resource for Talent {
           "boost"           => "2.0"
         },
 
-        "job_titles" => hashmap! {
+        "work_experiences" => hashmap! {
           "type"            => "string",
           "analyzer"        => "trigrams",
           "search_analyzer" => "words"
         },
 
-        "company_ids" => hashmap! {
+        "contacted_company_ids" => hashmap! {
           "type"  => "integer",
           "index" => "not_analyzed"
         },
@@ -536,103 +543,118 @@ mod tests {
   pub fn populate_index(mut client: &mut Client) -> bool {
     let talents = vec![
       Talent {
-        id:                 1,
-        accepted:           true,
-        work_roles:         vec![],
-        work_roles_vanilla: None,
-        work_experience:    "1..2".to_owned(),
-        work_locations:     vec!["Berlin".to_owned()],
-        work_authorization: "yes".to_owned(),
-        skills:             vec!["Rust".to_owned(), "HTML5".to_owned(), "HTML".to_owned()],
-        summary:            "I'm a senior Rust developer and sometimes I do also HTML.".to_owned(),
-        headline:           "Backend developer with Rust experience".to_owned(),
-        job_titles:         vec!["Database Administrator".to_owned()],
-        company_ids:        vec![],
-        batch_starts_at:    epoch_from_year!("2006"),
-        batch_ends_at:      epoch_from_year!("2020"),
-        added_to_batch_at:  epoch_from_year!("2006"),
-        weight:             -5,
-        blocked_companies:  vec![]
+        id:                            1,
+        accepted:                      true,
+        desired_work_roles:            vec![],
+        desired_work_roles_vanilla:    None,
+        desired_work_roles_experience: vec![],
+        professional_experience:       "1..2".to_owned(),
+        work_locations:                vec!["Berlin".to_owned()],
+        work_authorization:            "yes".to_owned(),
+        skills:                        vec!["Rust".to_owned(), "HTML5".to_owned(), "HTML".to_owned()],
+        summary:                       "I'm a senior Rust developer and sometimes I do also HTML.".to_owned(),
+        headline:                      "Backend developer with Rust experience".to_owned(),
+        work_experiences:              vec!["Database Administrator".to_owned()],
+        contacted_company_ids:         vec![],
+        batch_starts_at:               epoch_from_year!("2006"),
+        batch_ends_at:                 epoch_from_year!("2020"),
+        added_to_batch_at:             epoch_from_year!("2006"),
+        weight:                        -5,
+        blocked_companies:             vec![],
+        avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
+        salary_expectations:           Some("< 60.000€".to_owned())
       },
 
       Talent {
-        id:                 2,
-        accepted:           true,
-        work_roles:         vec![],
-        work_roles_vanilla: None,
-        work_experience:    "8+".to_owned(),
-        work_locations:     vec!["Rome".to_owned(),"Berlin".to_owned()],
-        work_authorization: "yes".to_owned(),
-        skills:             vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned()],
-        summary:            "I'm a java dev with some tricks up my sleeves".to_owned(),
-        headline:           "Senior Java engineer".to_owned(),
-        job_titles:         vec![],
-        company_ids:        vec![],
-        batch_starts_at:    epoch_from_year!("2006"),
-        batch_ends_at:      epoch_from_year!("2020"),
-        added_to_batch_at:  epoch_from_year!("2006"),
-        weight:             6,
-        blocked_companies:  vec![22]
+        id:                            2,
+        accepted:                      true,
+        desired_work_roles:            vec![],
+        desired_work_roles_vanilla:    None,
+        desired_work_roles_experience: vec![],
+        professional_experience:       "8+".to_owned(),
+        work_locations:                vec!["Rome".to_owned(),"Berlin".to_owned()],
+        work_authorization:            "yes".to_owned(),
+        skills:                        vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned()],
+        summary:                       "I'm a java dev with some tricks up my sleeves".to_owned(),
+        headline:                      "Senior Java engineer".to_owned(),
+        work_experiences:              vec![],
+        contacted_company_ids:         vec![],
+        batch_starts_at:               epoch_from_year!("2006"),
+        batch_ends_at:                 epoch_from_year!("2020"),
+        added_to_batch_at:             epoch_from_year!("2006"),
+        weight:                        6,
+        blocked_companies:             vec![22],
+        avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
+        salary_expectations:           None
       },
 
       Talent {
-        id:                 3,
-        accepted:           false,
-        work_roles:         vec![],
-        work_roles_vanilla: None,
-        work_experience:    "1..2".to_owned(),
-        work_locations:     vec!["Berlin".to_owned()],
-        work_authorization: "yes".to_owned(),
-        skills:             vec![],
-        summary:            "".to_owned(),
-        headline:           "".to_owned(),
-        job_titles:         vec![],
-        company_ids:        vec![],
-        batch_starts_at:    epoch_from_year!("2007"),
-        batch_ends_at:      epoch_from_year!("2020"),
-        added_to_batch_at:  epoch_from_year!("2011"),
-        weight:             6,
-        blocked_companies:  vec![]
+        id:                            3,
+        accepted:                      false,
+        desired_work_roles:            vec![],
+        desired_work_roles_vanilla:    None,
+        desired_work_roles_experience: vec![],
+        professional_experience:       "1..2".to_owned(),
+        work_locations:                vec!["Berlin".to_owned()],
+        work_authorization:            "yes".to_owned(),
+        skills:                        vec![],
+        summary:                       "".to_owned(),
+        headline:                      "".to_owned(),
+        work_experiences:              vec![],
+        contacted_company_ids:         vec![],
+        batch_starts_at:               epoch_from_year!("2007"),
+        batch_ends_at:                 epoch_from_year!("2020"),
+        added_to_batch_at:             epoch_from_year!("2011"),
+        weight:                        6,
+        blocked_companies:             vec![],
+        avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
+        salary_expectations:           None
       },
 
       Talent {
-        id:                 4,
-        accepted:           true,
-        work_roles:         vec!["Fullstack".to_owned(), "DevOps".to_owned()],
-        work_roles_vanilla: None,
-        work_experience:    "1..2".to_owned(),
-        work_locations:     vec!["Berlin".to_owned()],
-        work_authorization: "no".to_owned(),
-        skills:             vec!["ClojureScript".to_owned(), "C++".to_owned(), "React.js".to_owned()],
-        summary:            "ClojureScript right now, previously C++".to_owned(),
-        headline:           "Senior fullstack developer with sysadmin skills".to_owned(),
-        job_titles:         vec!["Backend Engineer".to_owned(), "Database Administrator".to_owned()],
-        company_ids:        vec![6],
-        batch_starts_at:    epoch_from_year!("2008"),
-        batch_ends_at:      epoch_from_year!("2020"),
-        added_to_batch_at:  epoch_from_year!("2011"),
-        weight:             0,
-        blocked_companies:  vec![]
+        id:                            4,
+        accepted:                      true,
+        desired_work_roles:            vec!["Fullstack".to_owned(), "DevOps".to_owned()],
+        desired_work_roles_vanilla:    None,
+        desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
+        professional_experience:       "1..2".to_owned(),
+        work_locations:                vec!["Berlin".to_owned()],
+        work_authorization:            "no".to_owned(),
+        skills:                        vec!["ClojureScript".to_owned(), "C++".to_owned(), "React.js".to_owned()],
+        summary:                       "ClojureScript right now, previously C++".to_owned(),
+        headline:                      "Senior fullstack developer with sysadmin skills".to_owned(),
+        work_experiences:              vec!["Backend Engineer".to_owned(), "Database Administrator".to_owned()],
+        contacted_company_ids:         vec![6],
+        batch_starts_at:               epoch_from_year!("2008"),
+        batch_ends_at:                 epoch_from_year!("2020"),
+        added_to_batch_at:             epoch_from_year!("2011"),
+        weight:                        0,
+        blocked_companies:             vec![],
+        avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
+        salary_expectations:           None
       },
 
       Talent {
-        id:                 5,
-        accepted:           true,
-        work_roles:         vec!["Fullstack".to_owned(), "DevOps".to_owned()],
-        work_roles_vanilla: None,
-        work_experience:    "1..2".to_owned(),
-        work_locations:     vec!["Berlin".to_owned()],
-        work_authorization: "yes".to_owned(),
-        skills:             vec!["JavaScript".to_owned(), "C++".to_owned(), "Ember.js".to_owned()],
-        summary:            "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?".to_owned(),
-        headline:           "Amazing C developer".to_owned(),
-        job_titles:         vec![],
-        company_ids:        vec![6],
-        batch_starts_at:    epoch_from_year!("2008"),
-        batch_ends_at:      epoch_from_year!("2020"),
-        added_to_batch_at:  epoch_from_year!("2011"),
-        weight:             0,
-        blocked_companies:  vec![]
+        id:                            5,
+        accepted:                      true,
+        desired_work_roles:            vec!["Fullstack".to_owned(), "DevOps".to_owned()],
+        desired_work_roles_vanilla:    None,
+        desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
+        professional_experience:       "1..2".to_owned(),
+        work_locations:                vec!["Berlin".to_owned()],
+        work_authorization:            "yes".to_owned(),
+        skills:                        vec!["JavaScript".to_owned(), "C++".to_owned(), "Ember.js".to_owned()],
+        summary:                       "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?".to_owned(),
+        headline:                      "Amazing C developer".to_owned(),
+        work_experiences:              vec![],
+        contacted_company_ids:         vec![6],
+        batch_starts_at:               epoch_from_year!("2008"),
+        batch_ends_at:                 epoch_from_year!("2020"),
+        added_to_batch_at:             epoch_from_year!("2011"),
+        weight:                        0,
+        blocked_companies:             vec![],
+        avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
+        salary_expectations:           None
       }
     ];
 
@@ -706,7 +728,7 @@ mod tests {
     // searching for work roles
     {
       let mut map = Map::new();
-      map.assign("work_roles[]", Value::String("Fullstack".into())).unwrap();
+      map.assign("desired_work_roles[]", Value::String("Fullstack".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![4, 5], results.ids());
@@ -715,7 +737,7 @@ mod tests {
     // searching for work experience
     {
       let mut map = Map::new();
-      map.assign("work_experience[]", Value::String("8+".into())).unwrap();
+      map.assign("professional_experience[]", Value::String("8+".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![2], results.ids());
@@ -772,7 +794,7 @@ mod tests {
       let mut map = Map::new();
       map.assign("keywords", Value::String("react.js".into())).unwrap();
       map.assign("work_locations[]", Value::String("Berlin".into())).unwrap();
-      map.assign("work_roles[]", Value::String("Fullstack".into())).unwrap();
+      map.assign("desired_work_roles[]", Value::String("Fullstack".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![4], results.ids());
@@ -957,26 +979,29 @@ mod tests {
   fn test_json_decode() {
     let payload = "{
       \"id\":13,
-      \"work_roles\":[\"C/C++ Engineer\"],
-      \"work_languages\":[],
-      \"work_experience\":\"8+\",
+      \"desired_work_roles\":[\"C/C++ Engineer\"],
+      \"desired_work_roles_experience\":[\"2..4\"],
+      \"work_languages\":[\"C++\"],
+      \"professional_experience\":\"8+\",
       \"work_locations\":[\"Berlin\"],
       \"work_authorization\":\"yes\",
       \"skills\":[\"Rust\"],
-      \"summary\":\"\",
-      \"headline\":\"\",
-      \"job_titles\":[],
-      \"company_ids\":[],
+      \"summary\":\"Blabla\",
+      \"headline\":\"I see things, I do stuff\",
+      \"contacted_company_ids\":[1],
       \"accepted\":true,
       \"batch_starts_at\":\"2016-03-04T12:24:00+01:00\",
       \"batch_ends_at\":\"2016-04-11T12:24:00+02:00\",
       \"added_to_batch_at\":\"2016-03-11T12:24:37+01:00\",
       \"weight\":0,
-      \"blocked_companies\":[]
+      \"blocked_companies\":[99],
+      \"work_experiences\":[\"Frontend developer\", \"SysAdmin\"],
+      \"avatar_url\":\"https://secure.gravatar.com/avatar/47ac43379aa70038a9adc8ec88a1241d?s=250&d=https%3A%2F%2Fsecure.gravatar.com%2Favatar%2Fa0b9ad63fb35d210a218c317e0a6284e%3Fs%3D250\",
+      \"salary_expectations\":\"30.000€ - 40.000€\"
     }".to_owned();
 
     let resource: Result<Talent, _> = serde_json::from_str(&payload);
     assert!(resource.is_ok());
-    assert_eq!(resource.unwrap().work_roles, vec!["C/C++ Engineer"]);
+    assert_eq!(resource.unwrap().desired_work_roles, vec!["C/C++ Engineer"]);
   }
 }
