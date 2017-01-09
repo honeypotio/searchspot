@@ -5,7 +5,7 @@ use super::serde_json::Value as JsonValue;
 
 use super::rs_es::Client;
 use super::rs_es::query::Query;
-use super::rs_es::operations::search::{Sort, SortField, Order};
+use super::rs_es::operations::search::{Sort, SortField, Order, SearchHitsHitsResult};
 use super::rs_es::operations::bulk::{BulkResult, Action};
 use super::rs_es::operations::delete::DeleteResult;
 use super::rs_es::operations::mapping::*;
@@ -16,43 +16,49 @@ use super::rs_es::operations::search::highlight::*;
 use searchspot::terms::VectorOfTerms;
 use searchspot::resource::*;
 
-/// The type that we use in ElasticSearch for defining a Talent.
+/// The type that we use in ElasticSearch for defining a `Talent`.
 const ES_TYPE: &'static str = "talent";
 
+/// A collection of `SearchResult`s.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchResults {
   pub total:   u64,
   pub results: Vec<SearchResult>,
 }
 
-impl SearchResults {
-  #[allow(dead_code)]
-  pub fn ids(&self) -> Vec<u32> {
-    self.results.iter().map(|r| r.talent.id).collect()
-  }
-
-  #[allow(dead_code)]
-  pub fn highlights(&self) -> Vec<Option<HighlightResult>> {
-    self.results.iter().map(|r| r.highlight.clone()).collect()
-  }
-
-  #[allow(dead_code)]
-  pub fn is_empty(&self) -> bool {
-    self.results.is_empty()
-  }
-}
-
+/// A single search result returned by ElasticSearch.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchResult {
   pub talent:    FoundTalent,
   pub highlight: Option<HighlightResult>
 }
 
+/// Convert the ElasticSearch results into a `SearchResult`.
+impl From<SearchHitsHitsResult<Talent>> for SearchResult {
+  fn from(hit: SearchHitsHitsResult<Talent>) -> SearchResult {
+    SearchResult {
+      talent: hit.source.unwrap().into(),
+      highlight: hit.highlight
+    }
+  }
+}
+
+/// A representation of `Talent` with limited fields.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FoundTalent {
   pub id: u32
 }
 
+/// Convert a `Box<Talent>` returned by ElasticSearch into a `FoundTalent`.
+impl From<Box<Talent>> for FoundTalent {
+  fn from(talent: Box<Talent>) -> FoundTalent {
+    FoundTalent {
+      id: talent.id
+    }
+  }
+}
+
+/// The talent that will be indexed into ElasticSearch.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Talent {
   pub id:                            u32,
@@ -300,12 +306,7 @@ impl Resource for Talent {
     match result {
       Ok(result) => {
         let results: Vec<SearchResult> = result.hits.hits.into_iter()
-                                                         .map(|hit| {
-                                                            SearchResult {
-                                                              talent: FoundTalent { id: hit.source.unwrap().id },
-                                                              highlight: hit.highlight
-                                                            }
-                                                          })
+                                                         .map(SearchResult::from)
                                                          .collect();
 
         SearchResults {
@@ -522,6 +523,7 @@ mod tests {
   use searchspot::resource::*;
 
   use resources::Talent;
+  use resources::talent::SearchResults;
 
   const CONFIG_FILE: &'static str = "examples/tests.toml";
 
@@ -537,6 +539,20 @@ mod tests {
     ($year:expr) => {
       UTC.datetime_from_str(&format!("{}-01-01 12:00:00", $year),
         "%Y-%m-%d %H:%M:%S").unwrap().to_rfc3339()
+    }
+  }
+
+  impl SearchResults {
+    pub fn ids(&self) -> Vec<u32> {
+      self.results.iter().map(|r| r.talent.id).collect()
+    }
+
+    pub fn highlights(&self) -> Vec<Option<HighlightResult>> {
+      self.results.iter().map(|r| r.highlight.clone()).collect()
+    }
+
+    pub fn is_empty(&self) -> bool {
+      self.results.is_empty()
     }
   }
 
