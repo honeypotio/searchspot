@@ -16,14 +16,14 @@ pub trait Resource: Send + Sync + Any + Serialize + Deserialize + Debug {
   type Results: Serialize + Deserialize;
 
   /// Respond to GET requests returning an array with found ids
-  fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Self::Results;
+  fn search(es: &mut Client, default_index: &str, params: &Map) -> Self::Results;
 
   /// Respond to POST requests indexing given entity
-  fn index(mut es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError>;
+  fn index(es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError>;
 
   /// Respond to DELETE requests on given id deleting it from given index
-  fn delete(mut es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError>;
+  fn delete(es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError>;
 
   /// Respond to DELETE requests rebuilding and reindexing given index
-  fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError>;
+  fn reset_index(es: &mut Client, index: &str) -> Result<MappingResult, EsError>;
 }
