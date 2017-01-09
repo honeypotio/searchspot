@@ -46,14 +46,47 @@ impl From<SearchHitsHitsResult<Talent>> for SearchResult {
 /// A representation of `Talent` with limited fields.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FoundTalent {
-  pub id: u32
+  pub id:                            u32,
+  pub headline:                      String,
+  pub avatar_url:                    String,
+  pub work_locations:                Vec<String>,
+  pub salary_expectations:           Option<String>,
+  pub roles_experiences:             Vec<RolesExperience>
+}
+
+/// A struct that joins `desired_work_roles` and `desired_work_roles_experience`.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RolesExperience {
+  pub role:       String,
+  pub experience: String
+}
+
+impl RolesExperience {
+  fn new(role: &str, experience: Option<&String>) -> RolesExperience {
+    RolesExperience {
+      role:       role.to_owned(),
+      experience: experience.map(|e| e.to_owned()).unwrap_or("".to_owned())
+    }
+  }
 }
 
 /// Convert a `Box<Talent>` returned by ElasticSearch into a `FoundTalent`.
 impl From<Box<Talent>> for FoundTalent {
   fn from(talent: Box<Talent>) -> FoundTalent {
+    let mut roles_experiences = vec![];
+
+    for (i, role) in talent.desired_work_roles.iter().enumerate() {
+      let experience = talent.desired_work_roles_experience.get(i);
+      roles_experiences.push(RolesExperience::new(role, experience));
+    }
+
     FoundTalent {
-      id: talent.id
+      id:                            talent.id,
+      headline:                      talent.headline.to_owned(),
+      avatar_url:                    talent.avatar_url.to_owned(),
+      work_locations:                talent.work_locations.to_owned(),
+      salary_expectations:           talent.salary_expectations.to_owned(),
+      roles_experiences:             roles_experiences
     }
   }
 }
