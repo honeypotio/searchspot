@@ -472,6 +472,16 @@ impl Resource for Talent {
         "blocked_companies" => hashmap! {
           "type"  => "integer",
           "index" => "not_analyzed"
+        },
+
+        "avatar_url" => hashmap! {
+          "type"  => "string",
+          "index" => "not_analyzed"
+        },
+
+        "salary_expectations" => hashmap! {
+          "type"  => "string",
+          "index" => "not_analyzed"
         }
       }
     };
