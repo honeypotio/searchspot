@@ -50,6 +50,7 @@ pub struct FoundTalent {
   pub headline:                      String,
   pub avatar_url:                    String,
   pub work_locations:                Vec<String>,
+  pub current_location:              String,
   pub salary_expectations:           Option<String>,
   pub roles_experiences:             Vec<RolesExperience>
 }
@@ -85,6 +86,7 @@ impl From<Box<Talent>> for FoundTalent {
       headline:                      talent.headline.to_owned(),
       avatar_url:                    talent.avatar_url.to_owned(),
       work_locations:                talent.work_locations.to_owned(),
+      current_location:              talent.current_location.to_owned(),
       salary_expectations:           talent.salary_expectations.to_owned(),
       roles_experiences:             roles_experiences
     }
@@ -101,6 +103,7 @@ pub struct Talent {
   pub desired_work_roles_experience: Vec<String>, // experience in the desired work roles
   pub professional_experience:       String, // i.e. 2..6
   pub work_locations:                Vec<String>, // wants to work in
+  pub current_location:              String, // where the talent is based in
   pub work_authorization:            String, // yes/no/unsure (visa)
   pub skills:                        Vec<String>,
   pub summary:                       String,
@@ -397,6 +400,11 @@ impl Resource for Talent {
           "index" => "not_analyzed"
         },
 
+        "current_location" => hashmap! {
+          "type"  => "string",
+          "index" => "not_analyzed"
+        },
+
         "work_authorization" => hashmap! {
           "type"  => "string",
           "index" => "not_analyzed"
@@ -599,6 +607,7 @@ mod tests {
         desired_work_roles_experience: vec![],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec!["Rust".to_owned(), "HTML5".to_owned(), "HTML".to_owned()],
         summary:                       "I'm a senior Rust developer and sometimes I do also HTML.".to_owned(),
@@ -622,6 +631,7 @@ mod tests {
         desired_work_roles_experience: vec![],
         professional_experience:       "8+".to_owned(),
         work_locations:                vec!["Rome".to_owned(),"Berlin".to_owned()],
+        current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned()],
         summary:                       "I'm a java dev with some tricks up my sleeves".to_owned(),
@@ -645,6 +655,7 @@ mod tests {
         desired_work_roles_experience: vec![],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec![],
         summary:                       "".to_owned(),
@@ -668,6 +679,7 @@ mod tests {
         desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        current_location:              "Berlin".to_owned(),
         work_authorization:            "no".to_owned(),
         skills:                        vec!["ClojureScript".to_owned(), "C++".to_owned(), "React.js".to_owned()],
         summary:                       "ClojureScript right now, previously C++".to_owned(),
@@ -691,6 +703,7 @@ mod tests {
         desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec!["JavaScript".to_owned(), "C++".to_owned(), "Ember.js".to_owned()],
         summary:                       "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?".to_owned(),
@@ -1033,6 +1046,7 @@ mod tests {
       \"work_languages\":[\"C++\"],
       \"professional_experience\":\"8+\",
       \"work_locations\":[\"Berlin\"],
+      \"current_location\":\"Berlin\",
       \"work_authorization\":\"yes\",
       \"skills\":[\"Rust\"],
       \"summary\":\"Blabla\",
