@@ -51,8 +51,9 @@ pub struct FoundTalent {
   pub avatar_url:                    String,
   pub work_locations:                Vec<String>,
   pub current_location:              String,
-  pub salary_expectations:           Option<String>,
-  pub roles_experiences:             Vec<RolesExperience>
+  pub salary_expectations:           String,
+  pub roles_experiences:             Vec<RolesExperience>,
+  pub latest_position:               String
 }
 
 /// A struct that joins `desired_work_roles` and `desired_work_roles_experience`.
@@ -88,7 +89,8 @@ impl From<Box<Talent>> for FoundTalent {
       work_locations:                talent.work_locations.to_owned(),
       current_location:              talent.current_location.to_owned(),
       salary_expectations:           talent.salary_expectations.to_owned(),
-      roles_experiences:             roles_experiences
+      roles_experiences:             roles_experiences,
+      latest_position:               talent.latest_position.to_owned()
     }
   }
 }
@@ -116,7 +118,8 @@ pub struct Talent {
   pub blocked_companies:             Vec<u32>,
   pub work_experiences:              Vec<String>, // past work experiences (i.e. ["Frontend developer", "SysAdmin"])
   pub avatar_url:                    String,
-  pub salary_expectations:           Option<String>
+  pub salary_expectations:           String,
+  pub latest_position:               String // the very last experience_entries#position
 }
 
 impl Talent {
@@ -482,6 +485,11 @@ impl Resource for Talent {
         "salary_expectations" => hashmap! {
           "type"  => "string",
           "index" => "not_analyzed"
+        },
+
+        "latest_position" => hashmap! {
+          "type"  => "string",
+          "index" => "not_analyzed"
         }
       }
     };
@@ -630,7 +638,8 @@ mod tests {
         weight:                        -5,
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
-        salary_expectations:           Some("< 60.000€".to_owned())
+        salary_expectations:           "< 60.000€".to_owned(),
+        latest_position:               "Developer".to_owned()
       },
 
       Talent {
@@ -654,7 +663,8 @@ mod tests {
         weight:                        6,
         blocked_companies:             vec![22],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
-        salary_expectations:           None
+        salary_expectations:           "".to_owned(),
+        latest_position:               "".to_owned()
       },
 
       Talent {
@@ -678,7 +688,8 @@ mod tests {
         weight:                        6,
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
-        salary_expectations:           None
+        salary_expectations:           "".to_owned(),
+        latest_position:               "".to_owned()
       },
 
       Talent {
@@ -702,7 +713,8 @@ mod tests {
         weight:                        0,
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
-        salary_expectations:           None
+        salary_expectations:           "".to_owned(),
+        latest_position:               "".to_owned()
       },
 
       Talent {
@@ -726,7 +738,8 @@ mod tests {
         weight:                        0,
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
-        salary_expectations:           None
+        salary_expectations:           "".to_owned(),
+        latest_position:               "".to_owned()
       }
     ];
 
@@ -1070,7 +1083,8 @@ mod tests {
       \"blocked_companies\":[99],
       \"work_experiences\":[\"Frontend developer\", \"SysAdmin\"],
       \"avatar_url\":\"https://secure.gravatar.com/avatar/47ac43379aa70038a9adc8ec88a1241d?s=250&d=https%3A%2F%2Fsecure.gravatar.com%2Favatar%2Fa0b9ad63fb35d210a218c317e0a6284e%3Fs%3D250\",
-      \"salary_expectations\":\"30.000€ - 40.000€\"
+      \"salary_expectations\":\"30.000€ - 40.000€\",
+      \"latest_position\":\"Developer\"
     }".to_owned();
 
     let resource: Result<Talent, _> = serde_json::from_str(&payload);
