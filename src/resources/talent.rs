@@ -37,7 +37,7 @@ pub struct SearchResult {
 impl From<SearchHitsHitsResult<Talent>> for SearchResult {
   fn from(hit: SearchHitsHitsResult<Talent>) -> SearchResult {
     SearchResult {
-      talent: hit.source.unwrap().into(),
+      talent:    hit.source.unwrap().into(),
       highlight: hit.highlight
     }
   }
@@ -46,14 +46,14 @@ impl From<SearchHitsHitsResult<Talent>> for SearchResult {
 /// A representation of `Talent` with limited fields.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FoundTalent {
-  pub id:                            u32,
-  pub headline:                      String,
-  pub avatar_url:                    String,
-  pub work_locations:                Vec<String>,
-  pub current_location:              String,
-  pub salary_expectations:           String,
-  pub roles_experiences:             Vec<RolesExperience>,
-  pub latest_position:               String
+  pub id:                  u32,
+  pub headline:            String,
+  pub avatar_url:          String,
+  pub work_locations:      Vec<String>,
+  pub current_location:    String,
+  pub salary_expectations: String,
+  pub roles_experiences:   Vec<RolesExperience>,
+  pub latest_position:     String
 }
 
 /// A struct that joins `desired_work_roles` and `desired_work_roles_experience`.
@@ -83,14 +83,14 @@ impl From<Box<Talent>> for FoundTalent {
     }
 
     FoundTalent {
-      id:                            talent.id,
-      headline:                      talent.headline.to_owned(),
-      avatar_url:                    talent.avatar_url.to_owned(),
-      work_locations:                talent.work_locations.to_owned(),
-      current_location:              talent.current_location.to_owned(),
-      salary_expectations:           talent.salary_expectations.to_owned(),
-      roles_experiences:             roles_experiences,
-      latest_position:               talent.latest_position.to_owned()
+      id:                  talent.id,
+      headline:            talent.headline.to_owned(),
+      avatar_url:          talent.avatar_url.to_owned(),
+      work_locations:      talent.work_locations.to_owned(),
+      current_location:    talent.current_location.to_owned(),
+      salary_expectations: talent.salary_expectations.to_owned(),
+      roles_experiences:   roles_experiences,
+      latest_position:     talent.latest_position.to_owned()
     }
   }
 }
