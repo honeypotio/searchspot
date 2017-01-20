@@ -12,7 +12,7 @@ build = "build.rs"
 
 [features]
 default = ["serde_codegen", "rs-es/default"]
-nightly = ["serde_macros", "rs-es/nightly"]
+nightly = ["serde_derive",  "rs-es/nightly"]
 
 [dependencies]
 chrono       = "0.2"
@@ -29,7 +29,7 @@ log          = "0.3"
 
 serde        = "0.8"
 serde_json   = "0.8"
-serde_macros = { version = "0.8", optional = true }
+serde_derive = { version = "0.8", optional = true }
 
 [build-dependencies]
 serde_codegen = { version = "0.8", optional = true }
@@ -40,7 +40,8 @@ features = ["serde"]
 default-features = false
 
 [dependencies.rs-es]
-version = "0.6"
+git = "https://github.com/RoxasShadow/rs-es"
+branch = "patch-3"
 default-features = false
 
 [lib]
