@@ -43,6 +43,14 @@ impl From<SearchHitsHitsResult<Talent>> for SearchResult {
   }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SalaryExpectations {
+  pub minimum:  Option<u64>,
+  pub maximum:  Option<u64>,
+  pub currency: String,
+  pub city:     String
+}
+
 /// A representation of `Talent` with limited fields.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FoundTalent {
@@ -51,7 +59,7 @@ pub struct FoundTalent {
   pub avatar_url:          String,
   pub work_locations:      Vec<String>,
   pub current_location:    String,
-  pub salary_expectations: String,
+  pub salary_expectations: Vec<SalaryExpectations>,
   pub roles_experiences:   Vec<RolesExperience>,
   pub latest_position:     String
 }
@@ -118,7 +126,7 @@ pub struct Talent {
   pub blocked_companies:             Vec<u32>,
   pub work_experiences:              Vec<String>, // past work experiences (i.e. ["Frontend developer", "SysAdmin"])
   pub avatar_url:                    String,
-  pub salary_expectations:           String,
+  pub salary_expectations:           Vec<SalaryExpectations>,
   pub latest_position:               String // the very last experience_entries#position
 }
 
@@ -482,10 +490,8 @@ impl Resource for Talent {
           "index" => "not_analyzed"
         },
 
-        "salary_expectations" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+        // salary_expectations should be inferred by
+        // ES as we lack of multi-field mapping right now
 
         "latest_position" => hashmap! {
           "type"  => "string",
@@ -582,7 +588,7 @@ mod tests {
   use searchspot::resource::*;
 
   use resources::Talent;
-  use resources::talent::SearchResults;
+  use resources::talent::{SalaryExpectations, SearchResults};
 
   const CONFIG_FILE: &'static str = "examples/tests.toml";
 
@@ -615,6 +621,17 @@ mod tests {
     }
   }
 
+  impl SalaryExpectations {
+    fn new(minimum: u64, maximum: u64, currency: &str, city: &str) -> SalaryExpectations {
+      SalaryExpectations {
+        minimum:  Some(minimum),
+        maximum:  Some(maximum),
+        currency: currency.to_owned(),
+        city:     city.to_owned()
+      }
+    }
+  }
+
   pub fn populate_index(mut client: &mut Client) -> bool {
     let talents = vec![
       Talent {
@@ -638,7 +655,7 @@ mod tests {
         weight:                        -5,
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
-        salary_expectations:           "< 60.000€".to_owned(),
+        salary_expectations:           vec![SalaryExpectations::new(40_000, 50_000, "EUR", "Berlin")],
         latest_position:               "Developer".to_owned()
       },
 
@@ -663,7 +680,7 @@ mod tests {
         weight:                        6,
         blocked_companies:             vec![22],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
-        salary_expectations:           "".to_owned(),
+        salary_expectations:           vec![],
         latest_position:               "".to_owned()
       },
 
@@ -688,7 +705,7 @@ mod tests {
         weight:                        6,
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
-        salary_expectations:           "".to_owned(),
+        salary_expectations:           vec![],
         latest_position:               "".to_owned()
       },
 
@@ -713,7 +730,7 @@ mod tests {
         weight:                        0,
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
-        salary_expectations:           "".to_owned(),
+        salary_expectations:           vec![],
         latest_position:               "".to_owned()
       },
 
@@ -738,7 +755,7 @@ mod tests {
         weight:                        0,
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
-        salary_expectations:           "".to_owned(),
+        salary_expectations:           vec![],
         latest_position:               "".to_owned()
       }
     ];
@@ -1083,7 +1100,7 @@ mod tests {
       \"blocked_companies\":[99],
       \"work_experiences\":[\"Frontend developer\", \"SysAdmin\"],
       \"avatar_url\":\"https://secure.gravatar.com/avatar/47ac43379aa70038a9adc8ec88a1241d?s=250&d=https%3A%2F%2Fsecure.gravatar.com%2Favatar%2Fa0b9ad63fb35d210a218c317e0a6284e%3Fs%3D250\",
-      \"salary_expectations\":\"30.000€ - 40.000€\",
+      \"salary_expectations\": [{\"minimum\": 40000, \"maximum\": 50000, \"currency\": \"EUR\", \"city\": \"Berlin\"}],
       \"latest_position\":\"Developer\"
     }".to_owned();
 
