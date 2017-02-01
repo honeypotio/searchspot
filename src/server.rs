@@ -59,7 +59,7 @@ macro_rules! unauthorized {
 }
 
 macro_rules! authorization {
-  ($trait_name:ident, $mode:ident) => {
+  ($trait_name:ident, $mode:ident, $lifespan:expr) => {
     trait $trait_name {
       fn is_authorized(&self, auth_config: AuthConfig, headers: &Headers) -> bool {
         if auth_config.enabled == false {
@@ -72,7 +72,7 @@ macro_rules! authorization {
               match header.split("token ").collect::<Vec<&str>>().last() {
                 Some(token) => {
                   match token.parse::<u64>() {
-                    Ok(token) => totp_raw(auth_config.$mode.as_bytes(), 6, 0, 30) == token,
+                    Ok(token) => totp_raw(auth_config.$mode.as_bytes(), 6, 0, $lifespan) == token,
                     Err(_)    => false,
                   }
                 },
@@ -94,8 +94,8 @@ pub struct Server<R: Resource> {
   resource: PhantomData<R>
 }
 
-authorization!(ReadableEndpoint, read);
-authorization!(WritableEndpoint, write);
+authorization!(ReadableEndpoint, read, 120);
+authorization!(WritableEndpoint, write, 30);
 
 pub struct SearchableHandler<R> {
   config:   Config,
