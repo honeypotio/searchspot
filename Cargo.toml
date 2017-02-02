@@ -8,12 +8,6 @@ license     = "BSD-2-Clause"
 description = "The service responsible for Honeypot's ElasticSearch data"
 keywords    = ["elasticsearch"]
 
-build = "build.rs"
-
-[features]
-default = ["serde_codegen", "rs-es/default"]
-nightly = ["serde_derive",  "rs-es/nightly"]
-
 [dependencies]
 chrono       = "0.2"
 
@@ -29,18 +23,13 @@ log          = "0.3"
 
 serde        = "0.8"
 serde_json   = "0.8"
-serde_derive = { version = "0.8", optional = true }
+serde_derive = "0.8"
 
-[build-dependencies]
-serde_codegen = { version = "0.8", optional = true }
+rs-es = "0.7"
 
 [dependencies.toml]
 version  = "0.2"
 features = ["serde"]
-default-features = false
-
-[dependencies.rs-es]
-version = "0.7"
 default-features = false
 
 [lib]

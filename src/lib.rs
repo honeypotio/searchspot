@@ -1,6 +1,4 @@
-#[cfg(feature = "serde_derive")]
-#[macro_use]
-extern crate serde_derive;
+#[macro_use] extern crate serde_derive;
 
 extern crate serde;
 extern crate serde_json;
@@ -13,8 +11,11 @@ extern crate toml;
 extern crate oath;
 #[macro_use] extern crate log;
 
-#[cfg(feature = "serde_derive")]
-include!("lib.rs.in");
+#[macro_use] pub mod macros;
 
-#[cfg(not(feature = "serde_derive"))]
-include!(concat!(env!("OUT_DIR"), "/lib.rs"));
+pub mod terms;
+pub mod matches;
+pub mod config;
+pub mod server;
+pub mod resource;
+pub mod logger;

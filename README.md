@@ -18,7 +18,7 @@ Dependencies
 * Rust
 * ElasticSearch 2.x (1.6+ [here](https://github.com/honeypotio/searchspot/tree/es-1.6))
 
-Our target is Rust Stable. However, you can use Rust Nightly too by passing `--features nightly --no-default-features` to cargo.
+Our target is Rust Stable. However, you can use Rust Nightly too by passing `--no-default-features` to cargo.
 
 Setup
 -----

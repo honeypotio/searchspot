@@ -1,16 +1,19 @@
-#[cfg(feature = "serde_derive")]
-#[macro_use]
-extern crate serde_derive;
-
 extern crate serde;
 extern crate serde_json;
+#[macro_use] extern crate serde_derive;
 
-extern crate searchspot;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate maplit;
 
-#[cfg(feature = "serde_derive")]
-include!("main.rs.in");
+extern crate searchspot;
 
-#[cfg(not(feature = "serde_derive"))]
-include!(concat!(env!("OUT_DIR"), "/main.rs"));
+#[macro_use] pub mod macros;
+mod resources;
+use resources::Talent;
+
+use searchspot::server::Server;
+
+fn main() {
+  let server = Server::<Talent>::new("/talents");
+  server.start();
+}
