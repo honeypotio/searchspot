@@ -25,7 +25,7 @@ serde        = "0.8"
 serde_json   = "0.8"
 serde_derive = "0.8"
 
-rs-es = "0.7"
+rs-es = "0.8"
 
 [dependencies.toml]
 version  = "0.2"
