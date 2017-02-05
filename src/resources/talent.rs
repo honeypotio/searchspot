@@ -13,8 +13,8 @@ use super::rs_es::query::full_text::MatchQueryType;
 use super::rs_es::error::EsError;
 use super::rs_es::operations::search::highlight::*;
 
-use searchspot::terms::VectorOfTerms;
-use searchspot::resource::*;
+use terms::VectorOfTerms;
+use resource::*;
 
 /// The type that we use in ElasticSearch for defining a `Talent`.
 const ES_TYPE: &'static str = "talent";
@@ -583,9 +583,8 @@ mod tests {
   extern crate params;
   use self::params::*;
 
-  extern crate searchspot;
-  use searchspot::config::*;
-  use searchspot::resource::*;
+  use config::*;
+  use resource::*;
 
   use resources::Talent;
   use resources::talent::{SalaryExpectations, SearchResults};
