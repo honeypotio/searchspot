@@ -12,8 +12,8 @@ pub struct ESConfig {
   pub index: String
 }
 
-impl ESConfig {
-  pub fn new() -> ESConfig {
+impl Default for ESConfig {
+  fn default() -> ESConfig {
     ESConfig {
       url:  "http://localhost".to_owned(),
       index: "my_index".to_owned()
@@ -36,8 +36,8 @@ pub struct HTTPConfig {
   pub port: u32
 }
 
-impl HTTPConfig {
-  pub fn new() -> HTTPConfig {
+impl Default for HTTPConfig {
+  fn default() -> HTTPConfig {
     HTTPConfig {
       host: "127.0.0.1".to_owned(),
       port: 3000
@@ -59,8 +59,8 @@ pub struct AuthConfig {
   pub write:   String
 }
 
-impl AuthConfig {
-  pub fn new() -> AuthConfig {
+impl Default for AuthConfig {
+  fn default() -> AuthConfig {
     AuthConfig {
       enabled: false,
       read:    "".to_owned(),
@@ -75,24 +75,43 @@ impl fmt::Display for AuthConfig {
   }
 }
 
-/// Container for ESConfig and HTTPConfig.
+/// Contain the configuration for the monitor
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MonitorConfig {
+  pub provider:     String,
+  pub enabled:      bool,
+  pub access_token: String,
+  pub environment:  String
+}
+
+impl fmt::Display for MonitorConfig {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "Monitor `{}` is {}", self.provider, if self.enabled { "enabled" } else { "disabled" })
+  }
+}
+
+/// Container for the configuration structs
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
-  pub http: HTTPConfig,
-  pub es:   ESConfig,
-  pub auth: AuthConfig
+  pub http:    HTTPConfig,
+  pub es:      ESConfig,
+  pub auth:    AuthConfig,
+  pub monitor: Option<MonitorConfig>
+}
+
+impl Default for Config {
+  /// Return a new `Config` fill with the default values
+  fn default() -> Config {
+    Config {
+      es:      ESConfig::default(),
+      http:    HTTPConfig::default(),
+      auth:    AuthConfig::default(),
+      monitor: None,
+    }
+  }
 }
 
 impl Config {
-  /// Return a new `Config` fill with the default values
-  pub fn new() -> Config {
-    Config {
-      es:   ESConfig::new(),
-      http: HTTPConfig::new(),
-      auth: AuthConfig::new()
-    }
-  }
-
   /// Load, parse and return the configuration file
   /// wrapped inside a `Config`.
   pub fn from_file(path: String) -> Config {
@@ -130,7 +149,29 @@ impl Config {
                                    .to_owned()
     };
 
-    Config { http: http_config, es: es_config, auth: auth_config }
+    let mut config = Config {
+      http:    http_config,
+      es:      es_config,
+      auth:    auth_config,
+      monitor: None
+    };
+
+    if let Ok(enabled) = env::var("MONITOR_ENABLED") {
+      let monitor_config = MonitorConfig {
+        provider: env::var("MONITOR_PROVIDER").unwrap()
+                                              .to_owned(),
+        enabled: enabled.parse::<bool>()
+                        .unwrap(),
+        access_token: env::var("MONITOR_ACCESS_TOKEN").unwrap()
+                                                      .to_owned(),
+        environment: env::var("MONITORR_ENVIRONMENT").unwrap()
+                                                     .to_owned()
+      };
+
+      config.monitor = Some(monitor_config);
+    }
+
+    config
   }
 
   /// Read a file from the given path and return its content
@@ -154,7 +195,7 @@ impl Config {
     if config_toml.is_none() {
       println!("{} {}", "Requested configuration file cannot be found.",
                         "The default configuration will be loaded.\n");
-      return Config::new();
+      return Config::default();
     }
 
     let config_toml_ = config_toml.unwrap();
@@ -192,24 +233,36 @@ mod tests {
     enabled = true
     read    = "yxxz7oap7rsf67zl"
     write   = "6po2okn3ddwv6ili"
+
+    [monitor]
+    provider     = "rollbar"
+    enabled      = true
+    access_token = "blabla"
+    environment  = "test"
   "#;
 
   #[test]
   fn test_new() {
     // returns a Config fill with the default hardcoded data
-    let config = Config::new();
-    assert_eq!(config.es.url,       "http://localhost".to_owned());
-    assert_eq!(config.http.host,    "127.0.0.1".to_owned());
-    assert_eq!(config.auth.enabled, false);
-    assert_eq!(config.auth.read,    "".to_owned());
+    let config = Config::default();
+    assert_eq!(config.es.url,    "http://localhost".to_owned());
+    assert_eq!(config.http.host, "127.0.0.1".to_owned());
+    assert_eq!(config.auth.read, "".to_owned());
+    assert!(!config.auth.enabled);
+    assert!(config.monitor.is_none());
   }
 
   #[test]
   fn test_parse() {
     // returns a Config fill with given TOML configuration file
     let config = Config::parse(Some(sample_config.to_owned()));
-    assert_eq!(config.es.url,       "https://123.0.123.0:9200".to_owned());
-    assert_eq!(config.auth.enabled, true);
-    assert_eq!(config.auth.read,    "yxxz7oap7rsf67zl".to_owned());
+    assert_eq!(config.es.url,    "https://123.0.123.0:9200".to_owned());
+    assert_eq!(config.auth.read, "yxxz7oap7rsf67zl".to_owned());
+    assert!(config.auth.enabled);
+
+    match config.monitor {
+      Some(monitor) => { assert!(monitor.enabled); },
+      None          => { assert!(false); }
+    };
   }
 }

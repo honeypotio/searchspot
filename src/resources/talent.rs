@@ -366,7 +366,7 @@ impl Resource for Talent {
         }
       },
       Err(err) => {
-        println!("{:?}", err);
+        error!("{:?}", err);
         SearchResults { total: 0, results: vec![] }
       }
     }

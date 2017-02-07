@@ -10,3 +10,9 @@ port = 3001
 enabled = true
 read    = "icsbqwdg7ukqluav"
 write   = "7x2ockhyff4fmm5n"
+
+[monitor]
+provider     = "rollbar"
+enabled      = true
+access_token = "secret"
+environment  = "production"

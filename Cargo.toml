@@ -20,6 +20,8 @@ lazy_static  = "0.2"
 maplit       = "0.1"
 oath         = "0.1"
 log          = "0.3"
+rollbar      = { git = "https://github.com/RoxasShadow/rollbar-rs" }
+backtrace    = "0.2"
 
 serde        = "0.8"
 serde_json   = "0.8"

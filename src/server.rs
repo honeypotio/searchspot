@@ -242,12 +242,7 @@ impl<R: Resource> Handler for ResettableHandler<R> {
 }
 
 impl<R: Resource> Server<R> {
-  pub fn new(endpoint: &str) -> Self {
-    let config = match env::args().nth(1) {
-      Some(file) => Config::from_file(file),
-      None       => Config::from_env()
-    };
-
+  pub fn new(config: Config, endpoint: &str) -> Self {
     Server {
       config:   config,
       endpoint: endpoint.to_owned(),
@@ -256,7 +251,7 @@ impl<R: Resource> Server<R> {
   }
 
   pub fn start(&self) {
-    Logger::init().unwrap();
+    Logger::init(&self.config).unwrap();
 
     let host = format!("{}:{}", self.config.http.host, self.config.http.port);
 
