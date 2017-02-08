@@ -127,7 +127,8 @@ pub struct Talent {
   pub work_experiences:              Vec<String>, // past work experiences (i.e. ["Frontend developer", "SysAdmin"])
   pub avatar_url:                    String,
   pub salary_expectations:           Vec<SalaryExpectations>,
-  pub latest_position:               String // the very last experience_entries#position
+  pub latest_position:               String, // the very last experience_entries#position
+  pub languages:                     Vec<String>
 }
 
 impl Talent {
@@ -211,6 +212,9 @@ impl Talent {
 
                <Query as VectorOfTerms<i32>>::build_terms(
                  "id", &vec_from_params!(params, "ids")),
+                 
+               <Query as VectorOfTerms<String>>::build_terms(
+                 "languages", &vec_from_params!(params, "languages")),
 
                Talent::visibility_filters(epoch,
                  i32_vec_from_params!(params, "presented_talents"))
@@ -407,6 +411,11 @@ impl Resource for Talent {
         },
 
         "work_locations" => hashmap! {
+          "type"  => "string",
+          "index" => "not_analyzed"
+        },
+
+        "languages" => hashmap! {
           "type"  => "string",
           "index" => "not_analyzed"
         },
@@ -655,7 +664,8 @@ mod tests {
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![SalaryExpectations::new(40_000, 50_000, "EUR", "Berlin")],
-        latest_position:               "Developer".to_owned()
+        latest_position:               "Developer".to_owned(),
+        languages:                     vec!["English".to_owned()]
       },
 
       Talent {
@@ -680,7 +690,8 @@ mod tests {
         blocked_companies:             vec![22],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
-        latest_position:               "".to_owned()
+        latest_position:               "".to_owned(),
+        languages:                     vec!["German".to_owned(), "English".to_owned()]
       },
 
       Talent {
@@ -705,7 +716,8 @@ mod tests {
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
-        latest_position:               "".to_owned()
+        latest_position:               "".to_owned(),
+        languages:                     vec!["English".to_owned()]
       },
 
       Talent {
@@ -730,7 +742,8 @@ mod tests {
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
-        latest_position:               "".to_owned()
+        latest_position:               "".to_owned(),
+        languages:                     vec!["English".to_owned()]
       },
 
       Talent {
@@ -755,7 +768,8 @@ mod tests {
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
-        latest_position:               "".to_owned()
+        latest_position:               "".to_owned(),
+        languages:                     vec!["English".to_owned()]
       }
     ];
 
@@ -848,6 +862,15 @@ mod tests {
     {
       let mut map = Map::new();
       map.assign("work_locations[]", Value::String("Rome".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![2], results.ids());
+    }
+
+    // searching for languages
+    {
+      let mut map = Map::new();
+      map.assign("languages[]", Value::String("German".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![2], results.ids());
@@ -1100,7 +1123,8 @@ mod tests {
       \"work_experiences\":[\"Frontend developer\", \"SysAdmin\"],
       \"avatar_url\":\"https://secure.gravatar.com/avatar/47ac43379aa70038a9adc8ec88a1241d?s=250&d=https%3A%2F%2Fsecure.gravatar.com%2Favatar%2Fa0b9ad63fb35d210a218c317e0a6284e%3Fs%3D250\",
       \"salary_expectations\": [{\"minimum\": 40000, \"maximum\": 50000, \"currency\": \"EUR\", \"city\": \"Berlin\"}],
-      \"latest_position\":\"Developer\"
+      \"latest_position\":\"Developer\",
+      \"languages\":[\"English\"]
     }".to_owned();
 
     let resource: Result<Talent, _> = serde_json::from_str(&payload);
