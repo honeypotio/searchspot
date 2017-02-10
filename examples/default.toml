@@ -3,7 +3,7 @@ url   = "https://user:pass@example.com:80"
 index = "my_index"
 
 [http]
-host = "127.0.0.1"
+host = "0.0.0.0"
 port = 3001
 
 [auth]
