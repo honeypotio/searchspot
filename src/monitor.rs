@@ -73,9 +73,10 @@ mod rollbar {
     }
 
     fn send_panic(&self, panic_info: &PanicInfo, backtrace: &Backtrace) {
-      let report = self.client.build_report();
-      let error = Error::from_panic(panic_info, backtrace).build_payload(&report);
-      self.client.send(error);
+      self.client.build_report()
+        .with_backtrace(&backtrace)
+        .from_panic(panic_info)
+        .send();
     }
 
     fn is_real(&self) -> bool {
