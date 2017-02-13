@@ -2,6 +2,7 @@ use std::panic::PanicInfo;
 use log::LogLocation;
 use config::MonitorConfig;
 use backtrace::Backtrace;
+use std::thread::JoinHandle;
 
 pub struct MonitorProvider;
 impl MonitorProvider {
@@ -19,20 +20,22 @@ impl MonitorProvider {
 
 pub trait Monitor: Send + Sync {
   type MonitorType: Monitor;
+  type ResponseType;
 
   fn from_config(config: &MonitorConfig) -> Self::MonitorType;
   fn send(&self, error_message: &String, location: &LogLocation);
-  fn send_panic(&self, panic_info: &PanicInfo, backtrace: &Backtrace);
+  fn send_panic(&self, panic_info: &PanicInfo, backtrace: &Backtrace) -> JoinHandle<Self::ResponseType>;
   fn is_real(&self) -> bool;
 }
 
 mod null_monitor {
-  use super::{PanicInfo, Backtrace, LogLocation, Monitor, MonitorConfig};
+  use super::{PanicInfo, Backtrace, JoinHandle, LogLocation, Monitor, MonitorConfig};
 
   pub struct NullMonitor;
 
   impl Monitor for NullMonitor {
     type MonitorType = NullMonitor;
+    type ResponseType = Option<()>;
 
     fn from_config(_: &MonitorConfig) -> Self::MonitorType {
       NullMonitor
@@ -42,7 +45,7 @@ mod null_monitor {
       unimplemented!()
     }
 
-    fn send_panic(&self, _: &PanicInfo, _: &Backtrace) {
+    fn send_panic(&self, _: &PanicInfo, _: &Backtrace) -> JoinHandle<Self::ResponseType> {
       unimplemented!()
     }
 
@@ -53,7 +56,7 @@ mod null_monitor {
 }
 
 mod rollbar {
-  use super::{PanicInfo, Backtrace, LogLocation, Monitor, MonitorConfig};
+  use super::{PanicInfo, Backtrace, LogLocation, Monitor, MonitorConfig, JoinHandle};
   use rollbar::*;
 
   pub struct Rollbar {
@@ -62,6 +65,7 @@ mod rollbar {
 
   impl Monitor for Rollbar {
     type MonitorType = Rollbar;
+    type ResponseType = Option<ResponseStatus>;
 
     fn from_config(config: &MonitorConfig) -> Self::MonitorType {
       Rollbar {
@@ -79,11 +83,11 @@ mod rollbar {
         .send();
     }
 
-    fn send_panic(&self, panic_info: &PanicInfo, backtrace: &Backtrace) {
+    fn send_panic(&self, panic_info: &PanicInfo, backtrace: &Backtrace) -> JoinHandle<Self::ResponseType> {
       self.client.build_report()
           .from_panic(&panic_info)
           .with_backtrace(&backtrace)
-          .send();
+          .send()
     }
 
     fn is_real(&self) -> bool {

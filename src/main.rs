@@ -21,7 +21,7 @@ fn main() {
           Some(monitor) => {
             panic::set_hook(Box::new(move |panic_info| {
               let backtrace = Backtrace::new();
-              monitor.send_panic(panic_info, &backtrace);
+              monitor.send_panic(panic_info, &backtrace).join();
             }));
           },
           None => { panic!("Monitor `{}` has not been found.", monitor.provider); }
