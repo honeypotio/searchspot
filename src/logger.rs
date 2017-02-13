@@ -34,13 +34,13 @@ impl<T: Monitor> Log for RealLogger<T> {
 
   fn log(&self, record: &LogRecord) {
     if self.enabled(record.metadata()) {
-      let error = format!("{} - {}", record.level(), record.args());
+      let error_message = format!("{} - {}", record.level(), record.args());
 
       if self.monitor.is_real() && record.level() == LogLevel::Error {
-        self.monitor.send(error.to_owned().into());
+        self.monitor.send(&error_message, record.location());
       }
 
-      println!("{}", error);
+      println!("{} - {:?}", error_message, record.location());
     }
   }
 }

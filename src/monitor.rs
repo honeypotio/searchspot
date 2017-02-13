@@ -1,4 +1,5 @@
 use std::panic::PanicInfo;
+use log::LogLocation;
 use config::MonitorConfig;
 use backtrace::Backtrace;
 
@@ -20,13 +21,13 @@ pub trait Monitor: Send + Sync {
   type MonitorType: Monitor;
 
   fn from_config(config: &MonitorConfig) -> Self::MonitorType;
-  fn send(&self, payload: String);
+  fn send(&self, error_message: &String, location: &LogLocation);
   fn send_panic(&self, panic_info: &PanicInfo, backtrace: &Backtrace);
   fn is_real(&self) -> bool;
 }
 
 mod null_monitor {
-  use super::{PanicInfo, Backtrace, Monitor, MonitorConfig};
+  use super::{PanicInfo, Backtrace, LogLocation, Monitor, MonitorConfig};
 
   pub struct NullMonitor;
 
@@ -37,7 +38,7 @@ mod null_monitor {
       NullMonitor
     }
 
-    fn send(&self, _: String) {
+    fn send(&self, _: &String, _: &LogLocation) {
       unimplemented!()
     }
 
@@ -52,7 +53,7 @@ mod null_monitor {
 }
 
 mod rollbar {
-  use super::{PanicInfo, Backtrace, Monitor, MonitorConfig};
+  use super::{PanicInfo, Backtrace, LogLocation, Monitor, MonitorConfig};
   use rollbar::*;
 
   pub struct Rollbar {
@@ -68,15 +69,21 @@ mod rollbar {
       }
     }
 
-    fn send(&self, payload: String) {
-      self.client.send(payload);
+    fn send(&self, error_message: &String, location: &LogLocation) {
+      self.client.build_report()
+        .from_error(error_message)
+        .with_frame(FrameBuilder::new()
+                    .with_line_number(location.line())
+                    .with_file_name(location.file())
+                    .build())
+        .send();
     }
 
     fn send_panic(&self, panic_info: &PanicInfo, backtrace: &Backtrace) {
       self.client.build_report()
-        .with_backtrace(&backtrace)
-        .from_panic(panic_info)
-        .send();
+          .from_panic(&panic_info)
+          .with_backtrace(&backtrace)
+          .send();
     }
 
     fn is_real(&self) -> bool {
