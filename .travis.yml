@@ -16,9 +16,7 @@ cache:
   cargo: true
 
 script:
-  - |
-      cargo build --release --no-default-features &&
-      cargo test            --no-default-features
+  - cargo build --release && cargo test
 
 before_deploy:
   - mv target/release/searchspot .
