@@ -1,1 +1,1 @@
-web: searchspot
+web: target/release/searchspot
