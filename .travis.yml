@@ -1,11 +1,11 @@
 language: rust
 matrix:
   include:
-    - rust: stable
-  allow_failures:
     - rust: nightly
       env:
        - FEATURES='nightly'
+  allow_failures:
+    - rust: stable
 
 cache:
   cargo: true
@@ -26,3 +26,14 @@ script:
       cargo build && cargo test &&
       ([ -z "$FEATURES" ] || cargo build --features "$FEATURES" --no-default-features) &&
       ([ -z "$FEATURES" ] || cargo test  --features "$FEATURES" --no-default-features)
+
+before_deploy:
+  - cargo build --release
+
+deploy:
+  provider: releases
+  api_key:
+    secure: SXlWl5wsS0pRLFwLNb8CCbHApr3ML6FXSVPFlRPoRsdCHpepREACD6fev8c70mH2aJq8Ynl5SCdKTFYcwSv520hvULc5n6Nf2kDi+uqJbjF/6kJGwkgVZd0kja9SSU+rmQoCXxfioniHJs3UjEfONPS3cnA9FB2vszHkvk4vThFuPJzGMMyXvz3+MA+kzof5JdvVsRPr2FtTKOcGRj9YgaxZY8+qadFWSoxDqS4aX+oDrvkGOPHe5uBCq4lltS4Kpq2oMAcggZFTB1BTIKh/n91JszFgT83IPqHE7qPtFD5eqn5IeMCFvV8QQMWMXWL8Dk89Rwafs7Xkjy30KDwwLxCQbM4kBnMHgAhxZuXiBuX+lXwi4tejib8cSxe8NghOBVgvL9O+0HpDk66/bachJCjHDz6GTsl6FH6gmb0JFBTFyepkPu9ZHsLTwNCPsANMAMEwAKeada5NhFxpVlIYuQ9KAHS0eYRnesd7Kgc8kPMhk3FsrPidrNB4QdkEif1qMY2AFY5KqzFsseSzYTdLeDnkQuYaNb/Pkj6HomiGGxt5C+6ubsGA4bKReiIjJZ5S8M/IutvCLYZBZuqhKUcyiIXraN3jaDWMKpSVUTWUouoi/hOOuzyGp1zPySarSnRYVHW6B0Li8V45HrJPurDRwM3Y1AUVkd9/9FKzR2B32nk=
+  file: target/release/searchspot
+  on:
+    repo: honeypotio/searchspot
