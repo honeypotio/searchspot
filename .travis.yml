@@ -3,6 +3,9 @@ language: rust
 matrix:
   - rust: nightly
 
+cache:
+  cargo: true
+
 addons:
   apt:
     sources:
@@ -13,22 +16,49 @@ addons:
 services:
   - elasticsearch
 
-cache:
-  cargo: true
-
 script:
-  - cargo test
-
-before_deploy:
-  - cargo build --release
-  - mv target/release/searchspot .
+  - cargo test && cargo build --release
 
 deploy:
-  provider: heroku
-  skip_cleanup: true
-  api_key:
-    secure: A+RuVKU65BPHkTVkKShKePxdrwgSRY2nebTdUqkL8tpYdw+JwUgsO8VusAqZhBY3mXFUhamwKYeJw9dyFw2+bpwbY+IQYzYqcs9/6532dQZWTNVJWo4GVLXULqeyYq/elmG+G6DWqF8+eLEtzosGXJOQgshnx3yweexa6alZis9MT+VXLYj8wW9J8iAAyu2RjeLOGD3q8LkNLT4j2apgtGGcS+aMtaZbEA9KhcqjjON47fpc4yTadOFiTgS5PCnxaehafXpjPC0NLKZD7o+06r7pR9ZXcJYHOHHwlgBOcbJMt5PCXh/hVfDCdMNL//yJaqLvrgx5K87MA/SYV6CrHn7oVwlYkIPHXkY2nQxgEjOWTBO6ppGAxB4aMmevHmiYafPrGt/lOM6+qFwfgYFDnwQlxry/iKBE98F0xnn65B94EmVD/0gFllHNg3xHaPRdg9UPxaEn+SMxPZb5Vldsp5TJNMn4jffy4nQGvGR8NLcl80nIgbM4mOLV59yAzg5Y2U2XTfCa9aHa3yPDecUlTy7JX3cM4gdRJ0L5ySpGRxh/H+3ikV0QIA6u9g4KcOlRGLYxpv3Pq7GMG+E1ekmioZCH+UqcCgj2GhcxiEsh7sJafLEzO1vyA1w+zmh3Wec4mI4Mj+j7zLEq3NV3t/Bm8fgSFiqaYgDCW7E3tO9ELys=
-  app:
-    travis-deploy: docker-searchspot
-  on:
-    repo: honeypotio/searchspot
+  # merge in master => deploy it to staging
+  #  - provider: heroku
+  #    skip_cleanup: true
+  #    api_key:
+  #      secure: A+RuVKU65BPHkTVkKShKePxdrwgSRY2nebTdUqkL8tpYdw+JwUgsO8VusAqZhBY3mXFUhamwKYeJw9dyFw2+bpwbY+IQYzYqcs9/6532dQZWTNVJWo4GVLXULqeyYq/elmG+G6DWqF8+eLEtzosGXJOQgshnx3yweexa6alZis9MT+VXLYj8wW9J8iAAyu2RjeLOGD3q8LkNLT4j2apgtGGcS+aMtaZbEA9KhcqjjON47fpc4yTadOFiTgS5PCnxaehafXpjPC0NLKZD7o+06r7pR9ZXcJYHOHHwlgBOcbJMt5PCXh/hVfDCdMNL//yJaqLvrgx5K87MA/SYV6CrHn7oVwlYkIPHXkY2nQxgEjOWTBO6ppGAxB4aMmevHmiYafPrGt/lOM6+qFwfgYFDnwQlxry/iKBE98F0xnn65B94EmVD/0gFllHNg3xHaPRdg9UPxaEn+SMxPZb5Vldsp5TJNMn4jffy4nQGvGR8NLcl80nIgbM4mOLV59yAzg5Y2U2XTfCa9aHa3yPDecUlTy7JX3cM4gdRJ0L5ySpGRxh/H+3ikV0QIA6u9g4KcOlRGLYxpv3Pq7GMG+E1ekmioZCH+UqcCgj2GhcxiEsh7sJafLEzO1vyA1w+zmh3Wec4mI4Mj+j7zLEq3NV3t/Bm8fgSFiqaYgDCW7E3tO9ELys=
+  #    app:
+  #      master: staging-searchspot
+  #    on:
+  #      repo: honeypotio/searchspot
+  #      branch: master
+  #  # new tag => deploy master to release-staging and production
+  #  - provider: heroku
+  #    skip_cleanup: true
+  #    api_key:
+  #      secure: A+RuVKU65BPHkTVkKShKePxdrwgSRY2nebTdUqkL8tpYdw+JwUgsO8VusAqZhBY3mXFUhamwKYeJw9dyFw2+bpwbY+IQYzYqcs9/6532dQZWTNVJWo4GVLXULqeyYq/elmG+G6DWqF8+eLEtzosGXJOQgshnx3yweexa6alZis9MT+VXLYj8wW9J8iAAyu2RjeLOGD3q8LkNLT4j2apgtGGcS+aMtaZbEA9KhcqjjON47fpc4yTadOFiTgS5PCnxaehafXpjPC0NLKZD7o+06r7pR9ZXcJYHOHHwlgBOcbJMt5PCXh/hVfDCdMNL//yJaqLvrgx5K87MA/SYV6CrHn7oVwlYkIPHXkY2nQxgEjOWTBO6ppGAxB4aMmevHmiYafPrGt/lOM6+qFwfgYFDnwQlxry/iKBE98F0xnn65B94EmVD/0gFllHNg3xHaPRdg9UPxaEn+SMxPZb5Vldsp5TJNMn4jffy4nQGvGR8NLcl80nIgbM4mOLV59yAzg5Y2U2XTfCa9aHa3yPDecUlTy7JX3cM4gdRJ0L5ySpGRxh/H+3ikV0QIA6u9g4KcOlRGLYxpv3Pq7GMG+E1ekmioZCH+UqcCgj2GhcxiEsh7sJafLEzO1vyA1w+zmh3Wec4mI4Mj+j7zLEq3NV3t/Bm8fgSFiqaYgDCW7E3tO9ELys=
+  #    app:
+  #      master: production-searchspot
+  #    on:
+  #      repo: honeypotio/searchspot
+  #      branch: master
+  #      tags: true
+  #  - provider: heroku
+  #    skip_cleanup: true
+  #    api_key:
+  #      secure: A+RuVKU65BPHkTVkKShKePxdrwgSRY2nebTdUqkL8tpYdw+JwUgsO8VusAqZhBY3mXFUhamwKYeJw9dyFw2+bpwbY+IQYzYqcs9/6532dQZWTNVJWo4GVLXULqeyYq/elmG+G6DWqF8+eLEtzosGXJOQgshnx3yweexa6alZis9MT+VXLYj8wW9J8iAAyu2RjeLOGD3q8LkNLT4j2apgtGGcS+aMtaZbEA9KhcqjjON47fpc4yTadOFiTgS5PCnxaehafXpjPC0NLKZD7o+06r7pR9ZXcJYHOHHwlgBOcbJMt5PCXh/hVfDCdMNL//yJaqLvrgx5K87MA/SYV6CrHn7oVwlYkIPHXkY2nQxgEjOWTBO6ppGAxB4aMmevHmiYafPrGt/lOM6+qFwfgYFDnwQlxry/iKBE98F0xnn65B94EmVD/0gFllHNg3xHaPRdg9UPxaEn+SMxPZb5Vldsp5TJNMn4jffy4nQGvGR8NLcl80nIgbM4mOLV59yAzg5Y2U2XTfCa9aHa3yPDecUlTy7JX3cM4gdRJ0L5ySpGRxh/H+3ikV0QIA6u9g4KcOlRGLYxpv3Pq7GMG+E1ekmioZCH+UqcCgj2GhcxiEsh7sJafLEzO1vyA1w+zmh3Wec4mI4Mj+j7zLEq3NV3t/Bm8fgSFiqaYgDCW7E3tO9ELys=
+  #    app:
+  #      master: release-staging-searchspot
+  #    on:
+  #      repo: honeypotio/searchspot
+  #      branch: master
+  #      tags: true
+  # test
+  - provider: heroku
+    skip_cleanup: true
+    api_key:
+      secure: SgXRVjOwG5XZKb9JUv3pnlMSAWAV+c40yICvOjUaO/47hZjQz6SD3rbhVTWb2Ezx4MDSJ5UFnZfUSr4StWD1V2hSAtG2jdE+UCZcgeRqFLv1Vpez085+/IWNBWp60di+yYXpTM68Vug6mbuMFMRTMKgQ7sjDFhedeV2xenbOtwhdf50NQwC+Lo4hrOzot9XNBMB9E7ilMCIEBQJ55ghO8Gv0SepATEJ8Zhl9tqfi+swFzQNmhf5R9njWzLy45sNCiX2AXEo5KLPuwuPD1Rhyk8NxZoqbfYDSjsxLtisBUcyRk8oibj7yMYJN9/JkGWBk8jtFhLlnU2ihd5eZbOEiyk7rjvJqK+uDLZ2bE2+AVY6X6sXSU5SzkUNaXJscaMYDbhyP8fGgTOZb1Atb+wVFU+ofQJHGF6KTc91+krSTZMHhHTMMjuUkgCUElkXXcYvV3iYTCIMIkww167m9XhnCKKnI5yADXgNSe+qCtcJi1Bi5dHKyDmcBjKLTfitZlQI0EyIx19LjsYH2pEtZdiPnjIHOaslXX62WAtfCmz/VnzWVDHyQCzKPjbxG1NFSzcynMSLpGXQELD6zDhtrBCvWylBM7vh4eIpiYcqGH3+Z7qJ53FjjtPNwjsFieNXJJ2iSelRAwkWz2UsB3LvS3uLPgWroNddb2YMkd8aXx8pqeMY=
+    app:
+      travis-deploy: docker-searchspot
+    on:
+      repo: honeypotio/searchspot
+      branch: travis-deploy
+      tags: true
