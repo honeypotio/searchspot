@@ -1,11 +1,8 @@
 language: rust
 matrix:
-  include:
-    - rust: nightly
-      env:
-       - FEATURES='nightly'
-  allow_failures:
-    - rust: stable
+  - rust: nightly
+    env:
+     - FEATURES='nightly'
 
 cache:
   cargo: true
@@ -23,17 +20,14 @@ env:
 
 script:
   - |
-      cargo build && cargo test &&
-      ([ -z "$FEATURES" ] || cargo build --features "$FEATURES" --no-default-features) &&
-      ([ -z "$FEATURES" ] || cargo test  --features "$FEATURES" --no-default-features)
-
-before_deploy:
-  - cargo build --release
+      cargo build --release --no-default-features &&
+      cargo test            --no-default-features
 
 deploy:
   provider: heroku
   api_key:
     secure: A+RuVKU65BPHkTVkKShKePxdrwgSRY2nebTdUqkL8tpYdw+JwUgsO8VusAqZhBY3mXFUhamwKYeJw9dyFw2+bpwbY+IQYzYqcs9/6532dQZWTNVJWo4GVLXULqeyYq/elmG+G6DWqF8+eLEtzosGXJOQgshnx3yweexa6alZis9MT+VXLYj8wW9J8iAAyu2RjeLOGD3q8LkNLT4j2apgtGGcS+aMtaZbEA9KhcqjjON47fpc4yTadOFiTgS5PCnxaehafXpjPC0NLKZD7o+06r7pR9ZXcJYHOHHwlgBOcbJMt5PCXh/hVfDCdMNL//yJaqLvrgx5K87MA/SYV6CrHn7oVwlYkIPHXkY2nQxgEjOWTBO6ppGAxB4aMmevHmiYafPrGt/lOM6+qFwfgYFDnwQlxry/iKBE98F0xnn65B94EmVD/0gFllHNg3xHaPRdg9UPxaEn+SMxPZb5Vldsp5TJNMn4jffy4nQGvGR8NLcl80nIgbM4mOLV59yAzg5Y2U2XTfCa9aHa3yPDecUlTy7JX3cM4gdRJ0L5ySpGRxh/H+3ikV0QIA6u9g4KcOlRGLYxpv3Pq7GMG+E1ekmioZCH+UqcCgj2GhcxiEsh7sJafLEzO1vyA1w+zmh3Wec4mI4Mj+j7zLEq3NV3t/Bm8fgSFiqaYgDCW7E3tO9ELys=
-  app: docker-searchspot
+  app:
+    master: docker-searchspot
   on:
     repo: honeypotio/searchspot
