@@ -1,33 +1,35 @@
 language: rust
+
 matrix:
   - rust: nightly
-    env:
-     - FEATURES='nightly'
 
+addons:
+  apt:
+    sources:
+      - elasticsearch-2.x
+    packages:
+      - elasticsearch
+
+services:
+  - elasticsearch
 cache:
   cargo: true
-  directories:
-    - elasticsearch-2.2.2
-
-before_install:
-  - wget https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-2.2.2.tar.gz
-  - tar -xvf elasticsearch-2.2.2.tar.gz
-  - sudo chmod 777 /var/log/elasticsearch
-  - elasticsearch-2.2.2/bin/elasticsearch > /tmp/es.log &
-
-env:
-  - PATH: ${PATH}:${TRAVIS_BUILD_DIR}/elasticsearch-2.2.2/bin
 
 script:
   - |
       cargo build --release --no-default-features &&
       cargo test            --no-default-features
 
+before_deploy:
+  - mv target/release/searchspot .
+  - rm -r target
+
 deploy:
   provider: heroku
+  skip_cleanup: true
   api_key:
     secure: A+RuVKU65BPHkTVkKShKePxdrwgSRY2nebTdUqkL8tpYdw+JwUgsO8VusAqZhBY3mXFUhamwKYeJw9dyFw2+bpwbY+IQYzYqcs9/6532dQZWTNVJWo4GVLXULqeyYq/elmG+G6DWqF8+eLEtzosGXJOQgshnx3yweexa6alZis9MT+VXLYj8wW9J8iAAyu2RjeLOGD3q8LkNLT4j2apgtGGcS+aMtaZbEA9KhcqjjON47fpc4yTadOFiTgS5PCnxaehafXpjPC0NLKZD7o+06r7pR9ZXcJYHOHHwlgBOcbJMt5PCXh/hVfDCdMNL//yJaqLvrgx5K87MA/SYV6CrHn7oVwlYkIPHXkY2nQxgEjOWTBO6ppGAxB4aMmevHmiYafPrGt/lOM6+qFwfgYFDnwQlxry/iKBE98F0xnn65B94EmVD/0gFllHNg3xHaPRdg9UPxaEn+SMxPZb5Vldsp5TJNMn4jffy4nQGvGR8NLcl80nIgbM4mOLV59yAzg5Y2U2XTfCa9aHa3yPDecUlTy7JX3cM4gdRJ0L5ySpGRxh/H+3ikV0QIA6u9g4KcOlRGLYxpv3Pq7GMG+E1ekmioZCH+UqcCgj2GhcxiEsh7sJafLEzO1vyA1w+zmh3Wec4mI4Mj+j7zLEq3NV3t/Bm8fgSFiqaYgDCW7E3tO9ELys=
   app:
-    master: docker-searchspot
+    travis-deploy: docker-searchspot
   on:
     repo: honeypotio/searchspot
