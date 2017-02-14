@@ -1,1 +1,4 @@
-target
+target/debug
+target/package
+target/release/build
+target/release/deps
