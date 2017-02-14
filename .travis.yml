@@ -20,7 +20,6 @@ script:
 
 before_deploy:
   - mv target/release/searchspot .
-  - rm -r target
 
 deploy:
   provider: heroku
