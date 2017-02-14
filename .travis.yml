@@ -12,13 +12,15 @@ addons:
 
 services:
   - elasticsearch
+
 cache:
   cargo: true
 
 script:
-  - cargo build --release && cargo test
+  - cargo test
 
 before_deploy:
+  - cargo build --release
   - mv target/release/searchspot .
 
 deploy:
