@@ -280,16 +280,11 @@ impl<R: Resource> Server<R> {
 
     let client = Client::new(&*self.config.to_owned().es.url).unwrap();
 
-    match env::var("DYNO") { // for some reasons, chain::link makes heroku crash
-      Ok(_)  => Iron::new(router).http(&*host),
-      Err(_) => {
-        let mut chain = Chain::new(router);
-        chain.link(HTTPLogger::new(None));
-        chain.link(Write::<SharedClient>::both(client));
+    let mut chain = Chain::new(router);
+    chain.link(HTTPLogger::new(None));
+    chain.link(Write::<SharedClient>::both(client));
 
-        Iron::new(chain).http(&*host)
-      }
-    }.unwrap();
+    Iron::new(chain).http(&*host).unwrap();
   }
 }
 
