@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::env;
 use std::io::Read;
 use std::marker::PhantomData;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 macro_rules! try_or_422 {
   ($expr:expr) => (match $expr {
@@ -92,15 +92,15 @@ authorization!(WritableEndpoint, write);
 
 pub struct SearchableHandler<R> {
   config:   Config,
-  client:   Mutex<Client>,
+  client:   Arc<Mutex<Client>>,
   resource: PhantomData<R>
 }
 
 impl<R: Resource> SearchableHandler<R> {
-  fn new(config: Config) -> Self {
+  fn new(client: Arc<Mutex<Client>>, config: Config) -> Self {
     SearchableHandler::<R> {
       resource: PhantomData,
-      client:   Mutex::new(Client::new(&*config.es.url).unwrap()),
+      client:   client,
       config:   config
     }
   }
@@ -127,15 +127,15 @@ impl<R: Resource> Handler for SearchableHandler<R> {
 
 pub struct IndexableHandler<R> {
   config:   Config,
-  client:   Mutex<Client>,
+  client:   Arc<Mutex<Client>>,
   resource: PhantomData<R>
 }
 
 impl<R: Resource> IndexableHandler<R> {
-  fn new(config: Config) -> Self {
+  fn new(client: Arc<Mutex<Client>>, config: Config) -> Self {
     IndexableHandler::<R> {
       resource: PhantomData,
-      client:   Mutex::new(Client::new(&*config.es.url).unwrap()),
+      client:   client,
       config:   config
     }
   }
@@ -161,15 +161,15 @@ impl<R: Resource> Handler for IndexableHandler<R> {
 
 pub struct DeletableHandler<R> {
   config:   Config,
-  client:   Mutex<Client>,
+  client:   Arc<Mutex<Client>>,
   resource: PhantomData<R>
 }
 
 impl<R: Resource> DeletableHandler<R> {
-  fn new(config: Config) -> Self {
+  fn new(client: Arc<Mutex<Client>>, config: Config) -> Self {
     DeletableHandler::<R> {
       resource: PhantomData,
-      client:   Mutex::new(Client::new(&*config.es.url).unwrap()),
+      client:   client,
       config:   config
     }
   }
@@ -204,15 +204,15 @@ impl<R: Resource> Handler for DeletableHandler<R> {
 
 pub struct ResettableHandler<R> {
   config:   Config,
-  client:   Mutex<Client>,
+  client:   Arc<Mutex<Client>>,
   resource: PhantomData<R>
 }
 
 impl<R: Resource> ResettableHandler<R> {
-  fn new(config: Config) -> Self {
+  fn new(client: Arc<Mutex<Client>>, config: Config) -> Self {
     ResettableHandler::<R> {
       resource: PhantomData,
-      client:   Mutex::new(Client::new(&*config.es.url).unwrap()),
+      client:   client,
       config:   config
     }
   }
@@ -264,13 +264,15 @@ impl<R: Resource> Server<R> {
                                          self.config.es,
                                          self.config.http);
 
+    let client = Arc::new(Mutex::new(Client::new(&*self.config.to_owned().es.url).unwrap()));
+
     let mut router = Router::new();
-    router.get(&self.endpoint,    SearchableHandler::<R>::new(self.config.to_owned()), "search");
-    router.post(&self.endpoint,   IndexableHandler::<R>::new(self.config.to_owned()),  "index");
-    router.delete(&self.endpoint, ResettableHandler::<R>::new(self.config.to_owned()), "reset");
+    router.get(&self.endpoint,    SearchableHandler::<R>::new(client.clone(), self.config.to_owned()), "search");
+    router.post(&self.endpoint,   IndexableHandler::<R>::new(client.clone(), self.config.to_owned()),  "index");
+    router.delete(&self.endpoint, ResettableHandler::<R>::new(client.clone(), self.config.to_owned()), "reset");
 
     let deletable_endpoint = format!("{}/:id", self.endpoint);
-    router.delete(deletable_endpoint, DeletableHandler::<R>::new(self.config.to_owned()), "delete");
+    router.delete(deletable_endpoint, DeletableHandler::<R>::new(client.clone(), self.config.to_owned()), "delete");
 
     match env::var("DYNO") { // for some reasons, chain::link makes heroku crash
       Ok(_)  => Iron::new(router).http(&*host),
