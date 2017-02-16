@@ -75,7 +75,7 @@ mod rollbar {
 
     fn send(&self, error_message: &String, location: &LogLocation) {
       self.client.build_report()
-        .from_error(error_message)
+        .from_error_message(error_message)
         .with_frame(FrameBuilder::new()
                     .with_line_number(location.line())
                     .with_file_name(location.file())
