@@ -1,3 +1,5 @@
+#![feature(conservative_impl_trait)]
+
 extern crate serde;
 extern crate serde_json;
 #[macro_use] extern crate serde_derive;
@@ -10,6 +12,8 @@ extern crate params;
 extern crate rs_es;
 extern crate toml;
 extern crate oath;
+extern crate rollbar;
+extern crate backtrace;
 #[macro_use] extern crate log;
 #[macro_use] extern crate maplit;
 
@@ -27,5 +31,6 @@ pub mod config;
 pub mod server;
 pub mod resource;
 pub mod logger;
+pub mod monitor;
 
 pub mod resources;

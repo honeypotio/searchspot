@@ -115,8 +115,8 @@ mod tests {
       let mut params = Map::new();
       params.assign("company_id", Value::String("4".into())).unwrap();
 
-      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
-      assert_eq!(company_id, vec![4]);
+      let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert_eq!(company_ids, vec![4]);
     }
 
     // given an empty string, it returns an empty vector
@@ -124,8 +124,8 @@ mod tests {
       let mut params = Map::new();
       params.assign("company_id", Value::String("".into())).unwrap();
 
-      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
-      assert_eq!(company_id, vec![]);
+      let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert!(company_ids.is_empty());
     }
 
     // given a non-number string, it returns an empty vector
@@ -133,22 +133,22 @@ mod tests {
       let mut params = Map::new();
       params.assign("company_id", Value::String("madukapls".into())).unwrap();
 
-      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
-      assert_eq!(company_id, vec![]);
+      let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert!(company_ids.is_empty());
     }
 
     {
       let mut params = Map::new();
       params.assign("company_id[]", Value::String("madukapls".into())).unwrap();
 
-      let company_id: Vec<i32> = i32_vec_from_params!(params, "company_id");
-      assert_eq!(company_id, vec![]);
+      let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
+      assert!(company_ids.is_empty());
     }
 
     // given nothing, it returns an empty vector
     {
-      let company_id: Vec<i32> = i32_vec_from_params!(Map::new(), "company_id");
-      assert_eq!(company_id, vec![]);
+      let company_ids: Vec<i32> = i32_vec_from_params!(Map::new(), "company_id");
+      assert!(company_ids.is_empty());
     }
   }
 }
