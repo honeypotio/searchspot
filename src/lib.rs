@@ -8,6 +8,7 @@ extern crate iron;
 extern crate logger as http_logger;
 extern crate router;
 extern crate params;
+extern crate persistent;
 
 extern crate rs_es;
 extern crate toml;

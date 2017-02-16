@@ -6,6 +6,9 @@ use rs_es::Client;
 use iron::prelude::*;
 use iron::{status, Handler, Headers};
 use iron::mime::Mime;
+use iron::typemap::Key;
+
+use persistent::Write;
 
 use http_logger::Logger as HTTPLogger;
 
@@ -23,7 +26,11 @@ use std::collections::HashMap;
 use std::env;
 use std::io::Read;
 use std::marker::PhantomData;
-use std::sync::Mutex;
+
+#[derive(Copy, Clone)]
+pub struct SharedClient;
+
+impl Key for SharedClient { type Value = Client; }
 
 macro_rules! try_or_422 {
   ($expr:expr) => (match $expr {
@@ -92,7 +99,6 @@ authorization!(WritableEndpoint, write);
 
 pub struct SearchableHandler<R> {
   config:   Config,
-  client:   Mutex<Client>,
   resource: PhantomData<R>
 }
 
@@ -100,7 +106,6 @@ impl<R: Resource> SearchableHandler<R> {
   fn new(config: Config) -> Self {
     SearchableHandler::<R> {
       resource: PhantomData,
-      client:   Mutex::new(Client::new(&*config.es.url).unwrap()),
       config:   config
     }
   }
@@ -114,9 +119,10 @@ impl<R: Resource> Handler for SearchableHandler<R> {
       unauthorized!();
     }
 
+    let client = req.get::<Write<SharedClient>>().unwrap();
     let params = try_or_422!(req.get_ref::<Params>());
 
-    let response = R::search(&mut self.client.lock().unwrap(), &*self.config.es.index, params);
+    let response = R::search(&mut client.lock().unwrap(), &*self.config.es.index, params);
 
     let content_type = "application/json".parse::<Mime>().unwrap();
     Ok(Response::with(
@@ -127,7 +133,6 @@ impl<R: Resource> Handler for SearchableHandler<R> {
 
 pub struct IndexableHandler<R> {
   config:   Config,
-  client:   Mutex<Client>,
   resource: PhantomData<R>
 }
 
@@ -135,7 +140,6 @@ impl<R: Resource> IndexableHandler<R> {
   fn new(config: Config) -> Self {
     IndexableHandler::<R> {
       resource: PhantomData,
-      client:   Mutex::new(Client::new(&*config.es.url).unwrap()),
       config:   config
     }
   }
@@ -153,7 +157,8 @@ impl<R: Resource> Handler for IndexableHandler<R> {
     req.body.read_to_string(&mut payload).unwrap();
 
     let resources: Vec<R> = try_or_422!(serde_json::from_str(&payload));
-    try_or_422!(R::index(&mut self.client.lock().unwrap(), &*self.config.es.index, resources));
+    let client = req.get::<Write<SharedClient>>().unwrap();
+    try_or_422!(R::index(&mut client.lock().unwrap(), &*self.config.es.index, resources));
 
     Ok(Response::with(status::Created))
   }
@@ -161,7 +166,6 @@ impl<R: Resource> Handler for IndexableHandler<R> {
 
 pub struct DeletableHandler<R> {
   config:   Config,
-  client:   Mutex<Client>,
   resource: PhantomData<R>
 }
 
@@ -169,7 +173,6 @@ impl<R: Resource> DeletableHandler<R> {
   fn new(config: Config) -> Self {
     DeletableHandler::<R> {
       resource: PhantomData,
-      client:   Mutex::new(Client::new(&*config.es.url).unwrap()),
       config:   config
     }
   }
@@ -183,11 +186,14 @@ impl<R: Resource> Handler for DeletableHandler<R> {
       unauthorized!();
     }
 
+    let     client = req.get::<Write<SharedClient>>().unwrap();
+    let mut client = client.lock().unwrap();
+
     let ref id = try_or_422!(req.extensions.get::<Router>().unwrap()
                                                            .find("id")
                                                            .ok_or("DELETE#:id not found"));
 
-    match R::delete(&mut self.client.lock().unwrap(), id, &*self.config.es.index) {
+    match R::delete(&mut client, id, &*self.config.es.index) {
       Ok(_)  => Ok(Response::with(status::NoContent)),
       Err(e) => {
         let error_message = e.to_string();
@@ -204,7 +210,6 @@ impl<R: Resource> Handler for DeletableHandler<R> {
 
 pub struct ResettableHandler<R> {
   config:   Config,
-  client:   Mutex<Client>,
   resource: PhantomData<R>
 }
 
@@ -212,7 +217,6 @@ impl<R: Resource> ResettableHandler<R> {
   fn new(config: Config) -> Self {
     ResettableHandler::<R> {
       resource: PhantomData,
-      client:   Mutex::new(Client::new(&*config.es.url).unwrap()),
       config:   config
     }
   }
@@ -226,7 +230,9 @@ impl<R: Resource> Handler for ResettableHandler<R> {
       unauthorized!();
     }
 
-    match R::reset_index(&mut self.client.lock().unwrap(), &*self.config.es.index) {
+    let     client = req.get::<Write<SharedClient>>().unwrap();
+    let mut client = client.lock().unwrap();
+    match R::reset_index(&mut client, &*self.config.es.index) {
       Ok(_)  => Ok(Response::with(status::NoContent)),
       Err(e) => {
         let error_message = e.to_string();
@@ -267,14 +273,13 @@ impl<R: Resource> Server<R> {
     let deletable_endpoint = format!("{}/:id", self.endpoint);
     router.delete(deletable_endpoint, DeletableHandler::<R>::new(self.config.to_owned()), "delete");
 
-    match env::var("DYNO") { // for some reasons, chain::link makes heroku crash
-      Ok(_)  => Iron::new(router).http(&*host),
-      Err(_) => {
-        let mut chain = Chain::new(router);
-        chain.link(HTTPLogger::new(None));
-        Iron::new(chain).http(&*host)
-      }
-    }.unwrap();
+    let client = Client::new(&*self.config.to_owned().es.url).unwrap();
+
+    let mut chain = Chain::new(router);
+    chain.link(HTTPLogger::new(None));
+    chain.link(Write::<SharedClient>::both(client));
+
+    Iron::new(chain).http(&*host).unwrap();
   }
 }
 

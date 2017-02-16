@@ -15,6 +15,7 @@ iron         = "0.5"
 router       = "0.5"
 logger       = "0.3"
 params       = "0.6"
+persistent   = "0.3"
 
 lazy_static  = "0.2"
 maplit       = "0.1"
