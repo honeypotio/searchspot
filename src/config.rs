@@ -1,24 +1,14 @@
-use toml::{self, Parser, Value};
-
 use std::fs::File;
 use std::io::prelude::*;
-use std::fmt;
-use std::env;
+use std::{fmt, env};
+
+use toml::{self, Parser, Value};
 
 /// Contain the configuration for ElasticSearch.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ESConfig {
   pub url:   String,
   pub index: String
-}
-
-impl Default for ESConfig {
-  fn default() -> ESConfig {
-    ESConfig {
-      url:  "http://localhost".to_owned(),
-      index: "my_index".to_owned()
-    }
-  }
 }
 
 impl fmt::Display for ESConfig {
@@ -36,15 +26,6 @@ pub struct HTTPConfig {
   pub port: u32
 }
 
-impl Default for HTTPConfig {
-  fn default() -> HTTPConfig {
-    HTTPConfig {
-      host: "127.0.0.1".to_owned(),
-      port: 3000
-    }
-  }
-}
-
 impl fmt::Display for HTTPConfig {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "Listening on http://{}:{}...", self.host, self.port)
@@ -57,16 +38,6 @@ pub struct AuthConfig {
   pub enabled: bool,
   pub read:    String,
   pub write:   String
-}
-
-impl Default for AuthConfig {
-  fn default() -> AuthConfig {
-    AuthConfig {
-      enabled: false,
-      read:    "".to_owned(),
-      write:   "".to_owned()
-    }
-  }
 }
 
 impl fmt::Display for AuthConfig {
@@ -99,29 +70,24 @@ pub struct Config {
   pub monitor: Option<MonitorConfig>
 }
 
-impl Default for Config {
-  /// Return a new `Config` fill with the default values
-  fn default() -> Config {
-    Config {
-      es:      ESConfig::default(),
-      http:    HTTPConfig::default(),
-      auth:    AuthConfig::default(),
-      monitor: None,
-    }
-  }
-}
-
 impl Config {
-  /// Load, parse and return the configuration file
-  /// wrapped inside a `Config`.
+  /// Read, parse and return the configuration file
+  /// wrapped inside a `Config`. Panic if the file is not
+  /// found or cannot be parsed.
   pub fn from_file(path: String) -> Config {
-    let config_toml = Config::read_file(path).to_owned();
+    let mut file = File::open(&path)
+        .unwrap_or_else(|err| panic!("Error while reading config file: {}", err));
+
+    let mut config_toml = String::new();
+    file.read_to_string(&mut config_toml)
+        .unwrap_or_else(|err| panic!("Error while reading config file: {}", err));
+
     Config::parse(config_toml)
   }
 
   /// Return a `Config` looking for the parameters
-  /// inside the ENV variables. `panic!` if there
-  /// are some missing.
+  /// inside the ENV variables. Panic if needed variables
+  /// are missing.
   pub fn from_env() -> Config {
     let http_config = HTTPConfig {
       host: env::var("HTTP_HOST").unwrap()
@@ -174,33 +140,11 @@ impl Config {
     config
   }
 
-  /// Read a file from the given path and return its content
-  pub fn read_file(path: String) -> Option<String> {
-    let mut config_toml = String::new();
-
-    let mut file = match File::open(&path) {
-      Ok(file) => file,
-      Err(_)   => return None
-    };
-
-    file.read_to_string(&mut config_toml)
-        .unwrap_or_else(|err| panic!("Error while reading config: [{}]", err));
-
-    Some(config_toml)
-  }
-
   /// Parse given TOML configuration file and return it
   /// wrapped inside a `Config`.
-  pub fn parse(config_toml: Option<String>) -> Config {
-    if config_toml.is_none() {
-      println!("{} {}", "Requested configuration file cannot be found.",
-                        "The default configuration will be loaded.\n");
-      return Config::default();
-    }
-
-    let config_toml_ = config_toml.unwrap();
-    let mut parser   = Parser::new(&*config_toml_);
-    let     toml     = parser.parse();
+  pub fn parse(config_toml: String) -> Config {
+    let mut parser = Parser::new(&*config_toml);
+    let     toml   = parser.parse();
 
     match toml {
       Some(config) => {
@@ -242,20 +186,9 @@ mod tests {
   "#;
 
   #[test]
-  fn test_new() {
-    // returns a Config fill with the default hardcoded data
-    let config = Config::default();
-    assert_eq!(config.es.url,    "http://localhost".to_owned());
-    assert_eq!(config.http.host, "127.0.0.1".to_owned());
-    assert_eq!(config.auth.read, "".to_owned());
-    assert!(!config.auth.enabled);
-    assert!(config.monitor.is_none());
-  }
-
-  #[test]
   fn test_parse() {
     // returns a Config fill with given TOML configuration file
-    let config = Config::parse(Some(sample_config.to_owned()));
+    let config = Config::parse(sample_config.to_owned());
     assert_eq!(config.es.url,    "https://123.0.123.0:9200".to_owned());
     assert_eq!(config.auth.read, "yxxz7oap7rsf67zl".to_owned());
     assert!(config.auth.enabled);

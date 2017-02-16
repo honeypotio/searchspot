@@ -23,7 +23,6 @@ use resource::Resource;
 use logger::Logger;
 
 use std::collections::HashMap;
-use std::env;
 use std::io::Read;
 use std::marker::PhantomData;
 
