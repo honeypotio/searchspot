@@ -164,8 +164,8 @@ impl Config {
                         .unwrap(),
         access_token: env::var("MONITOR_ACCESS_TOKEN").unwrap()
                                                       .to_owned(),
-        environment: env::var("MONITORR_ENVIRONMENT").unwrap()
-                                                     .to_owned()
+        environment: env::var("MONITOR_ENVIRONMENT").unwrap()
+                                                    .to_owned()
       };
 
       config.monitor = Some(monitor_config);
