@@ -33,7 +33,7 @@ deploy:
     skip_cleanup: true
     api_key:
       secure: WW1ufji+80soK3DYs+MamNT4MrUOuaVrVZLbIqgC2Xq5p936poFppbEXCgK9aBf/vmMcYpvhvuwdChHzcUEn16uSqpjYFIfM2mRoe3ijE8S+UdqdZFO/gIRoXTGanvr+aoOtL+wW94YGI6nL9OWFjCTjfHVnlJr4c+ScgaaT2O5mNd26yBYqBQVeVJwAoAvx8ufYUhsWi2aZ7MYjJk5Q1vb9FsXUENeKfy6ybyPdLo4KSGoLGiqfBdCAcygF8Hl/XYnndFSmPLHgJjtG/iQK+nfUXo6oXdGsWh5kKD/mMI8hhMwC4JsG5jCmlYzGRF9vDI0EmYAB5xq2qd977pfqo1iOdhGfoei0wUoH1qsCp7ZRyfvRb/CAEPgSTewKdrN5cvzjwssNH/iFFPNTVli5I9w5T+PCvth8TQ9ypQZqUnPHWPF/prIp2/E3MAOM7KyfP6WebuWDpMvqKAjTIbJNYFTm4uUJey6F171TvpAY9E5LNNqdF83DyoZP5tfx2immY1H+Mm5CN2dpjHn1TpZj0fRhalK+zQ/HiicLcCqmwo9pJ5ECRePfyIFI6wV2WdlkmwQ2nnFralFKn/zSJN0t8jl5yUczGqZeYnhlDSqumm75iKiNaOwtt1YAzK64fJqafZclRI2rdwo6+T+VUfdn+gybPyL0isrY/sAStLb+KeM=
-    app: staging-searchspot
+    app: release-staging-searchspot
     on:
       repo: honeypotio/searchspot
       branch: master
