@@ -146,8 +146,8 @@ impl Config {
 
     let tokens = Tokens {
       lifetime: TokensLifetime {
-        read:  env::var("TOKEN_READ").map(|t| t.parse().unwrap()).unwrap_or(30),
-        write: env::var("TOKEN_WRITE").map(|t| t.parse().unwrap()).unwrap_or(30)
+        read:  env::var("TOKEN_READ_LIFETIME").map(|t| t.parse().unwrap()).unwrap_or(30),
+        write: env::var("TOKEN_WRITE_LIFETIME").map(|t| t.parse().unwrap()).unwrap_or(30)
       }
     };
 
