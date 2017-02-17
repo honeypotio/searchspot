@@ -1,6 +1,6 @@
 use std::panic::PanicInfo;
 use log::LogLocation;
-use config::MonitorConfig;
+use config::Monitor as MonitorConfig;
 use backtrace::Backtrace;
 use std::thread::JoinHandle;
 

@@ -18,7 +18,9 @@ use params::*;
 
 use oath::*;
 
-use config::*;
+use config::Auth as AuthConfig;
+use config::Config;
+
 use resource::Resource;
 use logger::Logger;
 
@@ -260,9 +262,7 @@ impl<R: Resource> Server<R> {
 
     let host = format!("{}:{}", self.config.http.host, self.config.http.port);
 
-    println!("Searchspot v{}\n{}\n{}\n", env!("CARGO_PKG_VERSION"),
-                                         self.config.es,
-                                         self.config.http);
+    println!("Searchspot v{}\n{}\n", env!("CARGO_PKG_VERSION"), self.config);
 
     let mut router = Router::new();
     router.get(&self.endpoint,    SearchableHandler::<R>::new(self.config.to_owned()), "search");

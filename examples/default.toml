@@ -16,3 +16,8 @@ provider     = "rollbar"
 enabled      = true
 access_token = "secret"
 environment  = "production"
+
+[tokens]
+[tokens.lifetime]
+read  = 30
+write = 30
