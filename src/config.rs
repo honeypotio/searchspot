@@ -75,8 +75,8 @@ impl fmt::Display for Tokens {
 /// Contain the configuration for the token lifetimes.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TokensLifetime {
-  pub read:  u32,
-  pub write: u32
+  pub read:  u64,
+  pub write: u64
 }
 
 impl fmt::Display for TokensLifetime {
