@@ -22,7 +22,7 @@ use config::Auth as AuthConfig;
 use config::Config;
 
 use resource::Resource;
-use logger::Logger;
+use logger::start_logging;
 
 use std::collections::HashMap;
 use std::io::Read;
@@ -262,7 +262,7 @@ impl<R: Resource> Server<R> {
   }
 
   pub fn start(&self) {
-    Logger::init(&self.config).unwrap();
+    start_logging(&self.config).unwrap();
 
     let host = format!("{}:{}", self.config.http.host, self.config.http.port);
 
@@ -279,8 +279,8 @@ impl<R: Resource> Server<R> {
     let client = Client::new(&*self.config.to_owned().es.url).unwrap();
 
     let mut chain = Chain::new(router);
-    chain.link(HTTPLogger::new(None));
     chain.link(Write::<SharedClient>::both(client));
+    chain.link(HTTPLogger::new(None));
 
     Iron::new(chain).http(&*host).unwrap();
   }
