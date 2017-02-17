@@ -18,12 +18,13 @@ use params::*;
 
 use oath::*;
 
-use config::*;
+use config::Auth as AuthConfig;
+use config::Config;
+
 use resource::Resource;
 use logger::Logger;
 
 use std::collections::HashMap;
-use std::env;
 use std::io::Read;
 use std::marker::PhantomData;
 
@@ -61,7 +62,7 @@ macro_rules! unauthorized {
 macro_rules! authorization {
   ($trait_name:ident, $mode:ident) => {
     trait $trait_name {
-      fn is_authorized(&self, auth_config: AuthConfig, headers: &Headers) -> bool {
+      fn is_authorized(&self, auth_config: &AuthConfig, headers: &Headers, token_lifetime: u64) -> bool {
         if auth_config.enabled == false {
           return true;
         }
@@ -72,7 +73,7 @@ macro_rules! authorization {
               match header.split("token ").collect::<Vec<&str>>().last() {
                 Some(token) => {
                   match token.parse::<u64>() {
-                    Ok(token) => totp_raw(auth_config.$mode.as_bytes(), 6, 0, 30) == token,
+                    Ok(token) => totp_raw(auth_config.$mode.as_bytes(), 6, 0, token_lifetime as u64) == token,
                     Err(_)    => false,
                   }
                 },
@@ -88,14 +89,14 @@ macro_rules! authorization {
   }
 }
 
+authorization!(ReadableEndpoint, read);
+authorization!(WritableEndpoint, write);
+
 pub struct Server<R: Resource> {
   config:   Config,
   endpoint: String,
   resource: PhantomData<R>
 }
-
-authorization!(ReadableEndpoint, read);
-authorization!(WritableEndpoint, write);
 
 pub struct SearchableHandler<R> {
   config:   Config,
@@ -115,7 +116,8 @@ impl<R: Resource> ReadableEndpoint for SearchableHandler<R> {}
 
 impl<R: Resource> Handler for SearchableHandler<R> {
   fn handle(&self, req: &mut Request) -> IronResult<Response> {
-    if !self.is_authorized(self.config.auth.to_owned(), &req.headers) {
+    let ref lifetimes = self.config.tokens.lifetime;
+    if !self.is_authorized(&self.config.auth, &req.headers, lifetimes.read) {
       unauthorized!();
     }
 
@@ -149,7 +151,8 @@ impl<R: Resource> WritableEndpoint for IndexableHandler<R> {}
 
 impl<R: Resource> Handler for IndexableHandler<R> {
   fn handle(&self, req: &mut Request) -> IronResult<Response> {
-    if !self.is_authorized(self.config.auth.to_owned(), &req.headers) {
+    let ref lifetimes = self.config.tokens.lifetime;
+    if !self.is_authorized(&self.config.auth, &req.headers, lifetimes.write) {
       unauthorized!();
     }
 
@@ -182,7 +185,8 @@ impl<R: Resource> WritableEndpoint for DeletableHandler<R> {}
 
 impl<R: Resource> Handler for DeletableHandler<R> {
   fn handle(&self, req: &mut Request) -> IronResult<Response> {
-    if !self.is_authorized(self.config.auth.to_owned(), &req.headers) {
+    let ref lifetimes = self.config.tokens.lifetime;
+    if !self.is_authorized(&self.config.auth, &req.headers, lifetimes.write) {
       unauthorized!();
     }
 
@@ -226,7 +230,8 @@ impl<R: Resource> WritableEndpoint for ResettableHandler<R> {}
 
 impl<R: Resource> Handler for ResettableHandler<R> {
   fn handle(&self, req: &mut Request) -> IronResult<Response> {
-    if !self.is_authorized(self.config.auth.to_owned(), &req.headers) {
+    let ref lifetimes = self.config.tokens.lifetime;
+    if !self.is_authorized(&self.config.auth, &req.headers, lifetimes.write) {
       unauthorized!();
     }
 
@@ -261,9 +266,7 @@ impl<R: Resource> Server<R> {
 
     let host = format!("{}:{}", self.config.http.host, self.config.http.port);
 
-    println!("Searchspot v{}\n{}\n{}\n", env!("CARGO_PKG_VERSION"),
-                                         self.config.es,
-                                         self.config.http);
+    println!("Searchspot v{}\n{}\n", env!("CARGO_PKG_VERSION"), self.config);
 
     let mut router = Router::new();
     router.get(&self.endpoint,    SearchableHandler::<R>::new(self.config.to_owned()), "search");

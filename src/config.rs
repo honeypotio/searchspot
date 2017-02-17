@@ -1,51 +1,31 @@
-use toml::{self, Parser, Value};
-
 use std::fs::File;
 use std::io::prelude::*;
-use std::fmt;
-use std::env;
+use std::{fmt, env};
+
+use toml;
 
 /// Contain the configuration for ElasticSearch.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ESConfig {
+pub struct ES {
   pub url:   String,
   pub index: String
 }
 
-impl Default for ESConfig {
-  fn default() -> ESConfig {
-    ESConfig {
-      url:  "http://localhost".to_owned(),
-      index: "my_index".to_owned()
-    }
-  }
-}
-
-impl fmt::Display for ESConfig {
+impl fmt::Display for ES {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "ElasticSearch on {} ({})",
-      self.url, self.index)
+    write!(f, "ElasticSearch on {} ({})", self.url, self.index)
   }
 }
 
 /// Contain instructions about where Searchspot must
 /// listen to for new connections.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct HTTPConfig {
+pub struct HTTP {
   pub host: String,
   pub port: u32
 }
 
-impl Default for HTTPConfig {
-  fn default() -> HTTPConfig {
-    HTTPConfig {
-      host: "127.0.0.1".to_owned(),
-      port: 3000
-    }
-  }
-}
-
-impl fmt::Display for HTTPConfig {
+impl fmt::Display for HTTP {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "Listening on http://{}:{}...", self.host, self.port)
   }
@@ -53,158 +33,154 @@ impl fmt::Display for HTTPConfig {
 
 /// Contain the secrets to grant read and write authorizations.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AuthConfig {
+pub struct Auth {
   pub enabled: bool,
   pub read:    String,
   pub write:   String
 }
 
-impl Default for AuthConfig {
-  fn default() -> AuthConfig {
-    AuthConfig {
-      enabled: false,
-      read:    "".to_owned(),
-      write:   "".to_owned()
-    }
-  }
-}
-
-impl fmt::Display for AuthConfig {
+impl fmt::Display for Auth {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "Authentication is {}", if self.enabled { "enabled" } else { "disabled" })
+    write!(f, "Authentication is {}.", if self.enabled { "enabled" } else { "disabled" })
   }
 }
 
-/// Contain the configuration for the monitor
+/// Contain the configuration for the monitor.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct MonitorConfig {
+pub struct Monitor {
   pub provider:     String,
   pub enabled:      bool,
   pub access_token: String,
   pub environment:  String
 }
 
-impl fmt::Display for MonitorConfig {
+impl fmt::Display for Monitor {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "Monitor `{}` is {}", self.provider, if self.enabled { "enabled" } else { "disabled" })
+    write!(f, "Monitor `{}` is {}.", self.provider, if self.enabled { "enabled" } else { "disabled" })
+  }
+}
+
+/// Contain the configuration for the tokens.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct Tokens {
+  pub lifetime: TokensLifetime
+}
+
+impl fmt::Display for Tokens {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}", self.lifetime)
+  }
+}
+
+/// Contain the configuration for the token lifetimes.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TokensLifetime {
+  pub read:  u64,
+  pub write: u64
+}
+
+impl fmt::Display for TokensLifetime {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "Each read token will have a lifetime of {}s. Each write token will have a lifetime of {}s.", self.write, self.read)
+  }
+}
+
+impl Default for TokensLifetime {
+  fn default() -> TokensLifetime {
+    TokensLifetime {
+      read:  30,
+      write: 30
+    }
   }
 }
 
 /// Container for the configuration structs
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
-  pub http:    HTTPConfig,
-  pub es:      ESConfig,
-  pub auth:    AuthConfig,
-  pub monitor: Option<MonitorConfig>
-}
-
-impl Default for Config {
-  /// Return a new `Config` fill with the default values
-  fn default() -> Config {
-    Config {
-      es:      ESConfig::default(),
-      http:    HTTPConfig::default(),
-      auth:    AuthConfig::default(),
-      monitor: None,
-    }
-  }
+  pub http:    HTTP,
+  pub es:      ES,
+  pub auth:    Auth,
+  #[serde(default)]
+  pub tokens:  Tokens,
+  pub monitor: Option<Monitor>
 }
 
 impl Config {
-  /// Load, parse and return the configuration file
-  /// wrapped inside a `Config`.
+  /// Read, parse and return the configuration file
+  /// wrapped inside a `Config`. Panic if the file is not
+  /// found or cannot be parsed.
   pub fn from_file(path: String) -> Config {
-    let config_toml = Config::read_file(path).to_owned();
-    Config::parse(config_toml)
+    let mut file = File::open(&path)
+        .unwrap_or_else(|err| panic!("Error while reading config file: {}", err));
+
+    let mut toml = String::new();
+    file.read_to_string(&mut toml)
+        .unwrap_or_else(|err| panic!("Error while reading config file: {}", err));
+
+    Config::parse(toml)
   }
 
   /// Return a `Config` looking for the parameters
-  /// inside the ENV variables. `panic!` if there
-  /// are some missing.
+  /// inside the ENV variables. Panic if needed variables
+  /// are missing.
   pub fn from_env() -> Config {
-    let http_config = HTTPConfig {
-      host: env::var("HTTP_HOST").unwrap()
-                                 .to_owned(),
-      port: env::var("PORT").or(env::var("HTTP_PORT"))
-                            .unwrap()
-                            .parse::<u32>()
-                            .unwrap()
+    // this stuff should be performed by serde, but the naming conventions used by
+    // the config file and the environment vars are different...
+    let http = HTTP {
+      host: env::var("HTTP_HOST").unwrap().to_owned(),
+      port: env::var("PORT").or(env::var("HTTP_PORT")).unwrap()
+                            .parse().unwrap()
     };
 
-    let es_config = ESConfig {
-      url: env::var("ES_URL").unwrap()
-                             .to_owned(),
-      index: env::var("ES_INDEX").unwrap()
-                                 .to_owned()
+    let es = ES {
+      url:   env::var("ES_URL").unwrap().to_owned(),
+      index: env::var("ES_INDEX").unwrap().to_owned()
     };
 
-    let auth_config = AuthConfig {
+    let auth = Auth {
       enabled: env::var("AUTH_ENABLED").unwrap()
-                                       .parse::<bool>()
-                                       .unwrap(),
-      read: env::var("AUTH_READ").unwrap()
-                                 .to_owned(),
-      write: env::var("AUTH_WRITE").unwrap()
-                                   .to_owned()
+                                       .parse().unwrap(),
+      read:  env::var("AUTH_READ").unwrap().to_owned(),
+      write: env::var("AUTH_WRITE").unwrap().to_owned()
     };
 
-    let mut config = Config {
-      http:    http_config,
-      es:      es_config,
-      auth:    auth_config,
-      monitor: None
+    let tokens = Tokens {
+      lifetime: TokensLifetime {
+        read:  env::var("TOKEN_READ").map(|t| t.parse().unwrap()).unwrap_or(30),
+        write: env::var("TOKEN_WRITE").map(|t| t.parse().unwrap()).unwrap_or(30)
+      }
     };
 
-    if let Ok(enabled) = env::var("MONITOR_ENABLED") {
-      let monitor_config = MonitorConfig {
-        provider: env::var("MONITOR_PROVIDER").unwrap()
-                                              .to_owned(),
-        enabled: enabled.parse::<bool>()
-                        .unwrap(),
-        access_token: env::var("MONITOR_ACCESS_TOKEN").unwrap()
-                                                      .to_owned(),
-        environment: env::var("MONITOR_ENVIRONMENT").unwrap()
-                                                    .to_owned()
-      };
-
-      config.monitor = Some(monitor_config);
+    let monitor = if let Ok(enabled) = env::var("MONITOR_ENABLED") {
+      Some(Monitor {
+        provider: env::var("MONITOR_PROVIDER").unwrap().to_owned(),
+        enabled:  enabled.parse().unwrap(),
+        access_token: env::var("MONITOR_ACCESS_TOKEN").unwrap().to_owned(),
+        environment:  env::var("MONITOR_ENVIRONMENT").unwrap().to_owned()
+      })
     }
-
-    config
-  }
-
-  /// Read a file from the given path and return its content
-  pub fn read_file(path: String) -> Option<String> {
-    let mut config_toml = String::new();
-
-    let mut file = match File::open(&path) {
-      Ok(file) => file,
-      Err(_)   => return None
+    else {
+      None
     };
 
-    file.read_to_string(&mut config_toml)
-        .unwrap_or_else(|err| panic!("Error while reading config: [{}]", err));
-
-    Some(config_toml)
+    Config {
+      http:    http,
+      es:      es,
+      auth:    auth,
+      tokens:  tokens,
+      monitor: monitor
+    }
   }
 
   /// Parse given TOML configuration file and return it
   /// wrapped inside a `Config`.
-  pub fn parse(config_toml: Option<String>) -> Config {
-    if config_toml.is_none() {
-      println!("{} {}", "Requested configuration file cannot be found.",
-                        "The default configuration will be loaded.\n");
-      return Config::default();
-    }
-
-    let config_toml_ = config_toml.unwrap();
-    let mut parser   = Parser::new(&*config_toml_);
-    let     toml     = parser.parse();
+  pub fn parse(toml: String) -> Config {
+    let mut parser = toml::Parser::new(&*toml);
+    let     toml   = parser.parse();
 
     match toml {
       Some(config) => {
-        let config = Value::Table(config);
+        let config = toml::Value::Table(config);
         toml::decode(config).unwrap()
       },
       None => {
@@ -212,6 +188,17 @@ impl Config {
         panic!("Error while parsing the configuration file.");
       }
     }
+  }
+}
+
+impl fmt::Display for Config {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    let monitor = match self.monitor {
+      Some(ref monitor) => format!("{}", monitor),
+      None              => "No monitor has been configured.".to_owned()
+    };
+
+    write!(f, "{}\n{}\n{}\n{}\n{}", self.auth, self.tokens, monitor, self.es, self.http)
   }
 }
 
@@ -239,30 +226,21 @@ mod tests {
     enabled      = true
     access_token = "blabla"
     environment  = "test"
-  "#;
 
-  #[test]
-  fn test_new() {
-    // returns a Config fill with the default hardcoded data
-    let config = Config::default();
-    assert_eq!(config.es.url,    "http://localhost".to_owned());
-    assert_eq!(config.http.host, "127.0.0.1".to_owned());
-    assert_eq!(config.auth.read, "".to_owned());
-    assert!(!config.auth.enabled);
-    assert!(config.monitor.is_none());
-  }
+    [tokens]
+    [tokens.lifetime]
+    read  = 30
+    write = 99
+  "#;
 
   #[test]
   fn test_parse() {
     // returns a Config fill with given TOML configuration file
-    let config = Config::parse(Some(sample_config.to_owned()));
+    let config = Config::parse(sample_config.to_owned());
     assert_eq!(config.es.url,    "https://123.0.123.0:9200".to_owned());
     assert_eq!(config.auth.read, "yxxz7oap7rsf67zl".to_owned());
     assert!(config.auth.enabled);
-
-    match config.monitor {
-      Some(monitor) => { assert!(monitor.enabled); },
-      None          => { assert!(false); }
-    };
+    assert!(config.monitor.unwrap().enabled);
+    assert_eq!(config.tokens.lifetime.write, 99);
   }
 }
