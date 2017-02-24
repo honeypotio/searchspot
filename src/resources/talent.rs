@@ -22,8 +22,8 @@ const ES_TYPE: &'static str = "talent";
 /// A collection of `SearchResult`s.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchResults {
-  pub total:   u64,
-  pub results: Vec<SearchResult>,
+  pub total: u64,
+  pub talents: Vec<SearchResult>,
 }
 
 /// A single search result returned by ElasticSearch.
@@ -61,7 +61,8 @@ pub struct FoundTalent {
   pub current_location:    String,
   pub salary_expectations: Vec<SalaryExpectations>,
   pub roles_experiences:   Vec<RolesExperience>,
-  pub latest_position:     String
+  pub latest_position:     String,
+  pub batch_starts_at:     String
 }
 
 /// A struct that joins `desired_work_roles` and `desired_work_roles_experience`.
@@ -98,7 +99,8 @@ impl From<Box<Talent>> for FoundTalent {
       current_location:    talent.current_location.to_owned(),
       salary_expectations: talent.salary_expectations.to_owned(),
       roles_experiences:   roles_experiences,
-      latest_position:     talent.latest_position.to_owned()
+      latest_position:     talent.latest_position.to_owned(),
+      batch_starts_at:     talent.batch_starts_at.to_owned()
     }
   }
 }
@@ -361,13 +363,13 @@ impl Resource for Talent {
                                                          .collect();
 
         SearchResults {
-            total:   result.hits.total,
-            results: results
+            total: result.hits.total,
+            talents: results
         }
       },
       Err(err) => {
         error!("{:?}", err);
-        SearchResults { total: 0, results: vec![] }
+        SearchResults { total: 0, talents: vec![] }
       }
     }
   }

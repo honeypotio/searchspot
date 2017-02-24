@@ -9,6 +9,7 @@ extern crate logger as http_logger;
 extern crate router;
 extern crate params;
 extern crate persistent;
+extern crate unicase;
 
 extern crate rs_es;
 extern crate toml;

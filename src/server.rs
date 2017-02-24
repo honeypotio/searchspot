@@ -7,6 +7,9 @@ use iron::prelude::*;
 use iron::{status, Handler, Headers};
 use iron::mime::Mime;
 use iron::typemap::Key;
+use iron::headers;
+use iron::middleware::AfterMiddleware;
+use unicase::UniCase;
 
 use persistent::Write;
 
@@ -252,6 +255,21 @@ impl<R: Resource> Handler for ResettableHandler<R> {
   }
 }
 
+struct CorsMiddleware;
+
+impl AfterMiddleware for CorsMiddleware {
+  fn after(&self, _: &mut Request, mut res: Response) -> IronResult<Response> {
+    res.headers.set(headers::AccessControlAllowOrigin::Any);
+    res.headers.set(headers::AccessControlAllowHeaders(vec![
+      UniCase("x-requested-withcontent-type".to_owned()),
+      UniCase("content-type".to_owned()),
+      UniCase("accept".to_owned()),
+      UniCase("authorization".to_owned())
+    ]));
+    Ok(res)
+  }
+}
+
 impl<R: Resource> Server<R> {
   pub fn new(config: Config, endpoint: &str) -> Self {
     Server {
@@ -281,7 +299,7 @@ impl<R: Resource> Server<R> {
     let mut chain = Chain::new(router);
     chain.link(Write::<SharedClient>::both(client));
     chain.link(HTTPLogger::new(None));
-
+    chain.link_after(CorsMiddleware);
     Iron::new(chain).http(&*host).unwrap();
   }
 }
