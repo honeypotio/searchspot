@@ -22,7 +22,7 @@ const ES_TYPE: &'static str = "talent";
 /// A collection of `SearchResult`s.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchResults {
-  pub total: u64,
+  pub total:   u64,
   pub talents: Vec<SearchResult>,
 }
 
@@ -363,7 +363,7 @@ impl Resource for Talent {
                                                          .collect();
 
         SearchResults {
-            total: result.hits.total,
+            total:   result.hits.total,
             talents: results
         }
       },
@@ -619,15 +619,15 @@ mod tests {
 
   impl SearchResults {
     pub fn ids(&self) -> Vec<u32> {
-      self.results.iter().map(|r| r.talent.id).collect()
+      self.talents.iter().map(|r| r.talent.id).collect()
     }
 
     pub fn highlights(&self) -> Vec<Option<HighlightResult>> {
-      self.results.iter().map(|r| r.highlight.clone()).collect()
+      self.talents.iter().map(|r| r.highlight.clone()).collect()
     }
 
     pub fn is_empty(&self) -> bool {
-      self.results.is_empty()
+      self.talents.is_empty()
     }
   }
 
@@ -1042,7 +1042,7 @@ mod tests {
       let mut map = Map::new();
       map.assign("keywords", Value::String("C#".into())).unwrap();
 
-      let results    = Talent::search(&mut client, &*config.es.index, &map).results;
+      let results    = Talent::search(&mut client, &*config.es.index, &map).talents;
       let highlights = results.into_iter().map(|r| r.highlight.unwrap()).collect::<Vec<HighlightResult>>();
       assert_eq!(Some(&vec![" C#.".to_owned()]), highlights[0].get("summary"));
     }
