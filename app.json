@@ -12,6 +12,9 @@
     "AUTH_WRITE": {
       "required": true
     },
+    "TOKEN_READ_LIFETIME": {
+      "required": true
+    },
     "ES_URL": {
       "required": true
     },
