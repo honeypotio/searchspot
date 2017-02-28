@@ -19,5 +19,5 @@ environment  = "production"
 
 [tokens]
 [tokens.lifetime]
-read  = 30
+read  = 300
 write = 30
