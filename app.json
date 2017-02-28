@@ -22,7 +22,7 @@
       "required": true
     },
     "RUST_VERSION": {
-      "value": "stable"
+      "value": "nightly"
     }
   },
   "formation": {
