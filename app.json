@@ -12,6 +12,9 @@
     "AUTH_WRITE": {
       "required": true
     },
+    "TOKEN_READ_LIFETIME": {
+      "required": true
+    },
     "ES_URL": {
       "required": true
     },
@@ -22,7 +25,7 @@
       "required": true
     },
     "RUST_VERSION": {
-      "value": "stable"
+      "value": "nightly"
     }
   },
   "formation": {

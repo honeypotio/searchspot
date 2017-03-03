@@ -81,7 +81,7 @@ pub struct TokensLifetime {
 
 impl fmt::Display for TokensLifetime {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "Each read token will have a lifetime of {}s. Each write token will have a lifetime of {}s.", self.write, self.read)
+    write!(f, "Each read token will have a lifetime of {}s. Each write token will have a lifetime of {}s.", self.read, self.write)
   }
 }
 
