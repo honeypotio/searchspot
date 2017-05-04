@@ -1,4 +1,4 @@
-use serde::de::Deserialize;
+use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 
 use rs_es::Client;
@@ -12,8 +12,8 @@ use params::*;
 use std::any::Any;
 use std::fmt::Debug;
 
-pub trait Resource: Send + Sync + Any + Serialize + Deserialize + Debug {
-  type Results: Serialize + Deserialize;
+pub trait Resource: Send + Sync + Any + Serialize + DeserializeOwned + Debug {
+  type Results: Serialize + DeserializeOwned;
 
   /// Respond to GET requests returning an array with found ids
   fn search(es: &mut Client, default_index: &str, params: &Map) -> Self::Results;

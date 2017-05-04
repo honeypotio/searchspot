@@ -117,7 +117,7 @@ impl Config {
     file.read_to_string(&mut toml)
         .unwrap_or_else(|err| panic!("Error while reading config file: {}", err));
 
-    Config::parse(toml)
+    Config::parse(&toml)
   }
 
   /// Return a `Config` looking for the parameters
@@ -174,17 +174,11 @@ impl Config {
 
   /// Parse given TOML configuration file and return it
   /// wrapped inside a `Config`.
-  pub fn parse(toml: String) -> Config {
-    let mut parser = toml::Parser::new(&*toml);
-    let     toml   = parser.parse();
-
-    match toml {
-      Some(config) => {
-        let config = toml::Value::Table(config);
-        toml::decode(config).unwrap()
-      },
-      None => {
-        println!("{:?}", parser.errors);
+  pub fn parse(toml: &str) -> Config {
+    match toml::from_str(toml) {
+      Ok(config) => config,
+      Err(error) => {
+        println!("{:?}", error);
         panic!("Error while parsing the configuration file.");
       }
     }
@@ -236,7 +230,7 @@ mod tests {
   #[test]
   fn test_parse() {
     // returns a Config fill with given TOML configuration file
-    let config = Config::parse(sample_config.to_owned());
+    let config = Config::parse(&sample_config);
     assert_eq!(config.es.url,    "https://123.0.123.0:9200".to_owned());
     assert_eq!(config.auth.read, "yxxz7oap7rsf67zl".to_owned());
     assert!(config.auth.enabled);

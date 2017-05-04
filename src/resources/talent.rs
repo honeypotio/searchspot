@@ -1,7 +1,6 @@
 use super::chrono::UTC;
 
 use super::params::*;
-use super::serde_json::Value as JsonValue;
 
 use super::rs_es::Client;
 use super::rs_es::query::Query;
@@ -229,7 +228,7 @@ impl Talent {
 
                <Query as VectorOfTerms<i32>>::build_terms(
                  "id", &vec_from_params!(params, "ids")),
-                 
+
                <Query as VectorOfTerms<String>>::build_terms(
                  "languages", &vec_from_params!(params, "languages")),
 
@@ -531,58 +530,44 @@ impl Resource for Talent {
       number_of_shards: 1,
 
       analysis: Analysis {
-        filter: btreemap! {
-          "trigrams_filter".to_owned() => JsonValue::Object(btreemap! {
-            "type".to_owned()     => JsonValue::String("ngram".into()),
-            "min_gram".to_owned() => JsonValue::U64(2),
-            "max_gram".to_owned() => JsonValue::U64(20)
-          }),
+        filter: json!({
+          "trigrams_filter": {
+            "type": "ngram",
+            "min_gram": 2,
+            "max_gram": 20
+          },
 
-          "words_splitter".to_owned() => JsonValue::Object(btreemap! {
-            "type".to_owned()              => JsonValue::String("word_delimiter".into()),
-            "preserve_original".to_owned() => JsonValue::Bool(true),
-            "catenate_all".to_owned()      => JsonValue::Bool(true)
-          }),
+          "words_splitter": {
+            "type": "word_delimiter",
+            "preserve_original": true,
+            "catenate_all": true
+          },
 
-          "english_words_filter".to_owned() => JsonValue::Object(btreemap! {
-            "type".to_owned()      => JsonValue::String("stop".into()),
-            "stopwords".to_owned() => JsonValue::String("_english_".into())
-          }),
+          "english_words_filter": {
+            "type": "stop",
+            "stopwords": "_english_"
+          },
 
-          "tech_words_filter".to_owned() => JsonValue::Object(btreemap! {
-            "type".to_owned()      => JsonValue::String("stop".into()),
-            "stopwords".to_owned() => JsonValue::Array(
-                                        vec![
-                                          JsonValue::String("js".into())
-                                        ])
-          })
-        },
-        analyzer: btreemap! {
-          "trigrams".to_owned() => JsonValue::Object(btreemap! { // index time
-            "type".to_owned()      => JsonValue::String("custom".into()),
-            "tokenizer".to_owned() => JsonValue::String("whitespace".into()),
-            "filter".to_owned()    => JsonValue::Array(
-                                        vec![
-                                          JsonValue::String("lowercase".into()),
-                                          JsonValue::String("words_splitter".into()),
-                                          JsonValue::String("trigrams_filter".into()),
-                                          JsonValue::String("english_words_filter".into()),
-                                          JsonValue::String("tech_words_filter".into())
-                                        ])
-          }),
+          "tech_words_filter": {
+            "type": "stop",
+            "stopwords": ["js"]
+          }
+        }).as_object().unwrap().to_owned(),
+        analyzer: json!({
+          "trigrams": { // index time
+            "type": "custom",
+            "tokenizer": "whitespace",
+            "filter": ["lowercase", "words_splitter", "trigrams_filter",
+                       "english_words_filter", "tech_words_filter"]
+          },
 
-          "words".to_owned() => JsonValue::Object(btreemap! { // query time
-            "type".to_owned()      => JsonValue::String("custom".into()),
-            "tokenizer".to_owned() => JsonValue::String("keyword".into()),
-            "filter".to_owned()    => JsonValue::Array(
-                                        vec![
-                                          JsonValue::String("lowercase".into()),
-                                          JsonValue::String("words_splitter".into()),
-                                          JsonValue::String("english_words_filter".into()),
-                                          JsonValue::String("tech_words_filter".into())
-                                        ])
-          })
-        }
+          "words": { // query time
+            "type": "custom",
+            "tokenizer": "keyword",
+            "filter": ["lowercase", "words_splitter", "english_words_filter",
+                       "tech_words_filter"]
+          }
+        }).as_object().unwrap().to_owned()
       }
     };
 
