@@ -151,13 +151,7 @@ impl Talent {
                                       vec![
                                         Query::build_term("accepted", true)
                                               .build(),
-                                        Query::build_range("batch_starts_at")
-                                              .with_gte(epoch)
-                                              .with_format("dateOptionalTime")
-                                              .build(),
-                                        Query::build_range("batch_ends_at")
-                                              .with_gte(epoch)
-                                              .with_format("dateOptionalTime")
+                                        Query::build_term("batch_starts_at", epoch)
                                               .build()
                                       ])
                                    .build();
