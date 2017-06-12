@@ -142,22 +142,42 @@ impl Talent {
   ///
   /// Basically, the talents must be accepted into the platform and must be
   /// inside a living batch to match the visibility criteria.
-  pub fn visibility_filters(epoch: &str, presented_talents: Vec<i32>) -> Vec<Query> {
-    let visibility_rules = Query::build_bool()
-                                 .with_must(
-                                    vec![
-                                      Query::build_term("accepted", true)
-                                            .build(),
-                                      Query::build_range("batch_starts_at")
-                                            .with_lte(epoch)
-                                            .with_format("dateOptionalTime")
-                                            .build(),
-                                      Query::build_range("batch_ends_at")
-                                            .with_gte(epoch)
-                                            .with_format("dateOptionalTime")
-                                            .build()
-                                    ])
-                                 .build();
+  pub fn visibility_filters(epoch: &str, presented_talents: Vec<i32>, date_filter_present: bool) -> Vec<Query> {
+    let visibility_rules;
+
+    if date_filter_present {
+      visibility_rules = Query::build_bool()
+                                   .with_must(
+                                      vec![
+                                        Query::build_term("accepted", true)
+                                              .build(),
+                                        Query::build_range("batch_starts_at")
+                                              .with_gte(epoch)
+                                              .with_format("dateOptionalTime")
+                                              .build(),
+                                        Query::build_range("batch_ends_at")
+                                              .with_gte(epoch)
+                                              .with_format("dateOptionalTime")
+                                              .build()
+                                      ])
+                                   .build();
+    } else {
+      visibility_rules = Query::build_bool()
+                                   .with_must(
+                                      vec![
+                                        Query::build_term("accepted", true)
+                                              .build(),
+                                        Query::build_range("batch_starts_at")
+                                              .with_lte(epoch)
+                                              .with_format("dateOptionalTime")
+                                              .build(),
+                                        Query::build_range("batch_ends_at")
+                                              .with_gte(epoch)
+                                              .with_format("dateOptionalTime")
+                                              .build()
+                                      ])
+                                   .build();
+    }
 
     if !presented_talents.is_empty() {
       let presented_talents_filters = Query::build_bool()
@@ -191,6 +211,7 @@ impl Talent {
   /// and `work_location`, if provided, must be matched successfully.
   pub fn search_filters(params: &Map, epoch: &str) -> Query {
     let company_id = i32_vec_from_params!(params, "company_id");
+    let date_filter_present = params.get("epoch") != None;
 
     Query::build_bool()
           .with_must(
@@ -219,7 +240,8 @@ impl Talent {
                  "languages", &vec_from_params!(params, "languages")),
 
                Talent::visibility_filters(epoch,
-                 i32_vec_from_params!(params, "presented_talents"))
+                 i32_vec_from_params!(params, "presented_talents"),
+                 date_filter_present)
                ].into_iter()
                 .flat_map(|x| x)
                 .collect::<Vec<Query>>())
