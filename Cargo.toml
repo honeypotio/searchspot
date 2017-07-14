@@ -16,6 +16,7 @@ router       = "0.5"
 logger       = "0.3"
 params       = "0.6"
 persistent   = "0.3"
+iron-cors    = "0.5"
 unicase      = "1.4"
 
 lazy_static  = "0.2"
