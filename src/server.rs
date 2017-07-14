@@ -9,6 +9,7 @@ use iron::mime::Mime;
 use iron::typemap::Key;
 use iron::headers;
 use iron::middleware::AfterMiddleware;
+use iron::method::Method::*;
 use unicase::UniCase;
 
 use persistent::Write;
@@ -266,6 +267,7 @@ impl AfterMiddleware for CorsMiddleware {
       UniCase("accept".to_owned()),
       UniCase("authorization".to_owned())
     ]));
+    res.headers.set(headers::AccessControlAllowMethods(vec![Get, Post, Put, Delete]));
     Ok(res)
   }
 }
