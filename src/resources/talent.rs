@@ -1,4 +1,4 @@
-use super::chrono::UTC;
+use super::chrono::prelude::*;
 
 use super::params::*;
 
@@ -292,7 +292,7 @@ impl Resource for Talent {
   type Results = SearchResults;
 
   /// Populate the ElasticSearch index with `Vec<Talent>`
-  fn index(mut es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
+  fn index(es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
     es.bulk(&resources.into_iter()
                       .map(|mut r| {
                           let id = r.id.to_string();
@@ -307,10 +307,10 @@ impl Resource for Talent {
 
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
   /// the found talents.
-  fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Self::Results {
+  fn search(es: &mut Client, default_index: &str, params: &Map) -> Self::Results {
     let epoch = match params.get("epoch") {
       Some(&Value::String(ref epoch)) => epoch.to_owned(),
-      _                               => UTC::now().to_rfc3339()
+      _                               => Utc::now().to_rfc3339()
     };
 
     let index: Vec<&str> = match params.get("index") {
@@ -390,7 +390,7 @@ impl Resource for Talent {
   }
 
   /// Delete the talent associated to given id.
-  fn delete(mut es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError> {
+  fn delete(es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError> {
     es.delete(index, ES_TYPE, id)
       .send()
   }
@@ -586,7 +586,7 @@ mod tests {
   extern crate serde_json;
 
   extern crate chrono;
-  use self::chrono::*;
+  use self::chrono::prelude::*;
 
   extern crate rs_es;
   use self::rs_es::Client;
@@ -613,7 +613,7 @@ mod tests {
 
   macro_rules! epoch_from_year {
     ($year:expr) => {
-      UTC.datetime_from_str(&format!("{}-01-01 12:00:00", $year),
+      Utc.datetime_from_str(&format!("{}-01-01 12:00:00", $year),
         "%Y-%m-%d %H:%M:%S").unwrap().to_rfc3339()
     }
   }
@@ -779,7 +779,7 @@ mod tests {
     Talent::index(&mut client, &config.es.index, talents).is_ok()
   }
 
-  fn refresh_index(mut client: &mut Client) {
+  fn refresh_index(client: &mut Client) {
     client.refresh()
           .with_indexes(&[&config.es.index])
           .send()

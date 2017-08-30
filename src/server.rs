@@ -20,7 +20,7 @@ use router::Router;
 
 use params::*;
 
-use oath::*;
+use oath::{totp_raw_now, HashType};
 
 use config::Auth as AuthConfig;
 use config::Config;
@@ -77,7 +77,7 @@ macro_rules! authorization {
               match header.split("token ").collect::<Vec<&str>>().last() {
                 Some(token) => {
                   match token.parse::<u64>() {
-                    Ok(token) => totp_raw(auth_config.$mode.as_bytes(), 6, 0, token_lifetime as u64) == token,
+                    Ok(token) => totp_raw_now(auth_config.$mode.as_bytes(), 6, 0, token_lifetime as u64, &HashType::SHA1) == token,
                     Err(_)    => false,
                   }
                 },
@@ -332,7 +332,7 @@ mod tests {
       vec![]
     }
 
-    fn index(mut es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
+    fn index(es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
       es.bulk(&resources.into_iter()
                         .map(|r| {
                             let id = r.id.to_string();
@@ -344,7 +344,7 @@ mod tests {
         .send()
     }
 
-    fn delete(mut es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError> {
+    fn delete(es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError> {
       es.delete(index, ES_TYPE, id)
         .send()
     }
