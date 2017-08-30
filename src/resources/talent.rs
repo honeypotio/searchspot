@@ -1,4 +1,4 @@
-use super::chrono::UTC;
+use super::chrono::prelude::*;
 
 use super::params::*;
 
@@ -214,6 +214,16 @@ impl Talent {
                   None           => vec![]
                 },
 
+                vec![
+                  Query::build_bool()
+                        .with_must(
+                           vec_from_params!(params, "languages").into_iter().map(|language: String| {
+                             Query::build_term("languages", language).build()
+                           }).collect::<Vec<Query>>()
+                        )
+                      .build()
+                ],
+
                <Query as VectorOfTerms<String>>::build_terms(
                  "desired_work_roles_vanilla", &vec_from_params!(params, "desired_work_roles")),
 
@@ -228,9 +238,6 @@ impl Talent {
 
                <Query as VectorOfTerms<i32>>::build_terms(
                  "id", &vec_from_params!(params, "ids")),
-
-               <Query as VectorOfTerms<String>>::build_terms(
-                 "languages", &vec_from_params!(params, "languages")),
 
                Talent::visibility_filters(epoch,
                  i32_vec_from_params!(params, "presented_talents"),
@@ -292,7 +299,7 @@ impl Resource for Talent {
   type Results = SearchResults;
 
   /// Populate the ElasticSearch index with `Vec<Talent>`
-  fn index(mut es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
+  fn index(es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
     es.bulk(&resources.into_iter()
                       .map(|mut r| {
                           let id = r.id.to_string();
@@ -307,10 +314,10 @@ impl Resource for Talent {
 
   /// Query ElasticSearch on given `indexes` and `params` and return the IDs of
   /// the found talents.
-  fn search(mut es: &mut Client, default_index: &str, params: &Map) -> Self::Results {
+  fn search(es: &mut Client, default_index: &str, params: &Map) -> Self::Results {
     let epoch = match params.get("epoch") {
       Some(&Value::String(ref epoch)) => epoch.to_owned(),
-      _                               => UTC::now().to_rfc3339()
+      _                               => Utc::now().to_rfc3339()
     };
 
     let index: Vec<&str> = match params.get("index") {
@@ -390,7 +397,7 @@ impl Resource for Talent {
   }
 
   /// Delete the talent associated to given id.
-  fn delete(mut es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError> {
+  fn delete(es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError> {
     es.delete(index, ES_TYPE, id)
       .send()
   }
@@ -586,7 +593,7 @@ mod tests {
   extern crate serde_json;
 
   extern crate chrono;
-  use self::chrono::*;
+  use self::chrono::prelude::*;
 
   extern crate rs_es;
   use self::rs_es::Client;
@@ -613,7 +620,7 @@ mod tests {
 
   macro_rules! epoch_from_year {
     ($year:expr) => {
-      UTC.datetime_from_str(&format!("{}-01-01 12:00:00", $year),
+      Utc.datetime_from_str(&format!("{}-01-01 12:00:00", $year),
         "%Y-%m-%d %H:%M:%S").unwrap().to_rfc3339()
     }
   }
@@ -668,7 +675,7 @@ mod tests {
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![SalaryExpectations::new(40_000, 50_000, "EUR", "Berlin")],
         latest_position:               "Developer".to_owned(),
-        languages:                     vec!["English".to_owned()]
+        languages:                     vec!["Italian".to_owned()]
       },
 
       Talent {
@@ -779,7 +786,7 @@ mod tests {
     Talent::index(&mut client, &config.es.index, talents).is_ok()
   }
 
-  fn refresh_index(mut client: &mut Client) {
+  fn refresh_index(client: &mut Client) {
     client.refresh()
           .with_indexes(&[&config.es.index])
           .send()
@@ -870,9 +877,19 @@ mod tests {
       assert_eq!(vec![2], results.ids());
     }
 
+    // searching for a language
+    {
+      let mut map = Map::new();
+      map.assign("languages[]", Value::String("English".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![4, 5, 2], results.ids());
+    }
+
     // searching for languages
     {
       let mut map = Map::new();
+      map.assign("languages[]", Value::String("English".into())).unwrap();
       map.assign("languages[]", Value::String("German".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
