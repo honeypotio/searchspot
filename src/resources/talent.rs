@@ -214,6 +214,16 @@ impl Talent {
                   None           => vec![]
                 },
 
+                vec![
+                  Query::build_bool()
+                        .with_must(
+                           vec_from_params!(params, "languages").into_iter().map(|language: String| {
+                             Query::build_term("languages", language).build()
+                           }).collect::<Vec<Query>>()
+                        )
+                      .build()
+                ],
+
                <Query as VectorOfTerms<String>>::build_terms(
                  "desired_work_roles_vanilla", &vec_from_params!(params, "desired_work_roles")),
 
@@ -228,9 +238,6 @@ impl Talent {
 
                <Query as VectorOfTerms<i32>>::build_terms(
                  "id", &vec_from_params!(params, "ids")),
-
-               <Query as VectorOfTerms<String>>::build_terms(
-                 "languages", &vec_from_params!(params, "languages")),
 
                Talent::visibility_filters(epoch,
                  i32_vec_from_params!(params, "presented_talents"),
@@ -668,7 +675,7 @@ mod tests {
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![SalaryExpectations::new(40_000, 50_000, "EUR", "Berlin")],
         latest_position:               "Developer".to_owned(),
-        languages:                     vec!["English".to_owned()]
+        languages:                     vec!["Italian".to_owned()]
       },
 
       Talent {
@@ -870,9 +877,19 @@ mod tests {
       assert_eq!(vec![2], results.ids());
     }
 
+    // searching for a language
+    {
+      let mut map = Map::new();
+      map.assign("languages[]", Value::String("English".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![4, 5, 2], results.ids());
+    }
+
     // searching for languages
     {
       let mut map = Map::new();
+      map.assign("languages[]", Value::String("English".into())).unwrap();
       map.assign("languages[]", Value::String("German".into())).unwrap();
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
