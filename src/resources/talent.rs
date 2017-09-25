@@ -32,7 +32,7 @@ pub struct SearchResult {
   pub highlight: Option<HighlightResult>
 }
 
-/// Convert the ElasticSearch results into a `SearchResult`.
+/// Convert an ElasticSearch result into a `SearchResult`.
 impl From<SearchHitsHitsResult<Talent>> for SearchResult {
   fn from(hit: SearchHitsHitsResult<Talent>) -> SearchResult {
     SearchResult {
@@ -221,8 +221,7 @@ impl Talent {
                              Query::build_term("languages", language).build()
                            }).collect::<Vec<Query>>()
                         )
-                      .build()
-                ],
+                      .build()],
 
                <Query as VectorOfTerms<String>>::build_terms(
                  "desired_work_roles_vanilla", &vec_from_params!(params, "desired_work_roles")),
@@ -385,8 +384,8 @@ impl Resource for Talent {
                                                          .collect();
 
         SearchResults {
-            total:   result.hits.total,
-            talents: results
+          total:   result.hits.total,
+          talents: results
         }
       },
       Err(err) => {
@@ -588,7 +587,6 @@ impl Resource for Talent {
 }
 
 #[cfg(test)]
-#[allow(non_upper_case_globals)]
 mod tests {
   extern crate serde_json;
 
@@ -602,21 +600,11 @@ mod tests {
   extern crate params;
   use self::params::*;
 
-  use config::*;
   use resource::*;
+  use resources::tests::*;
 
   use resources::Talent;
   use resources::talent::{SalaryExpectations, SearchResults};
-
-  const CONFIG_FILE: &'static str = "examples/tests.toml";
-
-  lazy_static! {
-    static ref config: Config = Config::from_file(CONFIG_FILE.to_owned());
-  }
-
-  pub fn make_client() -> Client {
-    Client::new(&*config.es.url).unwrap()
-  }
 
   macro_rules! epoch_from_year {
     ($year:expr) => {
