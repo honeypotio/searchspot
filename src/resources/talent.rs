@@ -14,6 +14,7 @@ use super::rs_es::operations::search::highlight::*;
 
 use terms::VectorOfTerms;
 use resource::*;
+use resources::score::Score;
 
 /// The type that we use in ElasticSearch for defining a `Talent`.
 const ES_TYPE: &'static str = "talent";
@@ -29,15 +30,24 @@ pub struct SearchResults {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchResult {
   pub talent:    FoundTalent,
+  pub score:     Option<Score>,
   pub highlight: Option<HighlightResult>
+}
+
+impl SearchResult {
+  fn with_score(&mut self, score: Option<Score>) -> SearchResult {
+    self.score = score;
+    self.to_owned()
+  }
 }
 
 /// Convert an ElasticSearch result into a `SearchResult`.
 impl From<SearchHitsHitsResult<Talent>> for SearchResult {
-  fn from(hit: SearchHitsHitsResult<Talent>) -> SearchResult {
+  fn from(result: SearchHitsHitsResult<Talent>) -> SearchResult {
     SearchResult {
-      talent:    hit.source.unwrap().into(),
-      highlight: hit.highlight
+      talent:    result.source.unwrap().into(),
+      score:     None,
+      highlight: result.highlight
     }
   }
 }
@@ -332,14 +342,14 @@ impl Resource for Talent {
       None => false
     };
 
-    let offset: u64 = match params.get("offset") {
-      Some(offset) => u64::from_value(&offset).unwrap_or(0),
-      _            => 0 as u64
+    let offset = match params.get("offset") {
+      Some(&Value::U64(ref offset)) => *offset,
+      _                             => 0
     };
 
-    let per_page: u64 = match params.get("per_page") {
-      Some(per_page) => u64::from_value(&per_page).unwrap_or(10),
-      _              => 10 as u64
+    let per_page = match params.get("per_page") {
+      Some(&Value::U64(ref per_page)) => *per_page,
+      _                               => 10
     };
 
     let result = if keywords_present {
@@ -379,14 +389,28 @@ impl Resource for Talent {
 
     match result {
       Ok(result) => {
+        let total = result.hits.total;
+
+        if total == 0 {
+          return SearchResults { total: 0, talents: vec![] };
+        }
+
+        let source_from_job_id = |mut result: SearchResult| {
+          match params.get("job_id") {
+            Some(&Value::U64(ref _job_id)) => {
+              let results = Score::search(es, &index[0], params);
+              result.with_score(results.scores.get(0).cloned())
+            },
+            _ => result
+          }
+        };
+
         let results: Vec<SearchResult> = result.hits.hits.into_iter()
                                                          .map(SearchResult::from)
+                                                         .map(source_from_job_id)
                                                          .collect();
 
-        SearchResults {
-          total:   result.hits.total,
-          talents: results
-        }
+        SearchResults { total: total, talents: results }
       },
       Err(err) => {
         error!("{:?}", err);
@@ -601,10 +625,11 @@ mod tests {
   use self::params::*;
 
   use resource::*;
-  use resources::tests::*;
 
   use resources::Talent;
   use resources::talent::{SalaryExpectations, SearchResults};
+  use resources::score::Score;
+  use resources::tests::*;
 
   macro_rules! epoch_from_year {
     ($year:expr) => {
@@ -796,6 +821,7 @@ mod tests {
       let results = Talent::search(&mut client, &*config.es.index, &Map::new());
       assert_eq!(vec![4, 5, 2, 1], results.ids());
       assert_eq!(4, results.total);
+      assert!(results.talents[0].score.is_none());
       assert!(results.highlights().iter().all(|r| r.is_none()));
     }
 
@@ -1104,6 +1130,28 @@ mod tests {
 
       let results = Talent::search(&mut client, &*config.es.index, &map);
       assert_eq!(vec![4, 5, 1], results.ids());
+    }
+
+    // embedding position scores
+    {
+      let scores = vec![
+        Score { match_id: "A2-2B-9S".to_owned(), job_id: 1, talent_id: 1, score: 0.545 }
+      ];
+      assert!(Score::index(&mut client, &config.es.index, scores).is_ok());
+
+      refresh_index(&mut client);
+
+      let mut map = Map::new();
+      map.assign("job_id", Value::U64(1)).unwrap();
+
+      // same of the very first test here
+      let results = Talent::search(&mut client, &*config.es.index, &map);
+      assert_eq!(vec![4, 5, 2, 1], results.ids());
+      assert_eq!(4, results.total);
+      assert!(results.highlights().iter().all(|r| r.is_none()));
+
+      assert!(results.talents.last().unwrap().score.is_some());
+      assert!(results.talents.first().unwrap().score.is_none());
     }
   }
 
