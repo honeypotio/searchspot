@@ -157,7 +157,7 @@ mod tests {
   use resources::score::{SearchBuilder, SearchResults};
   use resources::tests::*;
 
-  pub fn populate_index(mut client: &mut Client) -> bool {
+  pub fn populate_index(mut client: &mut Client, index: &str) -> bool {
     let scores = vec![
       Score {
         match_id:  "515ec9bb-0511-4464-92bb-bd21c5ed7b22".to_owned(),
@@ -174,7 +174,7 @@ mod tests {
       }
     ];
 
-    Score::index(&mut client, &config.es.index, scores).is_ok()
+    Score::index(&mut client, &index, scores).is_ok()
   }
 
   impl SearchResults {
@@ -186,27 +186,28 @@ mod tests {
   #[test]
   fn test_search() {
     let mut client = make_client();
+    let     index  = format!("{}_{}", config.es.index, "score");
 
-    if let Err(_) = Talent::reset_index(&mut client, &*config.es.index) {
-      let _ = Talent::reset_index(&mut client, &*config.es.index);
+    if let Err(_) = Talent::reset_index(&mut client, &*index) {
+      let _ = Talent::reset_index(&mut client, &*index);
     }
 
-    refresh_index(&mut client);
+    refresh_index(&mut client, &*index);
 
-    assert!(populate_index(&mut client));
-    refresh_index(&mut client);
+    assert!(populate_index(&mut client, &*index));
+    refresh_index(&mut client, &*index);
 
     // no parameters are given
     {
       let search  = SearchBuilder::new().build();
-      let results = Score::search(&mut client, &*config.es.index, &search);
+      let results = Score::search(&mut client, &*index, &search);
       assert_eq!(2, results.total);
     }
 
     // job_id is given
     {
       let search  = SearchBuilder::new().with_job_id(1).build();
-      let results = Score::search(&mut client, &*config.es.index, &search);
+      let results = Score::search(&mut client, &*index, &search);
       assert_eq!(2, results.total);
     }
 
@@ -217,7 +218,7 @@ mod tests {
                                  .with_job_id(1)
                                  .build();
 
-      let results = Score::search(&mut client, &*config.es.index, &search);
+      let results = Score::search(&mut client, &*index, &search);
       assert_eq!(1, results.total);
       assert_eq!(vec!["515ec9bb-0511-4464-92bb-bd21c5ed7b22"], results.match_ids());
     }
@@ -225,14 +226,14 @@ mod tests {
     // delete between searches
     {
       let search  = SearchBuilder::new().with_talent_id(1).build();
-      let results = Score::search(&mut client, &*config.es.index, &search);
+      let results = Score::search(&mut client, &*index, &search);
       assert_eq!(1, results.total);
 
-      results.scores[0].delete(&mut client, &*config.es.index).unwrap();
+      results.scores[0].delete(&mut client, &*index).unwrap();
 
-      refresh_index(&mut client);
+      refresh_index(&mut client, &*index);
 
-      let results = Score::search(&mut client, &*config.es.index, &search);
+      let results = Score::search(&mut client, &*index, &search);
       assert_eq!(0, results.total);
     }
   }

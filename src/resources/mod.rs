@@ -26,9 +26,9 @@ mod tests {
     Client::new(&*config.es.url).unwrap()
   }
 
-  pub fn refresh_index(client: &mut Client) {
+  pub fn refresh_index(client: &mut Client, index: &str) {
     client.refresh()
-          .with_indexes(&[&config.es.index])
+          .with_indexes(&[&index])
           .send()
           .unwrap();
   }

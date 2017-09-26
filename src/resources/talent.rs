@@ -679,7 +679,7 @@ mod tests {
     }
   }
 
-  pub fn populate_index(mut client: &mut Client) -> bool {
+  pub fn populate_index(mut client: &mut Client, index: &str) -> bool {
     let talents = vec![
       Talent {
         id:                            1,
@@ -812,26 +812,26 @@ mod tests {
       }
     ];
 
-    Talent::index(&mut client, &config.es.index, talents).is_ok()
+    Talent::index(&mut client, &index, talents).is_ok()
   }
 
   #[test]
   fn test_search() {
     let mut client = make_client();
+    let     index  = format!("{}_{}", config.es.index, "talent");
 
-    if let Err(_) = Talent::reset_index(&mut client, &*config.es.index) {
-      let _ = Talent::reset_index(&mut client, &*config.es.index);
+    if let Err(_) = Talent::reset_index(&mut client, &*index) {
+      let _ = Talent::reset_index(&mut client, &*index);
     }
 
-    refresh_index(&mut client);
+    refresh_index(&mut client, &*index);
 
-    let _ = populate_index(&mut client);
-    let _ = populate_index(&mut client);
-    refresh_index(&mut client);
+    assert!(populate_index(&mut client, &*index));
+    refresh_index(&mut client, &*index);
 
     // no parameters are given
     {
-      let results = Talent::search(&mut client, &*config.es.index, &Map::new());
+      let results = Talent::search(&mut client, &*index, &Map::new());
       assert_eq!(vec![4, 5, 2, 1], results.ids());
       assert_eq!(4, results.total);
       assert!(results.talents[0].score.is_none());
@@ -839,15 +839,15 @@ mod tests {
     }
 
     {
-      assert!(Talent::delete(&mut client, "1", &*config.es.index).is_ok());
-      assert!(Talent::delete(&mut client, "4", &*config.es.index).is_ok());
-      refresh_index(&mut client);
+      assert!(Talent::delete(&mut client, "1", &*index).is_ok());
+      assert!(Talent::delete(&mut client, "4", &*index).is_ok());
+      refresh_index(&mut client, &*index);
 
-      let results = Talent::search(&mut client, &*config.es.index, &Map::new());
+      let results = Talent::search(&mut client, &*index, &Map::new());
       assert_eq!(vec![5, 2], results.ids());
 
-      assert!(populate_index(&mut client));
-      refresh_index(&mut client);
+      assert!(populate_index(&mut client, &*index));
+      refresh_index(&mut client, &*index);
     }
 
     // a non existing index is given
@@ -855,7 +855,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("index", Value::String("lololol".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert!(results.is_empty());
     }
 
@@ -864,7 +864,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("epoch", Value::String(epoch_from_year!("2040"))).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert!(results.is_empty());
     }
 
@@ -873,7 +873,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("epoch", Value::String(epoch_from_year!("2006"))).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2, 1], results.ids());
     }
 
@@ -882,7 +882,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("desired_work_roles[]", Value::String("Fullstack".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5], results.ids());
     }
 
@@ -891,7 +891,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("professional_experience[]", Value::String("8+".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2], results.ids());
     }
 
@@ -900,7 +900,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("work_locations[]", Value::String("Rome".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2], results.ids());
     }
 
@@ -909,7 +909,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("languages[]", Value::String("English".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 2], results.ids());
     }
 
@@ -919,7 +919,7 @@ mod tests {
       params.assign("languages[]", Value::String("English".into())).unwrap();
       params.assign("languages[]", Value::String("German".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2], results.ids());
     }
 
@@ -928,7 +928,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("keywords", Value::String("HTML5".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![1, 2, 5], results.ids());
     }
 
@@ -937,7 +937,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("keywords", Value::String("html".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![1, 2, 5], results.ids());
     }
 
@@ -947,7 +947,7 @@ mod tests {
       params.assign("keywords", Value::String("Rust, HTML5 and HTML".into())).unwrap();
       params.assign("work_locations[]", Value::String("Rome".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2], results.ids());
     }
 
@@ -956,7 +956,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("keywords", Value::String("reactjs".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4], results.ids());
     }
 
@@ -967,7 +967,7 @@ mod tests {
       params.assign("work_locations[]", Value::String("Berlin".into())).unwrap();
       params.assign("desired_work_roles[]", Value::String("Fullstack".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4], results.ids());
     }
 
@@ -976,7 +976,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("keywords", Value::String("Criogenesi".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert!(results.is_empty());
     }
 
@@ -985,7 +985,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("keywords", Value::String("".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 2, 1], results.ids());
     }
 
@@ -997,7 +997,7 @@ mod tests {
         let mut params = Map::new();
         params.assign("keywords", Value::String("Java".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &params);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![2, 5], results.ids());
       }
 
@@ -1006,7 +1006,7 @@ mod tests {
         let mut params = Map::new();
         params.assign("keywords", Value::String("javascript".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &params);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![5], results.ids());
       }
 
@@ -1015,7 +1015,7 @@ mod tests {
         let mut params = Map::new();
         params.assign("keywords", Value::String("script".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &params);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![4, 5], results.ids());
       }
     }
@@ -1026,7 +1026,7 @@ mod tests {
         let mut params = Map::new();
         params.assign("keywords", Value::String("right now".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &params);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![4], results.ids());
       }
 
@@ -1034,7 +1034,7 @@ mod tests {
         let mut params = Map::new();
         params.assign("keywords", Value::String("C++".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &params);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![4, 5], results.ids());
       }
 
@@ -1042,7 +1042,7 @@ mod tests {
         let mut params = Map::new();
         params.assign("keywords", Value::String("C#".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &params);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![5], results.ids());
       }
 
@@ -1050,7 +1050,7 @@ mod tests {
         let mut params = Map::new();
         params.assign("keywords", Value::String("rust and".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &params);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![1, 2], results.ids());
       }
     }
@@ -1060,7 +1060,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("keywords", Value::String("senior".to_owned())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2, 4, 1], results.ids());
     }
 
@@ -1069,7 +1069,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("keywords", Value::String("Devops".to_owned())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5], results.ids());
     }
 
@@ -1078,7 +1078,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("keywords", Value::String("database admin".to_owned())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![1, 4], results.ids());
     }
 
@@ -1087,7 +1087,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("keywords", Value::String("C#".into())).unwrap();
 
-      let results    = Talent::search(&mut client, &*config.es.index, &params).talents;
+      let results    = Talent::search(&mut client, &*index, &params).talents;
       let highlights = results.into_iter().map(|r| r.highlight.unwrap()).collect::<Vec<HighlightResult>>();
       assert_eq!(Some(&vec![" C#.".to_owned()]), highlights[0].get("summary"));
     }
@@ -1097,7 +1097,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("company_id", Value::String("6".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2, 1], results.ids());
     }
 
@@ -1113,7 +1113,7 @@ mod tests {
       params.assign("ids[]", Value::U64(7)).unwrap();
       params.assign("ids[]", Value::U64(8)).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 2, 1], results.ids());
       assert_eq!(4, results.total);
     }
@@ -1123,7 +1123,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("work_authorization[]", Value::String("no".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4], results.ids());
     }
 
@@ -1132,7 +1132,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("contacted_talents[]", Value::String("2".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 1], results.ids());
     }
 
@@ -1141,7 +1141,7 @@ mod tests {
       let mut params = Map::new();
       params.assign("company_id", Value::U64(22)).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 1], results.ids());
     }
 
@@ -1151,14 +1151,14 @@ mod tests {
         Score { match_id: "2A-2B-9S".to_owned(),      job_id: 1, talent_id: 1, score: 0.545 },
         Score { match_id: "No4-No16-No21".to_owned(), job_id: 1, talent_id: 2, score: 0.454 },
       ];
-      assert!(Score::index(&mut client, &config.es.index, scores).is_ok());
+      assert!(Score::index(&mut client, &*index, scores).is_ok());
 
-      refresh_index(&mut client);
+      refresh_index(&mut client, &*index);
 
       let mut params = Map::new();
       params.assign("job_id", Value::U64(1)).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &params);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 2, 1], results.ids());
       assert!(results.highlights().iter().all(|r| r.is_none()));
 
@@ -1175,14 +1175,14 @@ mod tests {
     // when deleting a talent, the attached score is deleted too
     {
       let search  = ScoreSearchBuilder::new().with_talent_id(1).build();
-      let results = Score::search(&mut client, &config.es.index, &search);
+      let results = Score::search(&mut client, &*index, &search);
       assert_eq!(results.total, 1);
 
-      assert!(Talent::delete(&mut client, "1", &*config.es.index).is_ok());
+      assert!(Talent::delete(&mut client, "1", &*index).is_ok());
 
-      refresh_index(&mut client);
+      refresh_index(&mut client, &*index);
 
-      let results = Score::search(&mut client, &config.es.index, &search);
+      let results = Score::search(&mut client, &*index, &search);
       assert_eq!(results.total, 0);
     }
   }
