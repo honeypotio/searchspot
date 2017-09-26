@@ -25,4 +25,11 @@ mod tests {
   pub fn make_client() -> Client {
     Client::new(&*config.es.url).unwrap()
   }
+
+  pub fn refresh_index(client: &mut Client) {
+    client.refresh()
+          .with_indexes(&[&config.es.index])
+          .send()
+          .unwrap();
+  }
 }

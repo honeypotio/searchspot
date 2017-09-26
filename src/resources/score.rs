@@ -177,13 +177,6 @@ mod tests {
     Score::index(&mut client, &config.es.index, scores).is_ok()
   }
 
-  fn refresh_index(client: &mut Client) {
-    client.refresh()
-          .with_indexes(&[&config.es.index])
-          .send()
-          .unwrap();
-  }
-
   impl SearchResults {
     pub fn match_ids(&self) -> Vec<String> {
       self.scores.iter().map(|s| s.match_id.to_owned()).collect()

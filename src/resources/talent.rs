@@ -815,13 +815,6 @@ mod tests {
     Talent::index(&mut client, &config.es.index, talents).is_ok()
   }
 
-  fn refresh_index(client: &mut Client) {
-    client.refresh()
-          .with_indexes(&[&config.es.index])
-          .send()
-          .unwrap();
-  }
-
   #[test]
   fn test_search() {
     let mut client = make_client();
