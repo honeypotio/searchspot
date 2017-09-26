@@ -826,10 +826,14 @@ mod tests {
   fn test_search() {
     let mut client = make_client();
 
-    assert!(Talent::reset_index(&mut client, &*config.es.index).is_ok());
+    if let Err(_) = Talent::reset_index(&mut client, &*config.es.index) {
+      let _ = Talent::reset_index(&mut client, &*config.es.index);
+    }
+
     refresh_index(&mut client);
 
-    assert!(populate_index(&mut client));
+    let _ = populate_index(&mut client);
+    let _ = populate_index(&mut client);
     refresh_index(&mut client);
 
     // no parameters are given
