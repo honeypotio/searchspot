@@ -3,7 +3,7 @@ extern crate backtrace;
 
 use std::{env, panic};
 
-use searchspot::resources::Talent;
+use searchspot::resources::{Talent, Score};
 use searchspot::server::Server;
 use searchspot::config::Config;
 use searchspot::monitor::*;
@@ -30,7 +30,13 @@ fn main() {
     }
 
     let _ = panic::catch_unwind(|| {
+      let config = config.to_owned();
       let server = Server::<Talent>::new(config, "/talents");
+      server.start();
+    });
+
+    let _ = panic::catch_unwind(|| {
+      let server = Server::<Score>::new(config, "/scores");
       server.start();
     });
 }
