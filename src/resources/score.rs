@@ -29,6 +29,52 @@ pub struct Score {
   pub score:     f32
 }
 
+#[derive(Default, Clone)]
+pub struct SearchBuilder {
+  pub job_id:    Option<u32>,
+  pub talent_id: Option<u32>
+}
+
+impl SearchBuilder {
+  pub fn new() -> SearchBuilder {
+    SearchBuilder::default()
+  }
+
+  pub fn with_job_id(&mut self, job_id: u32) -> &mut SearchBuilder {
+    self.job_id = Some(job_id);
+    self
+  }
+
+  pub fn with_talent_id(&mut self, talent_id: u32) -> &mut SearchBuilder {
+    self.talent_id = Some(talent_id);
+    self
+  }
+
+  pub fn build(&self) -> SearchBuilder {
+    self.to_owned()
+  }
+
+  pub fn to_query(&self) -> Query {
+    let mut terms = vec![];
+
+    if let Some(job_id) = self.job_id {
+      terms.push(
+        Query::build_term("job_id", job_id).build()
+      );
+    }
+
+    if let Some(talent_id) = self.talent_id {
+      terms.push(
+        Query::build_term("talent_id", talent_id).build()
+      );
+    }
+
+    Query::build_bool()
+          .with_must(terms)
+          .build()
+  }
+}
+
 /// Convert an ElasticSearch result into a `Score`.
 impl From<SearchHitsHitsResult<Score>> for Score {
   fn from(hit: SearchHitsHitsResult<Score>) -> Score {
@@ -37,35 +83,10 @@ impl From<SearchHitsHitsResult<Score>> for Score {
 }
 
 impl Score {
-  pub fn search_filters(params: &Map) -> Query {
-    let job_id = match params.get("job_id") {
-      Some(&Value::U64(ref job_id)) => *job_id,
-      _                             => 0
-    };
-
-    let talent_id = match params.get("talent_id") {
-      Some(&Value::U64(ref talent_id)) => *talent_id,
-      _                                => 0
-    };
-
-    Query::build_bool()
-          .with_must(
-             vec![
-               Query::build_term("job_id", job_id).build(),
-               Query::build_term("talent_id", talent_id).build()
-             ])
-          .build()
-  }
-
-  pub fn search(es: &mut Client, default_index: &str, params: &Map) -> SearchResults {
-    let index: Vec<&str> = match params.get("index") {
-      Some(&Value::String(ref index)) => vec![&index[..]],
-      _                               => vec![default_index]
-    };
-
+  pub fn search(es: &mut Client, index: &str, search_builder: &SearchBuilder) -> SearchResults {
     let result = es.search_query()
-                   .with_indexes(&*index)
-                   .with_query(&Score::search_filters(params))
+                   .with_indexes(&[index])
+                   .with_query(&search_builder.to_query())
                    .send::<Score>();
 
     match result {
@@ -86,7 +107,7 @@ impl Score {
     }
   }
 
-  fn delete(&self, es: &mut Client, index: &str) -> Result<DeleteResult, EsError> {
+  pub fn delete(&self, es: &mut Client, index: &str) -> Result<DeleteResult, EsError> {
     es.delete(index, ES_TYPE, &*self.match_id)
       .send()
   }
@@ -130,13 +151,10 @@ mod tests {
   extern crate rs_es;
   use self::rs_es::Client;
 
-  extern crate params;
-  use self::params::*;
-
   use resource::*;
 
   use resources::{Score, Talent};
-  use resources::score::SearchResults;
+  use resources::score::{SearchBuilder, SearchResults};
   use resources::tests::*;
 
   pub fn populate_index(mut client: &mut Client) -> bool {
@@ -144,8 +162,15 @@ mod tests {
       Score {
         match_id:  "515ec9bb-0511-4464-92bb-bd21c5ed7b22".to_owned(),
         job_id:    1,
-        talent_id: 10,
+        talent_id: 1,
         score:     0.545
+      },
+
+      Score {
+        match_id:  "9ac871a8-d936-41d8-bd35-9bc3c0c5be42".to_owned(),
+        job_id:    1,
+        talent_id: 2,
+        score:     0.442
       }
     ];
 
@@ -177,49 +202,41 @@ mod tests {
 
     // no parameters are given
     {
-      let results = Score::search(&mut client, &*config.es.index, &Map::new());
-      assert_eq!(0, results.total);
-      assert!(results.scores.is_empty());
+      let search  = SearchBuilder::new().build();
+      let results = Score::search(&mut client, &*config.es.index, &search);
+      assert_eq!(2, results.total);
     }
 
-    // given parameters have an unexpected type
+    // job_id is given
     {
-      let mut map = Map::new();
-      map.assign("job_id", Value::String("2B".into())).unwrap();
-      map.assign("talent_id", Value::String("9S".into())).unwrap();
-
-      let results = Score::search(&mut client, &*config.es.index, &map);
-      assert_eq!(0, results.total);
-      assert!(results.scores.is_empty());
+      let search  = SearchBuilder::new().with_job_id(1).build();
+      let results = Score::search(&mut client, &*config.es.index, &search);
+      assert_eq!(2, results.total);
     }
 
-    // job_id and talent_id are given
+    // both job_id and talent_id are given
     {
-      let mut map = Map::new();
-      map.assign("job_id", Value::U64(1)).unwrap();
-      map.assign("talent_id", Value::U64(10)).unwrap();
+      let search = SearchBuilder::new()
+                                 .with_talent_id(1)
+                                 .with_job_id(1)
+                                 .build();
 
-      let results = Score::search(&mut client, &*config.es.index, &map);
+      let results = Score::search(&mut client, &*config.es.index, &search);
       assert_eq!(1, results.total);
       assert_eq!(vec!["515ec9bb-0511-4464-92bb-bd21c5ed7b22"], results.match_ids());
-      assert_ne!(vec!["2a-2b-9s"], results.match_ids());
     }
 
     // delete between searches
     {
-      let mut map = Map::new();
-      map.assign("job_id", Value::U64(1)).unwrap();
-      map.assign("talent_id", Value::U64(10)).unwrap();
-
-      let results = Score::search(&mut client, &*config.es.index, &map);
+      let search  = SearchBuilder::new().with_talent_id(1).build();
+      let results = Score::search(&mut client, &*config.es.index, &search);
       assert_eq!(1, results.total);
 
-      let score = &results.scores[0];
-      score.delete(&mut client, &*config.es.index).unwrap();
+      results.scores[0].delete(&mut client, &*config.es.index).unwrap();
 
       refresh_index(&mut client);
 
-      let results = Score::search(&mut client, &*config.es.index, &map);
+      let results = Score::search(&mut client, &*config.es.index, &search);
       assert_eq!(0, results.total);
     }
   }

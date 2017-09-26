@@ -397,8 +397,9 @@ impl Resource for Talent {
 
         let source_from_job_id = |mut result: SearchResult| {
           match params.get("job_id") {
-            Some(&Value::U64(ref _job_id)) => {
-              let results = Score::search(es, &index[0], params);
+            Some(&Value::U64(ref job_id)) => {
+              let params: (u64, u64)  = (*job_id, result.talent.id as u64);
+              let results = Score::search(es, &index[0], &params);
               result.with_score(results.scores.get(0).cloned())
             },
             _ => result
@@ -1149,9 +1150,6 @@ mod tests {
       assert_eq!(vec![4, 5, 2, 1], results.ids());
       assert_eq!(4, results.total);
       assert!(results.highlights().iter().all(|r| r.is_none()));
-
-      assert!(results.talents.last().unwrap().score.is_some());
-      assert!(results.talents.first().unwrap().score.is_none());
     }
   }
 
