@@ -396,23 +396,28 @@ impl Resource for Talent {
           return SearchResults { total: 0, talents: vec![] };
         }
 
-        let source_from_job_id = |mut result: SearchResult| {
-          match params.get("job_id") {
-            Some(&Value::U64(ref job_id)) => {
-              let search = ScoreSearchBuilder::new()
-                                              .with_job_id(*job_id as u32)
-                                              .with_talent_id(result.talent.id)
-                                              .build();
-              let results = Score::search(es, &index[0], &search);
-              result.with_score(results.scores.get(0).cloned())
-            },
-            _ => result
-          }
+        let mut source_from_job_id = |result: &mut SearchResult, job_id: u32| {
+          let search = ScoreSearchBuilder::new()
+                                          .with_job_id(job_id)
+                                          .with_talent_id(result.talent.id)
+                                          .build();
+          let results = Score::search(es, &index[0], &search);
+          result.with_score(results.scores.get(0).cloned())
+        };
+
+        let job_id = match params.get("job_id") {
+          Some(&Value::String(ref job_id)) => job_id.parse::<u32>().ok(),
+          _ => None
         };
 
         let results: Vec<SearchResult> = result.hits.hits.into_iter()
                                                          .map(SearchResult::from)
-                                                         .map(source_from_job_id)
+                                                         .map(|mut r| {
+                                                            match job_id {
+                                                              Some(job_id) => source_from_job_id(&mut r, job_id),
+                                                              None         => r
+                                                            }
+                                                         })
                                                          .collect();
 
         SearchResults { total: total, talents: results }
@@ -1156,7 +1161,7 @@ mod tests {
       refresh_index(&mut client, &*index);
 
       let mut params = Map::new();
-      params.assign("job_id", Value::U64(1)).unwrap();
+      params.assign("job_id", Value::String("1".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 2, 1], results.ids());
