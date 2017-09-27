@@ -96,10 +96,8 @@ macro_rules! authorization {
 authorization!(ReadableEndpoint, read);
 authorization!(WritableEndpoint, write);
 
-pub struct Server<R: Resource> {
-  config:   Config,
-  endpoint: String,
-  resource: PhantomData<R>
+pub struct Server {
+  config: Config
 }
 
 pub struct SearchableHandler<R> {
@@ -108,7 +106,7 @@ pub struct SearchableHandler<R> {
 }
 
 impl<R: Resource> SearchableHandler<R> {
-  fn new(config: Config) -> Self {
+  pub fn new(config: Config) -> Self {
     SearchableHandler::<R> {
       resource: PhantomData,
       config:   config
@@ -143,7 +141,7 @@ pub struct IndexableHandler<R> {
 }
 
 impl<R: Resource> IndexableHandler<R> {
-  fn new(config: Config) -> Self {
+  pub fn new(config: Config) -> Self {
     IndexableHandler::<R> {
       resource: PhantomData,
       config:   config
@@ -177,7 +175,7 @@ pub struct DeletableHandler<R> {
 }
 
 impl<R: Resource> DeletableHandler<R> {
-  fn new(config: Config) -> Self {
+  pub fn new(config: Config) -> Self {
     DeletableHandler::<R> {
       resource: PhantomData,
       config:   config
@@ -222,7 +220,7 @@ pub struct ResettableHandler<R> {
 }
 
 impl<R: Resource> ResettableHandler<R> {
-  fn new(config: Config) -> Self {
+  pub fn new(config: Config) -> Self {
     ResettableHandler::<R> {
       resource: PhantomData,
       config:   config
@@ -272,29 +270,17 @@ impl AfterMiddleware for CorsMiddleware {
   }
 }
 
-impl<R: Resource> Server<R> {
-  pub fn new(config: Config, endpoint: &str) -> Self {
-    Server {
-      config:   config,
-      endpoint: endpoint.to_owned(),
-      resource: PhantomData
-    }
+impl Server {
+  pub fn new(config: Config) -> Self {
+    Server { config: config }
   }
 
-  pub fn start(&self) {
+  pub fn start(&self, router: Router) {
     start_logging(&self.config).unwrap();
 
     let host = format!("{}:{}", self.config.http.host, self.config.http.port);
 
     println!("Searchspot v{}\n{}\n", env!("CARGO_PKG_VERSION"), self.config);
-
-    let mut router = Router::new();
-    router.get(&self.endpoint,    SearchableHandler::<R>::new(self.config.to_owned()), "search");
-    router.post(&self.endpoint,   IndexableHandler::<R>::new(self.config.to_owned()),  "index");
-    router.delete(&self.endpoint, ResettableHandler::<R>::new(self.config.to_owned()), "reset");
-
-    let deletable_endpoint = format!("{}/:id", self.endpoint);
-    router.delete(deletable_endpoint, DeletableHandler::<R>::new(self.config.to_owned()), "delete");
 
     let client = Client::new(&*self.config.to_owned().es.url).unwrap();
 
