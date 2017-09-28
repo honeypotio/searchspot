@@ -1,4 +1,4 @@
-#![feature(conservative_impl_trait)]
+#![feature(conservative_impl_trait, iterator_for_each)]
 
 extern crate serde;
 #[macro_use] extern crate serde_json;

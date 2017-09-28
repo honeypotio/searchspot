@@ -1,6 +1,8 @@
 [es]
 url   = "http://localhost:9200"
 index = "sample_index"
+# tests contained in resources/* will use the index field
+# as prefix for their own index to avoid race conditions
 
 [http]
 host = "127.0.0.1"

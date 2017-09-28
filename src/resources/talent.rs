@@ -14,6 +14,8 @@ use super::rs_es::operations::search::highlight::*;
 
 use terms::VectorOfTerms;
 use resource::*;
+use resources::score::Score;
+use resources::score::SearchBuilder as ScoreSearchBuilder;
 
 /// The type that we use in ElasticSearch for defining a `Talent`.
 const ES_TYPE: &'static str = "talent";
@@ -29,15 +31,24 @@ pub struct SearchResults {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchResult {
   pub talent:    FoundTalent,
+  pub score:     Option<Score>,
   pub highlight: Option<HighlightResult>
 }
 
-/// Convert the ElasticSearch results into a `SearchResult`.
+impl SearchResult {
+  fn with_score(&mut self, score: Option<Score>) -> SearchResult {
+    self.score = score;
+    self.to_owned()
+  }
+}
+
+/// Convert an ElasticSearch result into a `SearchResult`.
 impl From<SearchHitsHitsResult<Talent>> for SearchResult {
-  fn from(hit: SearchHitsHitsResult<Talent>) -> SearchResult {
+  fn from(result: SearchHitsHitsResult<Talent>) -> SearchResult {
     SearchResult {
-      talent:    hit.source.unwrap().into(),
-      highlight: hit.highlight
+      talent:    result.source.unwrap().into(),
+      score:     None,
+      highlight: result.highlight
     }
   }
 }
@@ -221,8 +232,7 @@ impl Talent {
                              Query::build_term("languages", language).build()
                            }).collect::<Vec<Query>>()
                         )
-                      .build()
-                ],
+                      .build()],
 
                <Query as VectorOfTerms<String>>::build_terms(
                  "desired_work_roles_vanilla", &vec_from_params!(params, "desired_work_roles")),
@@ -333,14 +343,14 @@ impl Resource for Talent {
       None => false
     };
 
-    let offset: u64 = match params.get("offset") {
-      Some(offset) => u64::from_value(&offset).unwrap_or(0),
-      _            => 0 as u64
+    let offset = match params.get("offset") {
+      Some(&Value::U64(ref offset)) => *offset,
+      _                             => 0
     };
 
-    let per_page: u64 = match params.get("per_page") {
-      Some(per_page) => u64::from_value(&per_page).unwrap_or(10),
-      _              => 10 as u64
+    let per_page = match params.get("per_page") {
+      Some(&Value::U64(ref per_page)) => *per_page,
+      _                               => 10
     };
 
     let result = if keywords_present {
@@ -380,14 +390,37 @@ impl Resource for Talent {
 
     match result {
       Ok(result) => {
+        let total = result.hits.total;
+
+        if total == 0 {
+          return SearchResults { total: 0, talents: vec![] };
+        }
+
+        let mut source_from_job_id = |result: &mut SearchResult, job_id: u32| {
+          let search = ScoreSearchBuilder::new()
+                                          .with_job_id(job_id)
+                                          .with_talent_id(result.talent.id)
+                                          .build();
+          let results = Score::search(es, &index[0], &search);
+          result.with_score(results.scores.get(0).cloned())
+        };
+
+        let job_id = match params.get("job_id") {
+          Some(&Value::String(ref job_id)) => job_id.parse::<u32>().ok(),
+          _ => None
+        };
+
         let results: Vec<SearchResult> = result.hits.hits.into_iter()
                                                          .map(SearchResult::from)
+                                                         .map(|mut r| {
+                                                            match job_id {
+                                                              Some(job_id) => source_from_job_id(&mut r, job_id),
+                                                              None         => r
+                                                            }
+                                                         })
                                                          .collect();
 
-        SearchResults {
-            total:   result.hits.total,
-            talents: results
-        }
+        SearchResults { total: total, talents: results }
       },
       Err(err) => {
         error!("{:?}", err);
@@ -398,6 +431,12 @@ impl Resource for Talent {
 
   /// Delete the talent associated to given id.
   fn delete(es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError> {
+    let search = ScoreSearchBuilder::new()
+                                    .with_talent_id(id.parse().unwrap())
+                                    .build();
+    Score::search(es, index, &search).scores.iter()
+                                            .for_each(|s| { let _ = s.delete(es, index); });
+
     es.delete(index, ES_TYPE, id)
       .send()
   }
@@ -588,7 +627,6 @@ impl Resource for Talent {
 }
 
 #[cfg(test)]
-#[allow(non_upper_case_globals)]
 mod tests {
   extern crate serde_json;
 
@@ -602,21 +640,13 @@ mod tests {
   extern crate params;
   use self::params::*;
 
-  use config::*;
   use resource::*;
 
   use resources::Talent;
   use resources::talent::{SalaryExpectations, SearchResults};
-
-  const CONFIG_FILE: &'static str = "examples/tests.toml";
-
-  lazy_static! {
-    static ref config: Config = Config::from_file(CONFIG_FILE.to_owned());
-  }
-
-  pub fn make_client() -> Client {
-    Client::new(&*config.es.url).unwrap()
-  }
+  use resources::score::Score;
+  use resources::score::SearchBuilder as ScoreSearchBuilder;
+  use resources::tests::*;
 
   macro_rules! epoch_from_year {
     ($year:expr) => {
@@ -632,6 +662,10 @@ mod tests {
 
     pub fn highlights(&self) -> Vec<Option<HighlightResult>> {
       self.talents.iter().map(|r| r.highlight.clone()).collect()
+    }
+
+    pub fn scores(&self) -> Vec<Option<Score>> {
+      self.talents.iter().map(|r| r.score.clone()).collect()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -650,7 +684,7 @@ mod tests {
     }
   }
 
-  pub fn populate_index(mut client: &mut Client) -> bool {
+  pub fn populate_index(mut client: &mut Client, index: &str) -> bool {
     let talents = vec![
       Talent {
         id:                            1,
@@ -783,182 +817,180 @@ mod tests {
       }
     ];
 
-    Talent::index(&mut client, &config.es.index, talents).is_ok()
-  }
-
-  fn refresh_index(client: &mut Client) {
-    client.refresh()
-          .with_indexes(&[&config.es.index])
-          .send()
-          .unwrap();
+    Talent::index(&mut client, &index, talents).is_ok()
   }
 
   #[test]
   fn test_search() {
     let mut client = make_client();
+    let     index  = format!("{}_{}", config.es.index, "talent");
 
-    assert!(Talent::reset_index(&mut client, &*config.es.index).is_ok());
-    refresh_index(&mut client);
+    if let Err(_) = Talent::reset_index(&mut client, &*index) {
+      let _ = Talent::reset_index(&mut client, &*index);
+    }
 
-    assert!(populate_index(&mut client));
-    refresh_index(&mut client);
+    refresh_index(&mut client, &*index);
+
+    assert!(populate_index(&mut client, &*index));
+    refresh_index(&mut client, &*index);
 
     // no parameters are given
     {
-      let results = Talent::search(&mut client, &*config.es.index, &Map::new());
+      let results = Talent::search(&mut client, &*index, &Map::new());
       assert_eq!(vec![4, 5, 2, 1], results.ids());
       assert_eq!(4, results.total);
+      assert!(results.talents[0].score.is_none());
       assert!(results.highlights().iter().all(|r| r.is_none()));
     }
 
     {
-      assert!(Talent::delete(&mut client, "1", &*config.es.index).is_ok());
-      assert!(Talent::delete(&mut client, "4", &*config.es.index).is_ok());
-      refresh_index(&mut client);
+      assert!(Talent::delete(&mut client, "1", &*index).is_ok());
+      assert!(Talent::delete(&mut client, "4", &*index).is_ok());
+      refresh_index(&mut client, &*index);
 
-      let results = Talent::search(&mut client, &*config.es.index, &Map::new());
+      let results = Talent::search(&mut client, &*index, &Map::new());
       assert_eq!(vec![5, 2], results.ids());
 
-      assert!(populate_index(&mut client));
-      refresh_index(&mut client);
+      assert!(populate_index(&mut client, &*index));
+      refresh_index(&mut client, &*index);
     }
 
     // a non existing index is given
     {
-      let mut map = Map::new();
-      map.assign("index", Value::String("lololol".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("index", Value::String("lololol".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert!(results.is_empty());
     }
 
     // a date that doesn't match given indexes is given
     {
-      let mut map = Map::new();
-      map.assign("epoch", Value::String(epoch_from_year!("2040"))).unwrap();
+      let mut params = Map::new();
+      params.assign("epoch", Value::String(epoch_from_year!("2040"))).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert!(results.is_empty());
     }
 
     // a date that match only some talents is given
     {
-      let mut map = Map::new();
-      map.assign("epoch", Value::String(epoch_from_year!("2006"))).unwrap();
+      let mut params = Map::new();
+      params.assign("epoch", Value::String(epoch_from_year!("2006"))).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2, 1], results.ids());
     }
 
     // searching for work roles
     {
-      let mut map = Map::new();
-      map.assign("desired_work_roles[]", Value::String("Fullstack".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("desired_work_roles[]", Value::String("Fullstack".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5], results.ids());
     }
 
     // searching for work experience
     {
-      let mut map = Map::new();
-      map.assign("professional_experience[]", Value::String("8+".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("professional_experience[]", Value::String("8+".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2], results.ids());
     }
 
     // searching for work locations
     {
-      let mut map = Map::new();
-      map.assign("work_locations[]", Value::String("Rome".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("work_locations[]", Value::String("Rome".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2], results.ids());
     }
 
     // searching for a language
     {
-      let mut map = Map::new();
-      map.assign("languages[]", Value::String("English".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("languages[]", Value::String("English".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 2], results.ids());
     }
 
     // searching for languages
     {
-      let mut map = Map::new();
-      map.assign("languages[]", Value::String("English".into())).unwrap();
-      map.assign("languages[]", Value::String("German".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("languages[]", Value::String("English".into())).unwrap();
+      params.assign("languages[]", Value::String("German".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2], results.ids());
     }
 
     // searching for a single keyword
     {
-      let mut map = Map::new();
-      map.assign("keywords", Value::String("HTML5".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("HTML5".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![1, 2, 5], results.ids());
     }
 
     // searching for a single, differently cased and incomplete keyword
     {
-      let mut map = Map::new();
-      map.assign("keywords", Value::String("html".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("html".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![1, 2, 5], results.ids());
     }
 
     // searching for keywords and filters
     {
-      let mut map = Map::new();
-      map.assign("keywords", Value::String("Rust, HTML5 and HTML".into())).unwrap();
-      map.assign("work_locations[]", Value::String("Rome".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("Rust, HTML5 and HTML".into())).unwrap();
+      params.assign("work_locations[]", Value::String("Rome".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2], results.ids());
     }
 
     // searching for a single word that's supposed to be split
     {
-      let mut map = Map::new();
-      map.assign("keywords", Value::String("reactjs".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("reactjs".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4], results.ids());
     }
 
     // searching for the original dotted string
     {
-      let mut map = Map::new();
-      map.assign("keywords", Value::String("react.js".into())).unwrap();
-      map.assign("work_locations[]", Value::String("Berlin".into())).unwrap();
-      map.assign("desired_work_roles[]", Value::String("Fullstack".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("react.js".into())).unwrap();
+      params.assign("work_locations[]", Value::String("Berlin".into())).unwrap();
+      params.assign("desired_work_roles[]", Value::String("Fullstack".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4], results.ids());
     }
 
     // searching for a non-matching keyword
     {
-      let mut map = Map::new();
-      map.assign("keywords", Value::String("Criogenesi".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("Criogenesi".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert!(results.is_empty());
     }
 
     // searching for an empty keyword
     {
-      let mut map = Map::new();
-      map.assign("keywords", Value::String("".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 2, 1], results.ids());
     }
 
@@ -967,28 +999,28 @@ mod tests {
     {
       // JavaScript, Java
       {
-        let mut map = Map::new();
-        map.assign("keywords", Value::String("Java".into())).unwrap();
+        let mut params = Map::new();
+        params.assign("keywords", Value::String("Java".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &map);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![2, 5], results.ids());
       }
 
       // JavaScript
       {
-        let mut map = Map::new();
-        map.assign("keywords", Value::String("javascript".into())).unwrap();
+        let mut params = Map::new();
+        params.assign("keywords", Value::String("javascript".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &map);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![5], results.ids());
       }
 
       // JavaScript, ClojureScript
       {
-        let mut map = Map::new();
-        map.assign("keywords", Value::String("script".into())).unwrap();
+        let mut params = Map::new();
+        params.assign("keywords", Value::String("script".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &map);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![4, 5], results.ids());
       }
     }
@@ -996,126 +1028,167 @@ mod tests {
     // Searching for summary
     {
       {
-        let mut map = Map::new();
-        map.assign("keywords", Value::String("right now".into())).unwrap();
+        let mut params = Map::new();
+        params.assign("keywords", Value::String("right now".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &map);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![4], results.ids());
       }
 
       {
-        let mut map = Map::new();
-        map.assign("keywords", Value::String("C++".into())).unwrap();
+        let mut params = Map::new();
+        params.assign("keywords", Value::String("C++".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &map);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![4, 5], results.ids());
       }
 
       {
-        let mut map = Map::new();
-        map.assign("keywords", Value::String("C#".into())).unwrap();
+        let mut params = Map::new();
+        params.assign("keywords", Value::String("C#".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &map);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![5], results.ids());
       }
 
       {
-        let mut map = Map::new();
-        map.assign("keywords", Value::String("rust and".into())).unwrap();
+        let mut params = Map::new();
+        params.assign("keywords", Value::String("rust and".into())).unwrap();
 
-        let results = Talent::search(&mut client, &*config.es.index, &map);
+        let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![1, 2], results.ids());
       }
     }
 
     // Searching for headline and summary
     {
-      let mut map = Map::new();
-      map.assign("keywords", Value::String("senior".to_owned())).unwrap();
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("senior".to_owned())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2, 4, 1], results.ids());
     }
 
     // Searching for ideal work roles
     {
-      let mut map = Map::new();
-      map.assign("keywords", Value::String("Devops".to_owned())).unwrap();
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("Devops".to_owned())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5], results.ids());
     }
 
     // Searching for previous job title
     {
-      let mut map = Map::new();
-      map.assign("keywords", Value::String("database admin".to_owned())).unwrap();
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("database admin".to_owned())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![1, 4], results.ids());
     }
 
     // highlight
     {
-      let mut map = Map::new();
-      map.assign("keywords", Value::String("C#".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("C#".into())).unwrap();
 
-      let results    = Talent::search(&mut client, &*config.es.index, &map).talents;
+      let results    = Talent::search(&mut client, &*index, &params).talents;
       let highlights = results.into_iter().map(|r| r.highlight.unwrap()).collect::<Vec<HighlightResult>>();
       assert_eq!(Some(&vec![" C#.".to_owned()]), highlights[0].get("summary"));
     }
 
     // filtering for given company_id (skip contacted talents)
     {
-      let mut map = Map::new();
-      map.assign("company_id", Value::String("6".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("company_id", Value::String("6".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2, 1], results.ids());
     }
 
     // filtering for given bookmarks (ids)
     {
-      let mut map = Map::new();
-      map.assign("ids[]", Value::U64(2)).unwrap();
-      map.assign("ids[]", Value::U64(4)).unwrap();
-      map.assign("ids[]", Value::U64(1)).unwrap();
-      map.assign("ids[]", Value::U64(3)).unwrap();
-      map.assign("ids[]", Value::U64(5)).unwrap();
-      map.assign("ids[]", Value::U64(6)).unwrap();
-      map.assign("ids[]", Value::U64(7)).unwrap();
-      map.assign("ids[]", Value::U64(8)).unwrap();
+      let mut params = Map::new();
+      params.assign("ids[]", Value::U64(2)).unwrap();
+      params.assign("ids[]", Value::U64(4)).unwrap();
+      params.assign("ids[]", Value::U64(1)).unwrap();
+      params.assign("ids[]", Value::U64(3)).unwrap();
+      params.assign("ids[]", Value::U64(5)).unwrap();
+      params.assign("ids[]", Value::U64(6)).unwrap();
+      params.assign("ids[]", Value::U64(7)).unwrap();
+      params.assign("ids[]", Value::U64(8)).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 2, 1], results.ids());
       assert_eq!(4, results.total);
     }
 
     // filtering for work_authorization
     {
-      let mut map = Map::new();
-      map.assign("work_authorization[]", Value::String("no".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("work_authorization[]", Value::String("no".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4], results.ids());
     }
 
     // ignoring contacted talents
     {
-      let mut map = Map::new();
-      map.assign("contacted_talents[]", Value::String("2".into())).unwrap();
+      let mut params = Map::new();
+      params.assign("contacted_talents[]", Value::String("2".into())).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 1], results.ids());
     }
 
     // ignoring blocked companies
     {
-      let mut map = Map::new();
-      map.assign("company_id", Value::U64(22)).unwrap();
+      let mut params = Map::new();
+      params.assign("company_id", Value::U64(22)).unwrap();
 
-      let results = Talent::search(&mut client, &*config.es.index, &map);
+      let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 1], results.ids());
+    }
+
+    // embedding position scores
+    {
+      let scores = vec![
+        Score { match_id: "2A-2B-9S".to_owned(),      job_id: 1, talent_id: 1, score: 0.545 },
+        Score { match_id: "No4-No16-No21".to_owned(), job_id: 1, talent_id: 2, score: 0.454 },
+      ];
+      assert!(Score::index(&mut client, &*index, scores).is_ok());
+
+      refresh_index(&mut client, &*index);
+
+      let mut params = Map::new();
+      params.assign("job_id", Value::String("1".to_owned())).unwrap();
+
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![4, 5, 2, 1], results.ids());
+      assert!(results.highlights().iter().all(|r| r.is_none()));
+
+      let     scores_ = results.scores();
+      let mut scores  = scores_.iter();
+      assert!(scores.next().unwrap().is_none());
+      assert!(scores.next().unwrap().is_none());
+      assert!(scores.next().unwrap().is_some());
+
+      let score = scores.next().unwrap();
+      assert_eq!(score.clone().unwrap().score, 0.545);
+    }
+
+    // when deleting a talent, the attached score is deleted too
+    {
+      let search  = ScoreSearchBuilder::new().with_talent_id(1).build();
+      let results = Score::search(&mut client, &*index, &search);
+      assert_eq!(results.total, 1);
+
+      assert!(Talent::delete(&mut client, "1", &*index).is_ok());
+
+      refresh_index(&mut client, &*index);
+
+      let results = Score::search(&mut client, &*index, &search);
+      assert_eq!(results.total, 0);
     }
   }
 
