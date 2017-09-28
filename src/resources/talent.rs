@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use super::chrono::prelude::*;
 
 use super::params::*;
@@ -86,7 +88,7 @@ impl RolesExperience {
   fn new(role: &str, experience: Option<&String>) -> RolesExperience {
     RolesExperience {
       role:       role.to_owned(),
-      experience: experience.map(|e| e.to_owned()).unwrap_or("".to_owned())
+      experience: experience.map(|e| e.to_owned()).unwrap_or(String::new())
     }
   }
 }
@@ -353,10 +355,15 @@ impl Resource for Talent {
       _                               => 10
     };
 
+    let job_id = match params.get("job_id") {
+      Some(&Value::String(ref job_id)) => job_id.parse::<u32>().ok(),
+      _ => None
+    };
+
     let result = if keywords_present {
       let mut highlight = Highlight::new().with_encoder(Encoders::HTML)
-                                          .with_pre_tags(vec!["".to_owned()])
-                                          .with_post_tags(vec!["".to_owned()])
+                                          .with_pre_tags(vec![String::new()])
+                                          .with_post_tags(vec![String::new()])
                                           .to_owned();
       let settings = Setting::new().with_type(SettingTypes::Plain)
                                    .with_term_vector(TermVector::WithPositionsOffsets)
@@ -368,24 +375,44 @@ impl Resource for Talent {
       highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
       highlight.add_setting("work_experiences".to_owned(), settings);
 
-      es.search_query()
-        .with_indexes(&*index)
-        .with_query(&Talent::search_filters(params, &*epoch))
-        .with_highlight(&highlight)
-        .with_from(offset)
-        .with_size(per_page)
-        .with_min_score(0.56)
-        .with_track_scores(true)
-        .send::<Talent>()
+      if job_id.is_some() {
+        es.search_query()
+          .with_indexes(&*index)
+          .with_query(&Talent::search_filters(params, &*epoch))
+          .with_highlight(&highlight)
+          .with_min_score(0.56)
+          .with_track_scores(true)
+          .send::<Talent>()
+      }
+      else {
+        es.search_query()
+          .with_indexes(&*index)
+          .with_query(&Talent::search_filters(params, &*epoch))
+          .with_highlight(&highlight)
+          .with_from(offset)
+          .with_size(per_page)
+          .with_min_score(0.56)
+          .with_track_scores(true)
+          .send::<Talent>()
+      }
     }
     else {
-      es.search_query()
-        .with_indexes(&*index)
-        .with_query(&Talent::search_filters(params, &*epoch))
-        .with_sort(&Talent::sorting_criteria())
-        .with_from(offset)
-        .with_size(per_page)
-        .send::<Talent>()
+      if job_id.is_some() {
+        es.search_query()
+          .with_indexes(&*index)
+          .with_query(&Talent::search_filters(params, &*epoch))
+          .with_sort(&Talent::sorting_criteria())
+          .send::<Talent>()
+      }
+      else {
+        es.search_query()
+          .with_indexes(&*index)
+          .with_query(&Talent::search_filters(params, &*epoch))
+          .with_sort(&Talent::sorting_criteria())
+          .with_from(offset)
+          .with_size(per_page)
+          .send::<Talent>()
+      }
     };
 
     match result {
@@ -405,20 +432,22 @@ impl Resource for Talent {
           result.with_score(results.scores.get(0).cloned())
         };
 
-        let job_id = match params.get("job_id") {
-          Some(&Value::String(ref job_id)) => job_id.parse::<u32>().ok(),
-          _ => None
-        };
-
-        let results: Vec<SearchResult> = result.hits.hits.into_iter()
-                                                         .map(SearchResult::from)
-                                                         .map(|mut r| {
-                                                            match job_id {
-                                                              Some(job_id) => source_from_job_id(&mut r, job_id),
-                                                              None         => r
-                                                            }
-                                                         })
-                                                         .collect();
+        let mut results: Vec<SearchResult> = result.hits.hits.into_iter()
+                                                             .map(SearchResult::from)
+                                                             .map(|mut r| {
+                                                                 match job_id {
+                                                                   Some(job_id) => source_from_job_id(&mut r, job_id),
+                                                                   None         => r
+                                                                 }
+                                                              })
+                                                             .collect();
+        if job_id.is_some() {
+          results.sort_by(|a, b| {
+            let a = a.score.as_ref().map(|s| s.score);
+            let b = b.score.as_ref().map(|s| s.score);
+            b.partial_cmp(&a).unwrap_or(Ordering::Equal)
+          });
+        }
 
         SearchResults { total: total, talents: results }
       },
@@ -734,7 +763,7 @@ mod tests {
         blocked_companies:             vec![22],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
-        latest_position:               "".to_owned(),
+        latest_position:               String::new(),
         languages:                     vec!["German".to_owned(), "English".to_owned()]
       },
 
@@ -749,8 +778,8 @@ mod tests {
         current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec![],
-        summary:                       "".to_owned(),
-        headline:                      "".to_owned(),
+        summary:                       String::new(),
+        headline:                      String::new(),
         work_experiences:              vec![],
         contacted_company_ids:         vec![],
         batch_starts_at:               epoch_from_year!("2007"),
@@ -760,7 +789,7 @@ mod tests {
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
-        latest_position:               "".to_owned(),
+        latest_position:               String::new(),
         languages:                     vec!["English".to_owned()]
       },
 
@@ -786,7 +815,7 @@ mod tests {
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
-        latest_position:               "".to_owned(),
+        latest_position:               String::new(),
         languages:                     vec!["English".to_owned()]
       },
 
@@ -812,7 +841,7 @@ mod tests {
         blocked_companies:             vec![],
         avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
-        latest_position:               "".to_owned(),
+        latest_position:               String::new(),
         languages:                     vec!["English".to_owned()]
       }
     ];
@@ -988,7 +1017,7 @@ mod tests {
     // searching for an empty keyword
     {
       let mut params = Map::new();
-      params.assign("keywords", Value::String("".into())).unwrap();
+      params.assign("keywords", Value::String(String::new())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 2, 1], results.ids());
@@ -1153,8 +1182,9 @@ mod tests {
     // embedding position scores
     {
       let scores = vec![
-        Score { match_id: "2A-2B-9S".to_owned(),      job_id: 1, talent_id: 1, score: 0.545 },
-        Score { match_id: "No4-No16-No21".to_owned(), job_id: 1, talent_id: 2, score: 0.454 },
+        Score { match_id: "2A-2B-9S".to_owned(),      job_id: 1, talent_id: 1, score: 0.454 },
+        Score { match_id: "No4-No16-No21".to_owned(), job_id: 1, talent_id: 2, score: 0.945 },
+        Score { match_id: "Yo-HR-a".to_owned(),       job_id: 1, talent_id: 4, score: 0.545 }
       ];
       assert!(Score::index(&mut client, &*index, scores).is_ok());
 
@@ -1164,17 +1194,7 @@ mod tests {
       params.assign("job_id", Value::String("1".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![4, 5, 2, 1], results.ids());
-      assert!(results.highlights().iter().all(|r| r.is_none()));
-
-      let     scores_ = results.scores();
-      let mut scores  = scores_.iter();
-      assert!(scores.next().unwrap().is_none());
-      assert!(scores.next().unwrap().is_none());
-      assert!(scores.next().unwrap().is_some());
-
-      let score = scores.next().unwrap();
-      assert_eq!(score.clone().unwrap().score, 0.545);
+      assert_eq!(vec![2, 4, 1, 5], results.ids());
     }
 
     // when deleting a talent, the attached score is deleted too
