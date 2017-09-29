@@ -1194,7 +1194,7 @@ mod tests {
       refresh_index(&mut client, &*index);
 
       let mut params = Map::new();
-      params.assign("job_id", Value::String("1".to_owned())).unwrap();
+      params.assign("job_id", Value::U64(1)).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2, 4, 1, 5], results.ids());
