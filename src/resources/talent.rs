@@ -914,6 +914,24 @@ mod tests {
       assert_eq!(vec![2, 1], results.ids());
     }
 
+    // page is given
+    {
+      let mut params = Map::new();
+      params.assign("per_page", Value::U64(2)).unwrap();
+
+      params.assign("offset", Value::U64(0)).unwrap();
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![4, 5], results.ids());
+
+      params.assign("offset", Value::U64(2)).unwrap();
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![2, 1], results.ids());
+
+      params.assign("offset", Value::U64(4)).unwrap();
+      let results = Talent::search(&mut client, &*index, &params);
+      assert!(results.ids().is_empty());
+    }
+
     // searching for work roles
     {
       let mut params = Map::new();
