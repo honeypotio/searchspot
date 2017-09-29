@@ -345,19 +345,22 @@ impl Resource for Talent {
       None => false
     };
 
-    let offset = match params.get("offset") {
-      Some(&Value::U64(ref offset)) => *offset,
-      _                             => 0
+    let offset: u64 = match params.get("offset") {
+      Some(&Value::String(ref offset)) => offset.parse().unwrap_or(0),
+      Some(&Value::U64(ref offset))    => *offset,
+      _                                => 0
     };
 
-    let per_page = match params.get("per_page") {
-      Some(&Value::U64(ref per_page)) => *per_page,
-      _                               => 10
+    let per_page: u64 = match params.get("per_page") {
+      Some(&Value::String(ref per_page)) => per_page.parse().unwrap_or(10),
+      Some(&Value::U64(ref per_page))    => *per_page,
+      _                                  => 10
     };
 
-    let job_id = match params.get("job_id") {
-      Some(&Value::String(ref job_id)) => job_id.parse::<u32>().ok(),
-      _ => None
+    let job_id: Option<u64> = match params.get("job_id") {
+      Some(&Value::String(ref job_id)) => job_id.parse().ok(),
+      Some(&Value::U64(ref job_id))    => Some(*job_id),
+      _                                => None
     };
 
     let result = if keywords_present {
@@ -436,7 +439,7 @@ impl Resource for Talent {
                                                              .map(SearchResult::from)
                                                              .map(|mut r| {
                                                                  match job_id {
-                                                                   Some(job_id) => source_from_job_id(&mut r, job_id),
+                                                                   Some(job_id) => source_from_job_id(&mut r, job_id as u32),
                                                                    None         => r
                                                                  }
                                                               })
