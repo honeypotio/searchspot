@@ -23,7 +23,9 @@ pub struct SearchResults {
 /// The representation of the score that will be indexed into ElasticSearch.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Score {
-  pub match_id:  String,
+  pub request_id:  String,
+  pub person_id:   String,
+  pub position_id: String,
   pub job_id:    u32,
   pub talent_id: u32,
   pub score:     f32
@@ -108,7 +110,7 @@ impl Score {
   }
 
   pub fn delete(&self, es: &mut Client, index: &str) -> Result<DeleteResult, EsError> {
-    es.delete(index, ES_TYPE, &*self.match_id)
+    es.delete(index, ES_TYPE, &*self.request_id)
       .send()
   }
 }
@@ -120,8 +122,8 @@ impl Resource for Score {
   fn index(es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
     es.bulk(&resources.into_iter()
                       .map(|r| {
-                          let match_id = r.match_id.to_owned();
-                          Action::index(r).with_id(match_id)
+                          let request_id = r.request_id.to_owned();
+                          Action::index(r).with_id(request_id)
                       })
                       .collect::<Vec<Action<Score>>>())
       .with_index(index)
@@ -160,14 +162,18 @@ mod tests {
   pub fn populate_index(mut client: &mut Client, index: &str) -> bool {
     let scores = vec![
       Score {
-        match_id:  "515ec9bb-0511-4464-92bb-bd21c5ed7b22".to_owned(),
+        request_id:  "515ec9bb-0511-4464-92bb-bd21c5ed7b22".to_owned(),
+        person_id:   "5801f578-a3bc-40ee-94fd-b437f94f00d5".to_owned(),
+        position_id: "6214ab8d26e3f79571d922ca269d5749".to_owned(),
         job_id:    1,
         talent_id: 1,
         score:     0.545
       },
 
       Score {
-        match_id:  "9ac871a8-d936-41d8-bd35-9bc3c0c5be42".to_owned(),
+        request_id:  "9ac871a8-d936-41d8-bd35-9bc3c0c5be42".to_owned(),
+        person_id:   "cc19a5ac-2e4a-454a-af9f-24d665a0748c".to_owned(),
+        position_id: "0214ab8d26e3f79571d922ca269d5743".to_owned(),
         job_id:    1,
         talent_id: 2,
         score:     0.442
@@ -178,8 +184,8 @@ mod tests {
   }
 
   impl SearchResults {
-    pub fn match_ids(&self) -> Vec<String> {
-      self.scores.iter().map(|s| s.match_id.to_owned()).collect()
+    pub fn request_ids(&self) -> Vec<String> {
+      self.scores.iter().map(|s| s.request_id.to_owned()).collect()
     }
   }
 
@@ -220,7 +226,7 @@ mod tests {
 
       let results = Score::search(&mut client, &*index, &search);
       assert_eq!(1, results.total);
-      assert_eq!(vec!["515ec9bb-0511-4464-92bb-bd21c5ed7b22"], results.match_ids());
+      assert_eq!(vec!["515ec9bb-0511-4464-92bb-bd21c5ed7b22"], results.request_ids());
     }
 
     // delete between searches

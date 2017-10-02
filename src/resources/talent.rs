@@ -1185,9 +1185,30 @@ mod tests {
     // embedding position scores
     {
       let scores = vec![
-        Score { match_id: "2A-2B-9S".to_owned(),      job_id: 1, talent_id: 1, score: 0.454 },
-        Score { match_id: "No4-No16-No21".to_owned(), job_id: 1, talent_id: 2, score: 0.945 },
-        Score { match_id: "Yo-HR-a".to_owned(),       job_id: 1, talent_id: 4, score: 0.545 }
+        Score {
+          request_id:  "2A-2B-9S".to_owned(),
+          person_id:   "AA-BB-CC".to_owned(),
+          position_id: "CC-BB-AA".to_owned(),
+          job_id:    1,
+          talent_id: 1,
+          score:     0.454
+        },
+        Score {
+          request_id:  "No4-No16-No21".to_owned(),
+          person_id:   "DD-EE-FF".to_owned(),
+          position_id: "FF-EE-DD".to_owned(),
+          job_id:    1,
+          talent_id: 2,
+          score:     0.945
+        },
+        Score {
+          request_id:  "Yo-HR-a".to_owned(),
+          person_id:   "GG-HH-II".to_owned(),
+          position_id: "II-HH-GG".to_owned(),
+          job_id:    1,
+          talent_id: 4,
+          score:     0.545
+        }
       ];
       assert!(Score::index(&mut client, &*index, scores).is_ok());
 
