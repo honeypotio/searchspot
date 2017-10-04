@@ -1186,25 +1186,28 @@ mod tests {
     {
       let scores = vec![
         Score {
-          request_id:  "2A-2B-9S".to_owned(),
-          person_id:   "AA-BB-CC".to_owned(),
-          position_id: "CC-BB-AA".to_owned(),
+          request_id:  "515ec9bb-0511-4464-92bb-bd21c5ed7b22".to_owned(),
+          person_id:   "5801f578-a3bc-40ee-94fd-b437f94f00d5".to_owned(),
+          company_id:  "5f97ba87-463c-4531-b35a-f4626a3d8998".to_owned(),
+          position_id: "6214ab8d26e3f79571d922ca269d5749".to_owned(),
           job_id:    1,
           talent_id: 1,
           score:     0.454
         },
         Score {
-          request_id:  "No4-No16-No21".to_owned(),
-          person_id:   "DD-EE-FF".to_owned(),
-          position_id: "FF-EE-DD".to_owned(),
+          request_id:  "9ac871a8-d936-41d8-bd35-9bc3c0c5be42".to_owned(),
+          person_id:   "cc19a5ac-2e4a-454a-af9f-24d665a0748c".to_owned(),
+          company_id:  "1901ff66-37e6-48e5-ad2e-c700fdbe6c6b".to_owned(),
+          position_id: "0214ab8d26e3f79571d922ca269d5743".to_owned(),
           job_id:    1,
           talent_id: 2,
           score:     0.945
         },
         Score {
-          request_id:  "Yo-HR-a".to_owned(),
-          person_id:   "GG-HH-II".to_owned(),
-          position_id: "II-HH-GG".to_owned(),
+          request_id:  "b809ee37-7381-4c07-a6b8-561068be32e1".to_owned(),
+          person_id:   "7c4b19bf-4fa7-4548-8ac0-92c6a14a602e".to_owned(),
+          company_id:  "74a06e07-ee39-4a2e-a78a-bb44b31b9852".to_owned(),
+          position_id: "f241b983e1d84818b67fc2bed05d18ed".to_owned(),
           job_id:    1,
           talent_id: 4,
           score:     0.545
