@@ -383,6 +383,7 @@ impl Resource for Talent {
           .with_indexes(&*index)
           .with_query(&Talent::search_filters(params, &*epoch))
           .with_highlight(&highlight)
+          .with_size(200)
           .with_min_score(0.56)
           .with_track_scores(true)
           .send::<Talent>()
@@ -404,7 +405,7 @@ impl Resource for Talent {
         es.search_query()
           .with_indexes(&*index)
           .with_query(&Talent::search_filters(params, &*epoch))
-          .with_sort(&Talent::sorting_criteria())
+          .with_size(200)
           .send::<Talent>()
       }
       else {
@@ -450,6 +451,11 @@ impl Resource for Talent {
             let b = b.score.as_ref().map(|s| s.score);
             b.partial_cmp(&a).unwrap_or(Ordering::Equal)
           });
+
+          results = results.into_iter()
+                           .skip(offset as usize)
+                           .take(per_page as usize)
+                           .collect();
         }
 
         SearchResults { total: total, talents: results }
@@ -914,6 +920,24 @@ mod tests {
       assert_eq!(vec![2, 1], results.ids());
     }
 
+    // page is given
+    {
+      let mut params = Map::new();
+      params.assign("per_page", Value::U64(2)).unwrap();
+
+      params.assign("offset", Value::U64(0)).unwrap();
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![4, 5], results.ids());
+
+      params.assign("offset", Value::U64(2)).unwrap();
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![2, 1], results.ids());
+
+      params.assign("offset", Value::U64(4)).unwrap();
+      let results = Talent::search(&mut client, &*index, &params);
+      assert!(results.ids().is_empty());
+    }
+
     // searching for work roles
     {
       let mut params = Map::new();
@@ -1198,6 +1222,25 @@ mod tests {
 
       let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2, 4, 1, 5], results.ids());
+    }
+
+    // page is given together to a job_id
+    {
+      let mut params = Map::new();
+      params.assign("job_id", Value::String("1".to_owned())).unwrap();
+      params.assign("per_page", Value::U64(2)).unwrap();
+
+      params.assign("offset", Value::U64(0)).unwrap();
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![2, 4], results.ids());
+
+      params.assign("offset", Value::U64(2)).unwrap();
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![1, 5], results.ids());
+
+      params.assign("offset", Value::U64(4)).unwrap();
+      let results = Talent::search(&mut client, &*index, &params);
+      assert!(results.ids().is_empty());
     }
 
     // when deleting a talent, the attached score is deleted too
