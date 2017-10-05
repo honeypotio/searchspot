@@ -24,9 +24,9 @@ pub struct SearchResults {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Score {
   pub request_id:  String,
-  pub person_id:   String,
-  pub company_id:  String,
-  pub position_id: String,
+  pub person_id:   Option<String>,
+  pub company_id:  Option<String>,
+  pub position_id: Option<String>,
   pub job_id:    u32,
   pub talent_id: u32,
   pub score:     f32
@@ -164,9 +164,9 @@ mod tests {
     let scores = vec![
       Score {
         request_id:  "515ec9bb-0511-4464-92bb-bd21c5ed7b22".to_owned(),
-        person_id:   "5801f578-a3bc-40ee-94fd-b437f94f00d5".to_owned(),
-        company_id:  "5f97ba87-463c-4531-b35a-f4626a3d8998".to_owned(),
-        position_id: "6214ab8d26e3f79571d922ca269d5749".to_owned(),
+        person_id:   Some("5801f578-a3bc-40ee-94fd-b437f94f00d5".to_owned()),
+        company_id:  Some("5f97ba87-463c-4531-b35a-f4626a3d8998".to_owned()),
+        position_id: Some("6214ab8d26e3f79571d922ca269d5749".to_owned()),
         job_id:    1,
         talent_id: 1,
         score:     0.545
@@ -174,9 +174,9 @@ mod tests {
 
       Score {
         request_id:  "9ac871a8-d936-41d8-bd35-9bc3c0c5be42".to_owned(),
-        person_id:   "cc19a5ac-2e4a-454a-af9f-24d665a0748c".to_owned(),
-        company_id:  "1901ff66-37e6-48e5-ad2e-c700fdbe6c6b".to_owned(),
-        position_id: "0214ab8d26e3f79571d922ca269d5743".to_owned(),
+        person_id:   None,
+        company_id:  None,
+        position_id: None,
         job_id:    1,
         talent_id: 2,
         score:     0.442
