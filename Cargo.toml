@@ -1,6 +1,6 @@
 [package]
 name    = "searchspot"
-version = "0.15.3"
+version = "0.15.4"
 
 repository  = "https://github.com/honeypotio/searchspot"
 authors     = ["Giovanni Capuano <webmaster@giovannicapuano.net>"]
