@@ -357,9 +357,9 @@ impl Resource for Talent {
       _                                  => 10
     };
 
-    let job_id: Option<u64> = match params.get("job_id") {
+    let job_id: Option<u32> = match params.get("job_id") {
       Some(&Value::String(ref job_id)) => job_id.parse().ok(),
-      Some(&Value::U64(ref job_id))    => Some(*job_id),
+      Some(&Value::U64(ref job_id))    => Some(*job_id as u32),
       _                                => None
     };
 
@@ -427,38 +427,43 @@ impl Resource for Talent {
           return SearchResults { total: 0, talents: vec![] };
         }
 
-        let mut source_from_job_id = |result: &mut SearchResult, job_id: u32| {
-          let search = ScoreSearchBuilder::new()
-                                          .with_job_id(job_id)
-                                          .with_talent_id(result.talent.id)
-                                          .build();
-          let results = Score::search(es, &index[0], &search);
-          result.with_score(results.scores.get(0).cloned())
-        };
-
-        let mut results: Vec<SearchResult> = result.hits.hits.into_iter()
+        match job_id {
+          None => {
+            let results: Vec<SearchResult> = result.hits.hits.into_iter()
                                                              .map(SearchResult::from)
-                                                             .map(|mut r| {
-                                                                 match job_id {
-                                                                   Some(job_id) => source_from_job_id(&mut r, job_id as u32),
-                                                                   None         => r
-                                                                 }
-                                                              })
                                                              .collect();
-        if job_id.is_some() {
-          results.sort_by(|a, b| {
-            let a = a.score.as_ref().map(|s| s.score);
-            let b = b.score.as_ref().map(|s| s.score);
-            b.partial_cmp(&a).unwrap_or(Ordering::Equal)
-          });
 
-          results = results.into_iter()
-                           .skip(offset as usize)
-                           .take(per_page as usize)
-                           .collect();
+            SearchResults { total: total, talents: results }
+          },
+          Some(job_id) => {
+            let mut source_from_job_id = |result: &mut SearchResult, job_id: u32| {
+              let search = ScoreSearchBuilder::new()
+                                              .with_job_id(job_id)
+                                              .with_talent_id(result.talent.id)
+                                              .build();
+              let score = Score::find_last(es, &index[0], &search);
+              result.with_score(score)
+            };
+
+            let mut results: Vec<SearchResult> = result.hits.hits.into_iter()
+                                                                 .map(SearchResult::from)
+                                                                 .map(|mut r| source_from_job_id(&mut r, job_id))
+                                                                 .collect();
+
+            results.sort_by(|a, b| {
+              let a = a.score.as_ref().map(|s| s.score);
+              let b = b.score.as_ref().map(|s| s.score);
+              b.partial_cmp(&a).unwrap_or(Ordering::Equal)
+            });
+
+            results = results.into_iter()
+                             .skip(offset as usize)
+                             .take(per_page as usize)
+                             .collect();
+
+            SearchResults { total: total, talents: results }
+          }
         }
-
-        SearchResults { total: total, talents: results }
       },
       Err(err) => {
         error!("{:?}", err);
@@ -472,8 +477,8 @@ impl Resource for Talent {
     let search = ScoreSearchBuilder::new()
                                     .with_talent_id(id.parse().unwrap())
                                     .build();
-    Score::search(es, index, &search).scores.iter()
-                                            .for_each(|s| { let _ = s.delete(es, index); });
+    Score::find_all(es, index, &search).scores.iter()
+                                              .for_each(|s| { let _ = s.delete(es, index); });
 
     es.delete(index, ES_TYPE, id)
       .send()
@@ -1270,14 +1275,14 @@ mod tests {
     // when deleting a talent, the attached score is deleted too
     {
       let search  = ScoreSearchBuilder::new().with_talent_id(1).build();
-      let results = Score::search(&mut client, &*index, &search);
+      let results = Score::find_all(&mut client, &*index, &search);
       assert_eq!(results.total, 1);
 
       assert!(Talent::delete(&mut client, "1", &*index).is_ok());
 
       refresh_index(&mut client, &*index);
 
-      let results = Score::search(&mut client, &*index, &search);
+      let results = Score::find_all(&mut client, &*index, &search);
       assert_eq!(results.total, 0);
     }
   }
