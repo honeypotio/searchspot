@@ -383,7 +383,7 @@ impl Resource for Talent {
           .with_indexes(&*index)
           .with_query(&Talent::search_filters(params, &*epoch))
           .with_highlight(&highlight)
-          .with_size(200)
+          .with_size(9999)
           .with_min_score(0.56)
           .with_track_scores(true)
           .send::<Talent>()
@@ -405,7 +405,7 @@ impl Resource for Talent {
         es.search_query()
           .with_indexes(&*index)
           .with_query(&Talent::search_filters(params, &*epoch))
-          .with_size(200)
+          .with_size(9999)
           .send::<Talent>()
       }
       else {
