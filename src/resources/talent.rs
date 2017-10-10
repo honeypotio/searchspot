@@ -38,33 +38,16 @@ pub struct SearchResult {
   pub highlight: Option<HighlightResult>
 }
 
-impl SearchResult {
-  fn with_score(&mut self, score: Option<Score>) -> SearchResult {
-    self.score = score;
-    self.to_owned()
-  }
-}
-
-/// Convert a `Box<Score>` returned by ElasticSearch into a `FoundScore`.
-impl From<Box<Score>> for Score {
-  fn from(score: Box<Score>) -> Score {
-    *score
-  }
-}
-
 /// Convert an ElasticSearch result into a `SearchResult`.
 impl From<SearchHitsHitsResult<Talent>> for SearchResult {
   fn from(result: SearchHitsHitsResult<Talent>) -> SearchResult {
     let inner_hits = result.inner_hit(SCORE_ES_TYPE);
-    let score: Option<Score> = if let Some(hits) = inner_hits {
-      let result: SearchHitsHitsResult<Score> = hits.hits.into_iter()
-                                                          .last()
-                                                          .unwrap();
-      Some(result.source.unwrap().into())
-    } else { None };
+    let score: Option<SearchHitsHitsResult<Score>> = inner_hits.map(|hits| hits.hits.into_iter()
+                                                                                    .last()
+                                                                                    .unwrap());
 
     SearchResult {
-      score:     score,
+      score:     score.map(|s| s.source.unwrap().into()),
       highlight: result.highlight,
       talent:    result.source.unwrap().into(),
     }
@@ -231,7 +214,7 @@ impl Talent {
   /// I.e.: given ["Fullstack", "DevOps"] as `desired_work_roles`, found talents
   /// will present at least one of these roles), but both `desired_work_roles`
   /// and `work_location`, if provided, must be matched successfully.
-  pub fn search_filters(params: &Map, epoch: &str) -> Query {
+  pub fn search_filters(params: &Map, epoch: &str, job_id: Option<u32>) -> Query {
     let company_id = i32_vec_from_params!(params, "company_id");
     let date_filter_present = params.get("epoch") != None;
 
@@ -287,12 +270,6 @@ impl Talent {
                                 .flat_map(|x| x)
                                 .collect::<Vec<Query>>())
                       .build();
-
-    let job_id: Option<u32> = match params.get("job_id") {
-      Some(&Value::String(ref job_id)) => job_id.parse().ok(),
-      Some(&Value::U64(ref job_id))    => Some(*job_id as u32),
-      _                                => None
-    };
 
     if job_id.is_none() {
       return query;
@@ -418,7 +395,7 @@ impl Resource for Talent {
       if job_id.is_some() {
         es.search_query()
           .with_indexes(&*index)
-          .with_query(&Talent::search_filters(params, &*epoch))
+          .with_query(&Talent::search_filters(params, &*epoch, job_id))
           .with_highlight(&highlight)
           .with_size(9999)
           .with_min_score(0.56)
@@ -428,7 +405,7 @@ impl Resource for Talent {
       else {
         es.search_query()
           .with_indexes(&*index)
-          .with_query(&Talent::search_filters(params, &*epoch))
+          .with_query(&Talent::search_filters(params, &*epoch, None))
           .with_highlight(&highlight)
           .with_from(offset)
           .with_size(per_page)
@@ -441,14 +418,14 @@ impl Resource for Talent {
       if job_id.is_some() {
         es.search_query()
           .with_indexes(&*index)
-          .with_query(&Talent::search_filters(params, &*epoch))
+          .with_query(&Talent::search_filters(params, &*epoch, job_id))
           .with_size(9999)
           .send::<Talent>()
       }
       else {
         es.search_query()
           .with_indexes(&*index)
-          .with_query(&Talent::search_filters(params, &*epoch))
+          .with_query(&Talent::search_filters(params, &*epoch, None))
           .with_sort(&Talent::sorting_criteria())
           .with_from(offset)
           .with_size(per_page)
@@ -464,33 +441,25 @@ impl Resource for Talent {
           return SearchResults { total: 0, talents: vec![] };
         }
 
-        match job_id {
-          None => {
-            let results: Vec<SearchResult> = result.hits.hits.into_iter()
+        let mut results: Vec<SearchResult> = result.hits.hits.into_iter()
                                                              .map(SearchResult::from)
                                                              .collect();
 
-            SearchResults { total: total, talents: results }
-          },
-          Some(job_id) => {
-            let mut results: Vec<SearchResult> = result.hits.hits.into_iter()
-                                                                 .map(SearchResult::from)
-                                                                 .collect();
+        if job_id.is_some() {
+          results.sort_by(|a, b| {
+            let a = a.score.as_ref().map(|s| s.score);
+            let b = b.score.as_ref().map(|s| s.score);
+            b.partial_cmp(&a).unwrap_or(Ordering::Equal)
+          });
 
-            results.sort_by(|a, b| {
-              let a = a.score.as_ref().map(|s| s.score);
-              let b = b.score.as_ref().map(|s| s.score);
-              b.partial_cmp(&a).unwrap_or(Ordering::Equal)
-            });
+          results = results.into_iter()
+                           .skip(offset as usize)
+                           .take(per_page as usize)
+                           .collect();
 
-            results = results.into_iter()
-                             .skip(offset as usize)
-                             .take(per_page as usize)
-                             .collect();
-
-            SearchResults { total: total, talents: results }
-          }
         }
+
+        SearchResults { total: total, talents: results }
       },
       Err(err) => {
         error!("{:?}", err);

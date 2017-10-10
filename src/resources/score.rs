@@ -32,6 +32,13 @@ pub struct Score {
   pub score:     f32
 }
 
+/// Convert a `Box<Score>` returned by ElasticSearch into a plain `Score`.
+impl From<Box<Score>> for Score {
+  fn from(score: Box<Score>) -> Score {
+    *score
+  }
+}
+
 #[derive(Default, Clone)]
 pub struct SearchBuilder {
   pub job_id:    Option<u32>,
