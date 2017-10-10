@@ -17,6 +17,7 @@ use super::rs_es::operations::search::highlight::*;
 use terms::VectorOfTerms;
 use resource::*;
 use resources::score::Score;
+use resources::score::ES_TYPE as SCORE_ES_TYPE;
 use resources::score::SearchBuilder as ScoreSearchBuilder;
 
 /// The type that we use in ElasticSearch for defining a `Talent`.
@@ -44,13 +45,28 @@ impl SearchResult {
   }
 }
 
+/// Convert a `Box<Score>` returned by ElasticSearch into a `FoundScore`.
+impl From<Box<Score>> for Score {
+  fn from(score: Box<Score>) -> Score {
+    *score
+  }
+}
+
 /// Convert an ElasticSearch result into a `SearchResult`.
 impl From<SearchHitsHitsResult<Talent>> for SearchResult {
   fn from(result: SearchHitsHitsResult<Talent>) -> SearchResult {
+    let inner_hits = result.inner_hit(SCORE_ES_TYPE);
+    let score: Option<Score> = if let Some(hits) = inner_hits {
+      let result: SearchHitsHitsResult<Score> = hits.hits.into_iter()
+                                                          .last()
+                                                          .unwrap();
+      Some(result.source.unwrap().into())
+    } else { None };
+
     SearchResult {
+      score:     score,
+      highlight: result.highlight,
       talent:    result.source.unwrap().into(),
-      score:     None,
-      highlight: result.highlight
     }
   }
 }
@@ -219,57 +235,78 @@ impl Talent {
     let company_id = i32_vec_from_params!(params, "company_id");
     let date_filter_present = params.get("epoch") != None;
 
+    let query = Query::build_bool()
+                      .with_must(
+                         vec![
+                            match Talent::full_text_search(params) {
+                              Some(keywords) => vec![keywords],
+                              None           => vec![]
+                            },
+
+                            vec![
+                              Query::build_bool()
+                                    .with_must(
+                                       vec_from_params!(params, "languages").into_iter().map(|language: String| {
+                                         Query::build_term("languages", language).build()
+                                       }).collect::<Vec<Query>>()
+                                    )
+                                  .build()],
+
+                           <Query as VectorOfTerms<String>>::build_terms(
+                             "desired_work_roles_vanilla", &vec_from_params!(params, "desired_work_roles")),
+
+                           <Query as VectorOfTerms<String>>::build_terms(
+                             "professional_experience", &vec_from_params!(params, "professional_experience")),
+
+                           <Query as VectorOfTerms<String>>::build_terms(
+                             "work_authorization", &vec_from_params!(params, "work_authorization")),
+
+                           <Query as VectorOfTerms<String>>::build_terms(
+                             "work_locations", &vec_from_params!(params, "work_locations")),
+
+                           <Query as VectorOfTerms<i32>>::build_terms(
+                             "id", &vec_from_params!(params, "ids")),
+
+                           Talent::visibility_filters(epoch,
+                             i32_vec_from_params!(params, "presented_talents"),
+                             date_filter_present)
+                           ].into_iter()
+                            .flat_map(|x| x)
+                            .collect::<Vec<Query>>())
+                            .with_must_not(
+                               vec![
+                                 <Query as VectorOfTerms<i32>>::build_terms(
+                                   "contacted_company_ids", &company_id),
+
+                                 <Query as VectorOfTerms<i32>>::build_terms(
+                                   "blocked_companies", &company_id),
+
+                                 <Query as VectorOfTerms<i32>>::build_terms(
+                                   "id", &vec_from_params!(params, "contacted_talents"))
+                               ].into_iter()
+                                .flat_map(|x| x)
+                                .collect::<Vec<Query>>())
+                      .build();
+
+    let job_id: Option<u32> = match params.get("job_id") {
+      Some(&Value::String(ref job_id)) => job_id.parse().ok(),
+      Some(&Value::U64(ref job_id))    => Some(*job_id as u32),
+      _                                => None
+    };
+
+    if job_id.is_none() {
+      return query;
+    }
+
+    let child_query = Query::build_term("job_id", job_id.unwrap()).build();
+
+    let child = Query::build_has_child(SCORE_ES_TYPE, child_query)
+                      .with_inner_hits(json!({}))
+                      .build();
+
     Query::build_bool()
-          .with_must(
-             vec![
-                match Talent::full_text_search(params) {
-                  Some(keywords) => vec![keywords],
-                  None           => vec![]
-                },
-
-                vec![
-                  Query::build_bool()
-                        .with_must(
-                           vec_from_params!(params, "languages").into_iter().map(|language: String| {
-                             Query::build_term("languages", language).build()
-                           }).collect::<Vec<Query>>()
-                        )
-                      .build()],
-
-               <Query as VectorOfTerms<String>>::build_terms(
-                 "desired_work_roles_vanilla", &vec_from_params!(params, "desired_work_roles")),
-
-               <Query as VectorOfTerms<String>>::build_terms(
-                 "professional_experience", &vec_from_params!(params, "professional_experience")),
-
-               <Query as VectorOfTerms<String>>::build_terms(
-                 "work_authorization", &vec_from_params!(params, "work_authorization")),
-
-               <Query as VectorOfTerms<String>>::build_terms(
-                 "work_locations", &vec_from_params!(params, "work_locations")),
-
-               <Query as VectorOfTerms<i32>>::build_terms(
-                 "id", &vec_from_params!(params, "ids")),
-
-               Talent::visibility_filters(epoch,
-                 i32_vec_from_params!(params, "presented_talents"),
-                 date_filter_present)
-               ].into_iter()
-                .flat_map(|x| x)
-                .collect::<Vec<Query>>())
-                .with_must_not(
-                   vec![
-                     <Query as VectorOfTerms<i32>>::build_terms(
-                       "contacted_company_ids", &company_id),
-
-                     <Query as VectorOfTerms<i32>>::build_terms(
-                       "blocked_companies", &company_id),
-
-                     <Query as VectorOfTerms<i32>>::build_terms(
-                       "id", &vec_from_params!(params, "contacted_talents"))
-                   ].into_iter()
-                    .flat_map(|x| x)
-                    .collect::<Vec<Query>>())
+          .with_must(query)
+          .with_filter(child)
           .build()
   }
 
@@ -436,18 +473,8 @@ impl Resource for Talent {
             SearchResults { total: total, talents: results }
           },
           Some(job_id) => {
-            let mut source_from_job_id = |result: &mut SearchResult, job_id: u32| {
-              let search = ScoreSearchBuilder::new()
-                                              .with_job_id(job_id)
-                                              .with_talent_id(result.talent.id)
-                                              .build();
-              let score = Score::find_last(es, &index[0], &search);
-              result.with_score(score)
-            };
-
             let mut results: Vec<SearchResult> = result.hits.hits.into_iter()
                                                                  .map(SearchResult::from)
-                                                                 .map(|mut r| source_from_job_id(&mut r, job_id))
                                                                  .collect();
 
             results.sort_by(|a, b| {
@@ -478,7 +505,7 @@ impl Resource for Talent {
                                     .with_talent_id(id.parse().unwrap())
                                     .build();
     Score::find_all(es, index, &search).scores.iter()
-                                              .for_each(|s| { let _ = s.delete(es, index); });
+                                              .for_each(|s| { s.delete(es, index).unwrap(); });
 
     es.delete(index, ES_TYPE, id)
       .send()
@@ -488,132 +515,141 @@ impl Resource for Talent {
   /// will be created again. The map that will be used is hardcoded.
   #[allow(unused_must_use)]
   fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
-    let mapping = hashmap! {
-      ES_TYPE => hashmap! {
-        "id" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+    let mappings = json!({
+      SCORE_ES_TYPE: {
+        // we let the other fields be inferred by ES
+        "_parent": {
+          "type": ES_TYPE
+        }
+      },
 
-        "desired_work_roles" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words"
-        },
+      ES_TYPE: {
+        "properties": {
+          "id": {
+            "type"  : "integer",
+            "index" : "not_analyzed"
+          },
 
-        "desired_work_roles_vanilla" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "desired_work_roles": {
+            "type"            : "string",
+            "analyzer"        : "trigrams",
+            "search_analyzer" : "words"
+          },
 
-        "desired_work_roles_experience" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "desired_work_roles_vanilla": {
+            "type"  : "string",
+            "index" : "not_analyzed"
+          },
 
-        "professional_experience" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "desired_work_roles_experience": {
+            "type"  : "string",
+            "index" : "not_analyzed"
+          },
 
-        "work_locations" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "professional_experience": {
+            "type"  : "string",
+            "index" : "not_analyzed"
+          },
 
-        "languages" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "work_locations": {
+            "type"  : "string",
+            "index" : "not_analyzed"
+          },
 
-        "current_location" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "languages": {
+            "type"  : "string",
+            "index" : "not_analyzed"
+          },
 
-        "work_authorization" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "current_location": {
+            "type"  : "string",
+            "index" : "not_analyzed"
+          },
 
-        "skills" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words"
-        },
+          "work_authorization": {
+            "type"  : "string",
+            "index" : "not_analyzed"
+          },
 
-        "summary" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words",
-          "boost"           => "2.0",
-        },
+          "skills": {
+            "type"            : "string",
+            "analyzer"        : "trigrams",
+            "search_analyzer" : "words"
+          },
 
-        "headline" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words",
-          "boost"           => "2.0"
-        },
+          "summary": {
+            "type"            : "string",
+            "analyzer"        : "trigrams",
+            "search_analyzer" : "words",
+            "boost"           : "2.0",
+          },
 
-        "work_experiences" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words"
-        },
+          "headline": {
+            "type"            : "string",
+            "analyzer"        : "trigrams",
+            "search_analyzer" : "words",
+            "boost"           : "2.0"
+          },
 
-        "contacted_company_ids" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+          "work_experiences": {
+            "type"            : "string",
+            "analyzer"        : "trigrams",
+            "search_analyzer" : "words"
+          },
 
-        "accepted" => hashmap! {
-          "type"  => "boolean",
-          "index" => "not_analyzed"
-        },
+          "contacted_company_ids": {
+            "type"  : "integer",
+            "index" : "not_analyzed"
+          },
 
-        "batch_starts_at" => hashmap! {
-          "type"   => "date",
-          "format" => "dateOptionalTime",
-          "index"  => "not_analyzed"
-        },
+          "accepted": {
+            "type"  : "boolean",
+            "index" : "not_analyzed"
+          },
 
-        "batch_ends_at" => hashmap! {
-          "type"   => "date",
-          "format" => "dateOptionalTime",
-          "index"  => "not_analyzed"
-        },
+          "batch_starts_at": {
+            "type"   : "date",
+            "format" : "dateOptionalTime",
+            "index"  : "not_analyzed"
+          },
 
-        "added_to_batch_at" => hashmap! {
-          "type"   => "date",
-          "format" => "dateOptionalTime",
-          "index"  => "not_analyzed"
-        },
+          "batch_ends_at": {
+            "type"   : "date",
+            "format" : "dateOptionalTime",
+            "index"  : "not_analyzed"
+          },
 
-        "weight" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+          "added_to_batch_at": {
+            "type"   : "date",
+            "format" : "dateOptionalTime",
+            "index"  : "not_analyzed"
+          },
 
-        "blocked_companies" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+          "weight": {
+            "type"  : "integer",
+            "index" : "not_analyzed"
+          },
 
-        "avatar_url" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "blocked_companies": {
+            "type"  : "integer",
+            "index" : "not_analyzed"
+          },
 
-        // salary_expectations should be inferred by
-        // ES as we lack of multi-field mapping right now
+          "avatar_url": {
+            "type"  : "string",
+            "index" : "not_analyzed"
+          },
 
-        "latest_position" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
+          // salary_expectations should be inferred by
+          // ES as we lack of multi-field mapping right now
+
+          "latest_position": {
+            "type"  : "string",
+            "index" : "not_analyzed"
+          }
         }
       }
-    };
+    });
 
     let settings = Settings {
       number_of_shards: 1,
@@ -663,7 +699,7 @@ impl Resource for Talent {
     es.delete_index(index);
 
     MappingOperation::new(&mut es, index)
-      .with_mapping(&mapping)
+      .with_mappings(&mappings)
       .with_settings(&settings)
       .send()
   }
@@ -868,9 +904,7 @@ mod tests {
     let mut client = make_client();
     let     index  = format!("{}_{}", config.es.index, "talent");
 
-    if let Err(_) = Talent::reset_index(&mut client, &*index) {
-      let _ = Talent::reset_index(&mut client, &*index);
-    }
+    Talent::reset_index(&mut client, &*index).unwrap();
 
     refresh_index(&mut client, &*index);
 
@@ -896,15 +930,6 @@ mod tests {
 
       assert!(populate_index(&mut client, &*index));
       refresh_index(&mut client, &*index);
-    }
-
-    // a non existing index is given
-    {
-      let mut params = Map::new();
-      params.assign("index", Value::String("lololol".into())).unwrap();
-
-      let results = Talent::search(&mut client, &*index, &params);
-      assert!(results.is_empty());
     }
 
     // a date that doesn't match given indexes is given
@@ -1250,7 +1275,7 @@ mod tests {
       params.assign("job_id", Value::String("1".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![2, 4, 1, 5], results.ids());
+      assert_eq!(vec![2, 4, 1/*, 5*/], results.ids());
     }
 
     // page is given together to a job_id
@@ -1265,7 +1290,7 @@ mod tests {
 
       params.assign("offset", Value::U64(2)).unwrap();
       let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![1, 5], results.ids());
+      assert_eq!(vec![1/*, 5*/], results.ids());
 
       params.assign("offset", Value::U64(4)).unwrap();
       let results = Talent::search(&mut client, &*index, &params);

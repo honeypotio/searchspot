@@ -1,4 +1,5 @@
 #![feature(conservative_impl_trait, iterator_for_each)]
+#![recursion_limit="128"]
 
 extern crate serde;
 #[macro_use] extern crate serde_json;
@@ -17,7 +18,6 @@ extern crate oath;
 extern crate rollbar;
 extern crate backtrace;
 #[macro_use] extern crate log;
-#[macro_use] extern crate maplit;
 
 // this macro is needed by resources/talent.rs
 // but moving it to resources/mod raises E0468

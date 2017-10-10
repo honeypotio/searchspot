@@ -11,7 +11,7 @@ use super::rs_es::error::EsError;
 use resource::*;
 
 /// The type that we use in ElasticSearch for defining a `Score`.
-const ES_TYPE: &'static str = "score";
+pub const ES_TYPE: &'static str = "score";
 
 /// A collection of `Score`s.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -132,6 +132,7 @@ impl Score {
 
   pub fn delete(&self, es: &mut Client, index: &str) -> Result<DeleteResult, EsError> {
     es.delete(index, ES_TYPE, &*self.request_id)
+      .with_routing("talent")
       .send()
   }
 }
@@ -141,11 +142,13 @@ impl Resource for Score {
 
   /// Populate the ElasticSearch index with `Vec<Score>`
   fn index(es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
-
     es.bulk(&resources.to_owned().into_iter()
                       .map(|r| {
                           let request_id = r.request_id.to_owned();
-                          Action::index(r).with_id(request_id)
+                          let talent_id  = r.talent_id.to_string();
+                          Action::index(r)
+                                  .with_id(request_id)
+                                  .with_parent(talent_id)
                       })
                       .collect::<Vec<Action<Score>>>())
       .with_index(index)
