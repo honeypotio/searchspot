@@ -1275,7 +1275,7 @@ mod tests {
       params.assign("job_id", Value::String("1".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![2, 4, 1/*, 5*/], results.ids());
+      assert_eq!(vec![2, 4, 1, 5], results.ids());
     }
 
     // page is given together to a job_id
@@ -1290,7 +1290,7 @@ mod tests {
 
       params.assign("offset", Value::U64(2)).unwrap();
       let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![1/*, 5*/], results.ids());
+      assert_eq!(vec![1, 5], results.ids());
 
       params.assign("offset", Value::U64(4)).unwrap();
       let results = Talent::search(&mut client, &*index, &params);
