@@ -11,7 +11,7 @@ use super::rs_es::error::EsError;
 use resource::*;
 
 /// The type that we use in ElasticSearch for defining a `Score`.
-const ES_TYPE: &'static str = "score";
+pub const ES_TYPE: &'static str = "score";
 
 /// A collection of `Score`s.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -30,6 +30,13 @@ pub struct Score {
   pub job_id:    u32,
   pub talent_id: u32,
   pub score:     f32
+}
+
+/// Convert a `Box<Score>` returned by ElasticSearch into a plain `Score`.
+impl From<Box<Score>> for Score {
+  fn from(score: Box<Score>) -> Score {
+    *score
+  }
 }
 
 #[derive(Default, Clone)]
@@ -86,7 +93,27 @@ impl From<SearchHitsHitsResult<Score>> for Score {
 }
 
 impl Score {
-  pub fn search(es: &mut Client, index: &str, search_builder: &SearchBuilder) -> SearchResults {
+  pub fn find_last(es: &mut Client, index: &str, search_builder: &SearchBuilder) -> Option<Score> {
+    let result = es.search_query()
+                   .with_indexes(&[index])
+                   .with_query(&search_builder.to_query())
+                   .with_size(1)
+                   .send::<Score>();
+
+    match result {
+      Ok(result) => {
+        result.hits.hits.into_iter()
+                        .last()
+                        .map(|s| s.into())
+      },
+      Err(err) => {
+        error!("{:?}", err);
+        None
+      }
+    }
+  }
+
+  pub fn find_all(es: &mut Client, index: &str, search_builder: &SearchBuilder) -> SearchResults {
     let result = es.search_query()
                    .with_indexes(&[index])
                    .with_query(&search_builder.to_query())
@@ -112,6 +139,7 @@ impl Score {
 
   pub fn delete(&self, es: &mut Client, index: &str) -> Result<DeleteResult, EsError> {
     es.delete(index, ES_TYPE, &*self.request_id)
+      .with_routing("talent")
       .send()
   }
 }
@@ -121,10 +149,13 @@ impl Resource for Score {
 
   /// Populate the ElasticSearch index with `Vec<Score>`
   fn index(es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
-    es.bulk(&resources.into_iter()
+    es.bulk(&resources.to_owned().into_iter()
                       .map(|r| {
                           let request_id = r.request_id.to_owned();
-                          Action::index(r).with_id(request_id)
+                          let talent_id  = r.talent_id.to_string();
+                          Action::index(r)
+                                  .with_id(request_id)
+                                  .with_parent(talent_id)
                       })
                       .collect::<Vec<Action<Score>>>())
       .with_index(index)
@@ -193,9 +224,49 @@ mod tests {
   }
 
   #[test]
-  fn test_search() {
+  fn test_find_last() {
     let mut client = make_client();
-    let     index  = format!("{}_{}", config.es.index, "score");
+    let     index  = format!("{}_{}", config.es.index, "score_find");
+
+    if let Err(_) = Talent::reset_index(&mut client, &*index) {
+      let _ = Talent::reset_index(&mut client, &*index);
+    }
+
+    refresh_index(&mut client, &*index);
+
+    assert!(populate_index(&mut client, &*index));
+    refresh_index(&mut client, &*index);
+
+    // job_id and talent_id are given
+    {
+      let search = SearchBuilder::new()
+                                 .with_talent_id(1)
+                                 .with_job_id(1)
+                                 .build();
+
+      let score = Score::find_last(&mut client, &*index, &search);
+      assert!(score.is_some());
+      assert_eq!("515ec9bb-0511-4464-92bb-bd21c5ed7b22", score.unwrap().request_id);
+    }
+
+    // delete between searches
+    {
+      let search = SearchBuilder::new().with_talent_id(1).build();
+      let score  = Score::find_last(&mut client, &*index, &search).unwrap();
+
+      score.delete(&mut client, &*index).unwrap();
+
+      refresh_index(&mut client, &*index);
+
+      let score = Score::find_last(&mut client, &*index, &search);
+      assert!(score.is_none());
+    }
+  }
+
+  #[test]
+  fn test_find_all() {
+    let mut client = make_client();
+    let     index  = format!("{}_{}", config.es.index, "score_find_all");
 
     if let Err(_) = Talent::reset_index(&mut client, &*index) {
       let _ = Talent::reset_index(&mut client, &*index);
@@ -209,14 +280,14 @@ mod tests {
     // no parameters are given
     {
       let search  = SearchBuilder::new().build();
-      let results = Score::search(&mut client, &*index, &search);
+      let results = Score::find_all(&mut client, &*index, &search);
       assert_eq!(2, results.total);
     }
 
     // job_id is given
     {
       let search  = SearchBuilder::new().with_job_id(1).build();
-      let results = Score::search(&mut client, &*index, &search);
+      let results = Score::find_all(&mut client, &*index, &search);
       assert_eq!(2, results.total);
     }
 
@@ -227,7 +298,7 @@ mod tests {
                                  .with_job_id(1)
                                  .build();
 
-      let results = Score::search(&mut client, &*index, &search);
+      let results = Score::find_all(&mut client, &*index, &search);
       assert_eq!(1, results.total);
       assert_eq!(vec!["515ec9bb-0511-4464-92bb-bd21c5ed7b22"], results.request_ids());
     }
@@ -235,14 +306,14 @@ mod tests {
     // delete between searches
     {
       let search  = SearchBuilder::new().with_talent_id(1).build();
-      let results = Score::search(&mut client, &*index, &search);
+      let results = Score::find_all(&mut client, &*index, &search);
       assert_eq!(1, results.total);
 
       results.scores[0].delete(&mut client, &*index).unwrap();
 
       refresh_index(&mut client, &*index);
 
-      let results = Score::search(&mut client, &*index, &search);
+      let results = Score::find_all(&mut client, &*index, &search);
       assert_eq!(0, results.total);
     }
   }
