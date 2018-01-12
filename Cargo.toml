@@ -11,15 +11,15 @@ keywords    = ["elasticsearch"]
 [dependencies]
 chrono       = "0.4"
 
-iron         = "0.5"
-router       = "0.5"
-logger       = "0.3"
-params       = "0.6"
-persistent   = "0.3"
+iron         = "0.6"
+router       = "0.6"
+logger       = "0.4"
+params       = "0.8"
+persistent   = "0.4"
 unicase      = "1.0"
 
-lazy_static  = "0.2"
-maplit       = "0.1"
+lazy_static  = "1.0"
+maplit       = "1.0"
 oath         = "0.10"
 log          = "0.3"
 rollbar      = "0.4"
