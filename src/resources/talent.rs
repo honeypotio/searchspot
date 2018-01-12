@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use super::chrono::prelude::*;
 
 use super::params::*;
@@ -16,8 +14,6 @@ use super::rs_es::operations::search::highlight::*;
 
 use terms::VectorOfTerms;
 use resource::*;
-use resources::score::Score;
-use resources::score::SearchBuilder as ScoreSearchBuilder;
 
 /// The type that we use in ElasticSearch for defining a `Talent`.
 const ES_TYPE: &'static str = "talent";
@@ -33,15 +29,7 @@ pub struct SearchResults {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchResult {
   pub talent:    FoundTalent,
-  pub score:     Option<Score>,
   pub highlight: Option<HighlightResult>
-}
-
-impl SearchResult {
-  fn with_score(&mut self, score: Option<Score>) -> SearchResult {
-    self.score = score;
-    self.to_owned()
-  }
 }
 
 /// Convert an ElasticSearch result into a `SearchResult`.
@@ -49,7 +37,6 @@ impl From<SearchHitsHitsResult<Talent>> for SearchResult {
   fn from(result: SearchHitsHitsResult<Talent>) -> SearchResult {
     SearchResult {
       talent:    result.source.unwrap().into(),
-      score:     None,
       highlight: result.highlight
     }
   }
@@ -357,12 +344,6 @@ impl Resource for Talent {
       _                                  => 10
     };
 
-    let job_id: Option<u64> = match params.get("job_id") {
-      Some(&Value::String(ref job_id)) => job_id.parse().ok(),
-      Some(&Value::U64(ref job_id))    => Some(*job_id),
-      _                                => None
-    };
-
     let result = if keywords_present {
       let mut highlight = Highlight::new().with_encoder(Encoders::HTML)
                                           .with_pre_tags(vec![String::new()])
@@ -378,45 +359,24 @@ impl Resource for Talent {
       highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
       highlight.add_setting("work_experiences".to_owned(), settings);
 
-      if job_id.is_some() {
-        es.search_query()
-          .with_indexes(&*index)
-          .with_query(&Talent::search_filters(params, &*epoch))
-          .with_highlight(&highlight)
-          .with_size(9999)
-          .with_min_score(0.56)
-          .with_track_scores(true)
-          .send::<Talent>()
-      }
-      else {
-        es.search_query()
-          .with_indexes(&*index)
-          .with_query(&Talent::search_filters(params, &*epoch))
-          .with_highlight(&highlight)
-          .with_from(offset)
-          .with_size(per_page)
-          .with_min_score(0.56)
-          .with_track_scores(true)
-          .send::<Talent>()
-      }
+      es.search_query()
+        .with_indexes(&*index)
+        .with_query(&Talent::search_filters(params, &*epoch))
+        .with_highlight(&highlight)
+        .with_from(offset)
+        .with_size(per_page)
+        .with_min_score(0.56)
+        .with_track_scores(true)
+        .send::<Talent>()
     }
     else {
-      if job_id.is_some() {
-        es.search_query()
-          .with_indexes(&*index)
-          .with_query(&Talent::search_filters(params, &*epoch))
-          .with_size(9999)
-          .send::<Talent>()
-      }
-      else {
-        es.search_query()
-          .with_indexes(&*index)
-          .with_query(&Talent::search_filters(params, &*epoch))
-          .with_sort(&Talent::sorting_criteria())
-          .with_from(offset)
-          .with_size(per_page)
-          .send::<Talent>()
-      }
+      es.search_query()
+        .with_indexes(&*index)
+        .with_query(&Talent::search_filters(params, &*epoch))
+        .with_sort(&Talent::sorting_criteria())
+        .with_from(offset)
+        .with_size(per_page)
+        .send::<Talent>()
     };
 
     match result {
@@ -427,37 +387,9 @@ impl Resource for Talent {
           return SearchResults { total: 0, talents: vec![] };
         }
 
-        let mut source_from_job_id = |result: &mut SearchResult, job_id: u32| {
-          let search = ScoreSearchBuilder::new()
-                                          .with_job_id(job_id)
-                                          .with_talent_id(result.talent.id)
-                                          .build();
-          let results = Score::search(es, &index[0], &search);
-          result.with_score(results.scores.get(0).cloned())
-        };
-
         let mut results: Vec<SearchResult> = result.hits.hits.into_iter()
                                                              .map(SearchResult::from)
-                                                             .map(|mut r| {
-                                                                 match job_id {
-                                                                   Some(job_id) => source_from_job_id(&mut r, job_id as u32),
-                                                                   None         => r
-                                                                 }
-                                                              })
                                                              .collect();
-        if job_id.is_some() {
-          results.sort_by(|a, b| {
-            let a = a.score.as_ref().map(|s| s.score);
-            let b = b.score.as_ref().map(|s| s.score);
-            b.partial_cmp(&a).unwrap_or(Ordering::Equal)
-          });
-
-          results = results.into_iter()
-                           .skip(offset as usize)
-                           .take(per_page as usize)
-                           .collect();
-        }
-
         SearchResults { total: total, talents: results }
       },
       Err(err) => {
@@ -469,12 +401,6 @@ impl Resource for Talent {
 
   /// Delete the talent associated to given id.
   fn delete(es: &mut Client, id: &str, index: &str) -> Result<DeleteResult, EsError> {
-    let search = ScoreSearchBuilder::new()
-                                    .with_talent_id(id.parse().unwrap())
-                                    .build();
-    Score::search(es, index, &search).scores.iter()
-                                            .for_each(|s| { let _ = s.delete(es, index); });
-
     es.delete(index, ES_TYPE, id)
       .send()
   }
@@ -682,8 +608,6 @@ mod tests {
 
   use resources::Talent;
   use resources::talent::{SalaryExpectations, SearchResults};
-  use resources::score::Score;
-  use resources::score::SearchBuilder as ScoreSearchBuilder;
   use resources::tests::*;
 
   macro_rules! epoch_from_year {
@@ -700,10 +624,6 @@ mod tests {
 
     pub fn highlights(&self) -> Vec<Option<HighlightResult>> {
       self.talents.iter().map(|r| r.highlight.clone()).collect()
-    }
-
-    pub fn scores(&self) -> Vec<Option<Score>> {
-      self.talents.iter().map(|r| r.score.clone()).collect()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -877,7 +797,6 @@ mod tests {
       let results = Talent::search(&mut client, &*index, &Map::new());
       assert_eq!(vec![4, 5, 2, 1], results.ids());
       assert_eq!(4, results.total);
-      assert!(results.talents[0].score.is_none());
       assert!(results.highlights().iter().all(|r| r.is_none()));
     }
 
@@ -1204,81 +1123,6 @@ mod tests {
 
       let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 1], results.ids());
-    }
-
-    // embedding position scores
-    {
-      let scores = vec![
-        Score {
-          request_id:  "515ec9bb-0511-4464-92bb-bd21c5ed7b22".to_owned(),
-          person_id:   Some("5801f578-a3bc-40ee-94fd-b437f94f00d5".to_owned()),
-          company_id:  Some("5f97ba87-463c-4531-b35a-f4626a3d8998".to_owned()),
-          position_id: Some("6214ab8d26e3f79571d922ca269d5749".to_owned()),
-          job_id:    1,
-          talent_id: 1,
-          score:     0.454
-        },
-        Score {
-          request_id:  "9ac871a8-d936-41d8-bd35-9bc3c0c5be42".to_owned(),
-          person_id:   None,
-          company_id:  None,
-          position_id: None,
-          job_id:    1,
-          talent_id: 2,
-          score:     0.945
-        },
-        Score {
-          request_id:  "b809ee37-7381-4c07-a6b8-561068be32e1".to_owned(),
-          person_id:   Some("7c4b19bf-4fa7-4548-8ac0-92c6a14a602e".to_owned()),
-          company_id:  Some("74a06e07-ee39-4a2e-a78a-bb44b31b9852".to_owned()),
-          position_id: Some("f241b983e1d84818b67fc2bed05d18ed".to_owned()),
-          job_id:    1,
-          talent_id: 4,
-          score:     0.545
-        }
-      ];
-      assert!(Score::index(&mut client, &*index, scores).is_ok());
-
-      refresh_index(&mut client, &*index);
-
-      let mut params = Map::new();
-      params.assign("job_id", Value::String("1".to_owned())).unwrap();
-
-      let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![2, 4, 1, 5], results.ids());
-    }
-
-    // page is given together to a job_id
-    {
-      let mut params = Map::new();
-      params.assign("job_id", Value::String("1".to_owned())).unwrap();
-      params.assign("per_page", Value::U64(2)).unwrap();
-
-      params.assign("offset", Value::U64(0)).unwrap();
-      let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![2, 4], results.ids());
-
-      params.assign("offset", Value::U64(2)).unwrap();
-      let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![1, 5], results.ids());
-
-      params.assign("offset", Value::U64(4)).unwrap();
-      let results = Talent::search(&mut client, &*index, &params);
-      assert!(results.ids().is_empty());
-    }
-
-    // when deleting a talent, the attached score is deleted too
-    {
-      let search  = ScoreSearchBuilder::new().with_talent_id(1).build();
-      let results = Score::search(&mut client, &*index, &search);
-      assert_eq!(results.total, 1);
-
-      assert!(Talent::delete(&mut client, "1", &*index).is_ok());
-
-      refresh_index(&mut client, &*index);
-
-      let results = Score::search(&mut client, &*index, &search);
-      assert_eq!(results.total, 0);
     }
   }
 
