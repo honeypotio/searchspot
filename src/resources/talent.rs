@@ -270,17 +270,19 @@ impl Talent {
           return None;
         }
 
-        Some(Query::build_multi_match(
-                vec![
-                  "skills".to_owned(),
-                  "summary".to_owned(),
-                  "headline".to_owned(),
-                  "desired_work_roles".to_owned(),
-                  "work_experiences".to_owned()
-                ], keywords.to_owned())
-            .with_type(MatchQueryType::CrossFields)
-            .with_tie_breaker(0.0)
-            .build())
+        Some(
+          Query::build_multi_match(
+            vec![
+              "skills".to_owned(),
+              "summary".to_owned(),
+              "headline".to_owned(),
+              "desired_work_roles".to_owned(),
+              "work_experiences".to_owned()
+            ],
+            keywords.to_owned()
+          ).with_type(MatchQueryType::CrossFields)
+           .with_tie_breaker(0.0)
+           .build())
       },
       _ => None
     }
@@ -412,132 +414,134 @@ impl Resource for Talent {
   /// will be created again. The map that will be used is hardcoded.
   #[allow(unused_must_use)]
   fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
-    let mapping = hashmap! {
-      ES_TYPE => hashmap! {
-        "id" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+    let mappings = json!({
+      ES_TYPE: {
+        "properties": {
+          "id": {
+            "type":  "integer",
+            "index": "not_analyzed"
+          },
 
-        "desired_work_roles" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words"
-        },
+          "desired_work_roles": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words"
+          },
 
-        "desired_work_roles_vanilla" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "desired_work_roles_vanilla": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "desired_work_roles_experience" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "desired_work_roles_experience": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "professional_experience" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "professional_experience": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "work_locations" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "work_locations": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "languages" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "languages": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "current_location" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "current_location": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "work_authorization" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "work_authorization": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "skills" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words"
-        },
+          "skills": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words"
+          },
 
-        "summary" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words",
-          "boost"           => "2.0",
-        },
+          "summary": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words",
+            "boost":           "2.0",
+          },
 
-        "headline" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words",
-          "boost"           => "2.0"
-        },
+          "headline": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words",
+            "boost":           "2.0"
+          },
 
-        "work_experiences" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words"
-        },
+          "work_experiences": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words"
+          },
 
-        "contacted_company_ids" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+          "contacted_company_ids": {
+            "type":  "integer",
+            "index": "not_analyzed"
+          },
 
-        "accepted" => hashmap! {
-          "type"  => "boolean",
-          "index" => "not_analyzed"
-        },
+          "accepted": {
+            "type":  "boolean",
+            "index": "not_analyzed"
+          },
 
-        "batch_starts_at" => hashmap! {
-          "type"   => "date",
-          "format" => "dateOptionalTime",
-          "index"  => "not_analyzed"
-        },
+          "batch_starts_at": {
+            "type":   "date",
+            "format": "dateOptionalTime",
+            "index":  "not_analyzed"
+          },
 
-        "batch_ends_at" => hashmap! {
-          "type"   => "date",
-          "format" => "dateOptionalTime",
-          "index"  => "not_analyzed"
-        },
+          "batch_ends_at": {
+            "type":   "date",
+            "format": "dateOptionalTime",
+            "index":  "not_analyzed"
+          },
 
-        "added_to_batch_at" => hashmap! {
-          "type"   => "date",
-          "format" => "dateOptionalTime",
-          "index"  => "not_analyzed"
-        },
+          "added_to_batch_at": {
+            "type":   "date",
+            "format": "dateOptionalTime",
+            "index":  "not_analyzed"
+          },
 
-        "weight" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+          "weight": {
+            "type":  "integer",
+            "index": "not_analyzed"
+          },
 
-        "blocked_companies" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+          "blocked_companies": {
+            "type":  "integer",
+            "index": "not_analyzed"
+          },
 
-        "avatar_url" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "avatar_url": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        // salary_expectations should be inferred by
-        // ES as we lack of multi-field mapping right now
+          // salary_expectations should be inferred by
+          // ES as we lack of multi-field mapping right now
 
-        "latest_position" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
+          "latest_position": {
+            "type":  "string",
+            "index": "not_analyzed"
+          }
         }
       }
-    };
+    });
 
     let settings = Settings {
       number_of_shards: 1,
@@ -545,40 +549,40 @@ impl Resource for Talent {
       analysis: Analysis {
         filter: json!({
           "trigrams_filter": {
-            "type": "ngram",
+            "type":     "ngram",
             "min_gram": 2,
             "max_gram": 20
           },
 
           "words_splitter": {
-            "type": "word_delimiter",
+            "type":              "word_delimiter",
             "preserve_original": true,
-            "catenate_all": true
+            "catenate_all":      true
           },
 
           "english_words_filter": {
-            "type": "stop",
+            "type":      "stop",
             "stopwords": "_english_"
           },
 
           "tech_words_filter": {
-            "type": "stop",
+            "type":      "stop",
             "stopwords": ["js"]
           }
         }).as_object().unwrap().to_owned(),
         analyzer: json!({
           "trigrams": { // index time
-            "type": "custom",
+            "type":      "custom",
             "tokenizer": "whitespace",
-            "filter": ["lowercase", "words_splitter", "trigrams_filter",
-                       "english_words_filter", "tech_words_filter"]
+            "filter":    ["lowercase", "words_splitter", "trigrams_filter",
+                           "english_words_filter", "tech_words_filter"]
           },
 
           "words": { // query time
-            "type": "custom",
+            "type":      "custom",
             "tokenizer": "keyword",
-            "filter": ["lowercase", "words_splitter", "english_words_filter",
-                       "tech_words_filter"]
+            "filter":    ["lowercase", "words_splitter", "english_words_filter",
+                           "tech_words_filter"]
           }
         }).as_object().unwrap().to_owned()
       }
@@ -587,7 +591,7 @@ impl Resource for Talent {
     es.delete_index(index);
 
     MappingOperation::new(&mut es, index)
-      .with_mapping(&mapping)
+      .with_mappings(&mappings)
       .with_settings(&settings)
       .send()
   }
@@ -786,9 +790,7 @@ mod tests {
     let mut client = make_client();
     let     index  = format!("{}_{}", config.es.index, "talent");
 
-    if let Err(_) = Talent::reset_index(&mut client, &*index) {
-      let _ = Talent::reset_index(&mut client, &*index);
-    }
+    Talent::reset_index(&mut client, &*index).unwrap();
 
     refresh_index(&mut client, &*index);
 
