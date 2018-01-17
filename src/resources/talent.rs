@@ -271,18 +271,16 @@ impl Talent {
         }
 
         Some(
-          Query::build_multi_match(
-            vec![
+          Query::build_query_string(keywords.to_owned())
+            .with_fields(vec![
               "skills".to_owned(),
               "summary".to_owned(),
               "headline".to_owned(),
               "desired_work_roles".to_owned(),
               "work_experiences".to_owned()
-            ],
-            keywords.to_owned()
-          ).with_type(MatchQueryType::CrossFields)
-           .with_tie_breaker(0.0)
-           .build())
+            ])
+           .build()
+        )
       },
       _ => None
     }
@@ -936,6 +934,16 @@ mod tests {
       assert_eq!(vec![2], results.ids());
     }
 
+    // conditional search
+    {
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("C++ AND Ember.js AND NOT ELM".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*index, &params);
+      // TODO: check sorting
+      assert_eq!(vec![5], results.ids());
+    }
+
     // searching for a single word that's supposed to be split
     {
       let mut params = Map::new();
@@ -1046,7 +1054,7 @@ mod tests {
       params.assign("keywords", Value::String("senior".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![2, 4, 1], results.ids());
+      assert_eq!(vec![1, 2, 4], results.ids());
     }
 
     // Searching for ideal work roles
@@ -1064,7 +1072,7 @@ mod tests {
       params.assign("keywords", Value::String("database admin".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![1, 4], results.ids());
+      assert_eq!(vec![4, 1], results.ids());
     }
 
     // highlight
