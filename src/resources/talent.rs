@@ -8,7 +8,6 @@ use super::rs_es::operations::search::{Sort, SortField, Order, SearchHitsHitsRes
 use super::rs_es::operations::bulk::{BulkResult, Action};
 use super::rs_es::operations::delete::DeleteResult;
 use super::rs_es::operations::mapping::*;
-use super::rs_es::query::full_text::MatchQueryType;
 use super::rs_es::error::EsError;
 use super::rs_es::operations::search::highlight::*;
 
