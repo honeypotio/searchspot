@@ -214,6 +214,13 @@ impl Talent {
                   None           => vec![]
                 },
 
+                match params.get("current_location") {
+                  Some(&Value::String(ref current_location)) => vec![
+                    Query::build_term("current_location", current_location.to_string()).build()
+                  ],
+                  _ => vec![]
+                },
+
                 vec![
                   Query::build_bool()
                         .with_must(
@@ -756,7 +763,7 @@ mod tests {
         desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
-        current_location:              "Berlin".to_owned(),
+        current_location:              "Naples".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec!["JavaScript".to_owned(), "C++".to_owned(), "Ember.js".to_owned()],
         summary:                       "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?".to_owned(),
@@ -1096,6 +1103,15 @@ mod tests {
       let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 2, 1], results.ids());
       assert_eq!(4, results.total);
+    }
+
+    // filtering for current_location
+    {
+      let mut params = Map::new();
+      params.assign("current_location", Value::String("Naples".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![5], results.ids());
     }
 
     // filtering for work_authorization
