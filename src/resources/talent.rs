@@ -236,7 +236,7 @@ impl Talent {
                  "work_locations", &vec_from_params!(params, "work_locations")),
 
                <Query as VectorOfTerms<i32>>::build_terms(
-                 "id", &vec_from_params!(params, "ids")),
+                 "id", &vec_from_params!(params, "bookmarked_talents")),
 
                Talent::visibility_filters(epoch,
                  i32_vec_from_params!(params, "presented_talents"),
@@ -253,7 +253,10 @@ impl Talent {
                        "blocked_companies", &company_id),
 
                      <Query as VectorOfTerms<i32>>::build_terms(
-                       "id", &vec_from_params!(params, "contacted_talents"))
+                       "id", &vec_from_params!(params, "contacted_talents")),
+
+                     <Query as VectorOfTerms<i32>>::build_terms(
+                       "id", &vec_from_params!(params, "ignored_talents")),
                    ].into_iter()
                     .flat_map(|x| x)
                     .collect::<Vec<Query>>())
@@ -1062,6 +1065,16 @@ mod tests {
       assert_eq!(vec![1, 4], results.ids());
     }
 
+    // Ignoring some talents
+    {
+      let mut params = Map::new();
+      params.assign("keywords",          Value::String("database admin".to_owned())).unwrap();
+      params.assign("ignored_talents[]", Value::U64(1)).unwrap();
+
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![4], results.ids());
+    }
+
     // highlight
     {
       let mut params = Map::new();
@@ -1084,14 +1097,14 @@ mod tests {
     // filtering for given bookmarks (ids)
     {
       let mut params = Map::new();
-      params.assign("ids[]", Value::U64(2)).unwrap();
-      params.assign("ids[]", Value::U64(4)).unwrap();
-      params.assign("ids[]", Value::U64(1)).unwrap();
-      params.assign("ids[]", Value::U64(3)).unwrap();
-      params.assign("ids[]", Value::U64(5)).unwrap();
-      params.assign("ids[]", Value::U64(6)).unwrap();
-      params.assign("ids[]", Value::U64(7)).unwrap();
-      params.assign("ids[]", Value::U64(8)).unwrap();
+      params.assign("bookmarked_talents[]", Value::U64(2)).unwrap();
+      params.assign("bookmarked_talents[]", Value::U64(4)).unwrap();
+      params.assign("bookmarked_talents[]", Value::U64(1)).unwrap();
+      params.assign("bookmarked_talents[]", Value::U64(3)).unwrap();
+      params.assign("bookmarked_talents[]", Value::U64(5)).unwrap();
+      params.assign("bookmarked_talents[]", Value::U64(6)).unwrap();
+      params.assign("bookmarked_talents[]", Value::U64(7)).unwrap();
+      params.assign("bookmarked_talents[]", Value::U64(8)).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![4, 5, 2, 1], results.ids());
