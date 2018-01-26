@@ -128,7 +128,8 @@ pub struct Talent {
   pub avatar_url:                    String,
   pub salary_expectations:           Vec<SalaryExpectations>,
   pub latest_position:               String, // the very last experience_entries#position
-  pub languages:                     Vec<String>
+  pub languages:                     Vec<String>,
+  pub educations:                    Vec<String>
 }
 
 impl Talent {
@@ -276,7 +277,8 @@ impl Talent {
               "summary".to_owned(),
               "headline".to_owned(),
               "desired_work_roles".to_owned(),
-              "work_experiences".to_owned()
+              "work_experiences".to_owned(),
+              "educations".to_owned(),
             ])
            .build()
         )
@@ -355,11 +357,13 @@ impl Resource for Talent {
                                    .with_term_vector(TermVector::WithPositionsOffsets)
                                    .with_fragment_size(1)
                                    .to_owned();
+
       highlight.add_setting("skills".to_owned(),  settings.clone());
       highlight.add_setting("summary".to_owned(), settings.clone());
       highlight.add_setting("headline".to_owned(), settings.clone());
       highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
-      highlight.add_setting("work_experiences".to_owned(), settings);
+      highlight.add_setting("work_experiences".to_owned(), settings.clone());
+      highlight.add_setting("educations".to_owned(), settings);
 
       es.search_query()
         .with_indexes(&*index)
@@ -443,6 +447,12 @@ impl Resource for Talent {
           "work_locations": {
             "type":  "string",
             "index": "not_analyzed"
+          },
+
+          "educations": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words"
           },
 
           "languages": {
@@ -656,6 +666,7 @@ mod tests {
         desired_work_roles_experience: vec![],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        educations:                    vec!["Computer science".to_owned()],
         current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec!["Rust".to_owned(), "HTML5".to_owned(), "HTML".to_owned()],
@@ -682,6 +693,7 @@ mod tests {
         desired_work_roles_experience: vec![],
         professional_experience:       "8+".to_owned(),
         work_locations:                vec!["Rome".to_owned(),"Berlin".to_owned()],
+        educations:                    vec!["Computer science".to_owned()],
         current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned()],
@@ -708,6 +720,7 @@ mod tests {
         desired_work_roles_experience: vec![],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        educations:                    vec!["Computer science".to_owned()],
         current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec![],
@@ -734,6 +747,7 @@ mod tests {
         desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        educations:                    vec!["Computer science".to_owned()],
         current_location:              "Berlin".to_owned(),
         work_authorization:            "no".to_owned(),
         skills:                        vec!["ClojureScript".to_owned(), "C++".to_owned(), "React.js".to_owned()],
@@ -760,6 +774,7 @@ mod tests {
         desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        educations:                    vec![],
         current_location:              "Naples".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec!["JavaScript".to_owned(), "C++".to_owned(), "Ember.js".to_owned()],
@@ -912,6 +927,15 @@ mod tests {
 
       let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![1, 2, 5], results.ids());
+    }
+
+    // searching for a keyword for education entries
+    {
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("computer science".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![1, 2, 4], results.ids());
     }
 
     // searching for a single, differently cased and incomplete keyword
@@ -1156,6 +1180,7 @@ mod tests {
       \"work_languages\":[\"C++\"],
       \"professional_experience\":\"8+\",
       \"work_locations\":[\"Berlin\"],
+      \"educations\":[\"CS\"],
       \"current_location\":\"Berlin\",
       \"work_authorization\":\"yes\",
       \"skills\":[\"Rust\"],
