@@ -214,13 +214,6 @@ impl Talent {
                   None           => vec![]
                 },
 
-                match params.get("current_location") {
-                  Some(&Value::String(ref current_location)) => vec![
-                    Query::build_term("current_location", current_location.to_string()).build()
-                  ],
-                  _ => vec![]
-                },
-
                 vec![
                   Query::build_bool()
                         .with_must(
@@ -241,6 +234,9 @@ impl Talent {
 
                <Query as VectorOfTerms<String>>::build_terms(
                  "work_locations", &vec_from_params!(params, "work_locations")),
+
+               <Query as VectorOfTerms<String>>::build_terms(
+                 "current_location", &vec_from_params!(params, "current_location")),
 
                <Query as VectorOfTerms<i32>>::build_terms(
                  "id", &vec_from_params!(params, "ids")),
@@ -1108,7 +1104,7 @@ mod tests {
     // filtering for current_location
     {
       let mut params = Map::new();
-      params.assign("current_location", Value::String("Naples".into())).unwrap();
+      params.assign("current_location[]", Value::String("Naples".into())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![5], results.ids());
