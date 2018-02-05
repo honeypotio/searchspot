@@ -109,7 +109,6 @@ pub struct Talent {
   pub id:                            u32,
   pub accepted:                      bool,
   pub desired_work_roles:            Vec<String>,
-  pub desired_work_roles_vanilla:    Option<Vec<String>>, // not processed by ES
   pub desired_work_roles_experience: Vec<String>, // experience in the desired work roles
   pub professional_experience:       String, // i.e. 2..6
   pub work_locations:                Vec<String>, // wants to work in
@@ -224,7 +223,7 @@ impl Talent {
                       .build()],
 
                <Query as VectorOfTerms<String>>::build_terms(
-                 "desired_work_roles_vanilla", &vec_from_params!(params, "desired_work_roles")),
+                 "desired_work_roles.raw", &vec_from_params!(params, "desired_work_roles")),
 
                <Query as VectorOfTerms<String>>::build_terms(
                  "professional_experience", &vec_from_params!(params, "professional_experience")),
@@ -304,9 +303,8 @@ impl Resource for Talent {
   /// Populate the ElasticSearch index with `Vec<Talent>`
   fn index(es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
     es.bulk(&resources.into_iter()
-                      .map(|mut r| {
+                      .map(|r| {
                           let id = r.id.to_string();
-                          r.desired_work_roles_vanilla = Some(r.desired_work_roles.to_owned());
                           Action::index(r).with_id(id)
                       })
                       .collect::<Vec<Action<Talent>>>())
@@ -426,12 +424,13 @@ impl Resource for Talent {
           "desired_work_roles": {
             "type":            "string",
             "analyzer":        "trigrams",
-            "search_analyzer": "words"
-          },
-
-          "desired_work_roles_vanilla": {
-            "type":  "string",
-            "index": "not_analyzed"
+            "search_analyzer": "words",
+            "fields": {
+              "raw": {
+                "type": "string",
+                "index": "not_analyzed"
+              }
+            }
           },
 
           "desired_work_roles_experience": {
@@ -480,7 +479,7 @@ impl Resource for Talent {
             "type":            "string",
             "analyzer":        "trigrams",
             "search_analyzer": "words",
-            "boost":           "2.0",
+            "boost":           "2.0"
           },
 
           "headline": {
@@ -662,7 +661,6 @@ mod tests {
         id:                            1,
         accepted:                      true,
         desired_work_roles:            vec![],
-        desired_work_roles_vanilla:    None,
         desired_work_roles_experience: vec![],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
@@ -689,7 +687,6 @@ mod tests {
         id:                            2,
         accepted:                      true,
         desired_work_roles:            vec![],
-        desired_work_roles_vanilla:    None,
         desired_work_roles_experience: vec![],
         professional_experience:       "8+".to_owned(),
         work_locations:                vec!["Rome".to_owned(),"Berlin".to_owned()],
@@ -716,7 +713,6 @@ mod tests {
         id:                            3,
         accepted:                      false,
         desired_work_roles:            vec![],
-        desired_work_roles_vanilla:    None,
         desired_work_roles_experience: vec![],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
@@ -743,7 +739,6 @@ mod tests {
         id:                            4,
         accepted:                      true,
         desired_work_roles:            vec!["Fullstack".to_owned(), "DevOps".to_owned()],
-        desired_work_roles_vanilla:    None,
         desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
@@ -752,7 +747,7 @@ mod tests {
         work_authorization:            "no".to_owned(),
         skills:                        vec!["ClojureScript".to_owned(), "C++".to_owned(), "React.js".to_owned()],
         summary:                       "ClojureScript right now, previously C++".to_owned(),
-        headline:                      "Senior fullstack developer with sysadmin skills".to_owned(),
+        headline:                      "Senior fullstack developer with sysadmin skills. /b/ community member.".to_owned(),
         work_experiences:              vec!["Backend Engineer".to_owned(), "Database Administrator".to_owned()],
         contacted_company_ids:         vec![6],
         batch_starts_at:               epoch_from_year!("2008"),
@@ -770,7 +765,6 @@ mod tests {
         id:                            5,
         accepted:                      true,
         desired_work_roles:            vec!["Fullstack".to_owned(), "DevOps".to_owned()],
-        desired_work_roles_vanilla:    None,
         desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
@@ -779,7 +773,7 @@ mod tests {
         work_authorization:            "yes".to_owned(),
         skills:                        vec!["JavaScript".to_owned(), "C++".to_owned(), "Ember.js".to_owned()],
         summary:                       "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?".to_owned(),
-        headline:                      "Amazing C developer".to_owned(),
+        headline:                      "Amazing C and Unity developer".to_owned(),
         work_experiences:              vec![],
         contacted_company_ids:         vec![6],
         batch_starts_at:               epoch_from_year!("2008"),
@@ -960,11 +954,18 @@ mod tests {
     // conditional search
     {
       let mut params = Map::new();
-      params.assign("keywords", Value::String("C++ AND Ember.js AND NOT ELM".into())).unwrap();
+      params.assign("keywords", Value::String("C++ and Ember.js AND NOT React.js".into())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
-      // TODO: check sorting
       assert_eq!(vec![5], results.ids());
+    }
+
+    {
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("\"Unity\"".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![5, 4], results.ids());
     }
 
     // searching for a single word that's supposed to be split
