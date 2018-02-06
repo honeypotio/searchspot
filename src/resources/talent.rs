@@ -269,18 +269,38 @@ impl Talent {
           return None;
         }
 
-        Some(
-          Query::build_query_string(keywords.to_owned())
-            .with_fields(vec![
-              "skills".to_owned(),
-              "summary".to_owned(),
-              "headline".to_owned(),
-              "desired_work_roles".to_owned(),
-              "work_experiences".to_owned(),
-              "educations".to_owned(),
-            ])
-           .build()
-        )
+        // TODO: refactor me
+        // This is a very bad approach but ATM I don't know
+        // how to do exact matching on ngrams. My temptative
+        // with build_bool().with_should() failed.
+        if keywords.contains("\"") {
+          Some(
+            Query::build_query_string(keywords.to_owned())
+              .with_fields(vec![
+                "skills.raw".to_owned(),
+                "summary.raw".to_owned(),
+                "headline.raw".to_owned(),
+                "desired_work_roles.raw".to_owned(),
+                "work_experiences.raw".to_owned(),
+                "educations.raw".to_owned()
+              ])
+              .build()
+          )
+        }
+        else {
+          Some(
+            Query::build_query_string(keywords.to_owned())
+              .with_fields(vec![
+                "skills".to_owned(),
+                "summary".to_owned(),
+                "headline".to_owned(),
+                "desired_work_roles".to_owned(),
+                "work_experiences".to_owned(),
+                "educations".to_owned()
+              ])
+              .build()
+          )
+        }
       },
       _ => None
     }
@@ -451,7 +471,12 @@ impl Resource for Talent {
           "educations": {
             "type":            "string",
             "analyzer":        "trigrams",
-            "search_analyzer": "words"
+            "search_analyzer": "words",
+            "fields": {
+              "raw": {
+                "type": "string"
+              }
+            }
           },
 
           "languages": {
@@ -472,27 +497,49 @@ impl Resource for Talent {
           "skills": {
             "type":            "string",
             "analyzer":        "trigrams",
-            "search_analyzer": "words"
+            "search_analyzer": "words",
+            "fields": {
+              "raw": {
+                "type": "string"
+              }
+            }
           },
 
           "summary": {
             "type":            "string",
             "analyzer":        "trigrams",
             "search_analyzer": "words",
-            "boost":           "2.0"
+            "boost":           "2.0",
+            "fields": {
+              "raw": {
+                "type": "string",
+                "index": "not_analyzed"
+              }
+            }
           },
 
           "headline": {
             "type":            "string",
             "analyzer":        "trigrams",
             "search_analyzer": "words",
-            "boost":           "2.0"
+            "boost":           "2.0",
+            "fields": {
+              "raw": {
+                "type": "string"
+              }
+            }
           },
 
           "work_experiences": {
             "type":            "string",
             "analyzer":        "trigrams",
-            "search_analyzer": "words"
+            "search_analyzer": "words",
+            "fields": {
+              "raw": {
+                "type": "string",
+                "index": "not_analyzed"
+              }
+            }
           },
 
           "contacted_company_ids": {
@@ -693,7 +740,7 @@ mod tests {
         educations:                    vec!["Computer science".to_owned()],
         current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
-        skills:                        vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned()],
+        skills:                        vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned(), "Unity".to_owned()],
         summary:                       "I'm a java dev with some tricks up my sleeves".to_owned(),
         headline:                      "Senior Java engineer".to_owned(),
         work_experiences:              vec![],
@@ -742,12 +789,12 @@ mod tests {
         desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
-        educations:                    vec!["Computer science".to_owned()],
+        educations:                    vec!["Computer science".to_owned(), "Europe community".to_owned()],
         current_location:              "Berlin".to_owned(),
         work_authorization:            "no".to_owned(),
         skills:                        vec!["ClojureScript".to_owned(), "C++".to_owned(), "React.js".to_owned()],
         summary:                       "ClojureScript right now, previously C++".to_owned(),
-        headline:                      "Senior fullstack developer with sysadmin skills. /b/ community member.".to_owned(),
+        headline:                      "Senior fullstack developer with sysadmin skills.".to_owned(),
         work_experiences:              vec!["Backend Engineer".to_owned(), "Database Administrator".to_owned()],
         contacted_company_ids:         vec![6],
         batch_starts_at:               epoch_from_year!("2008"),
@@ -773,7 +820,7 @@ mod tests {
         work_authorization:            "yes".to_owned(),
         skills:                        vec!["JavaScript".to_owned(), "C++".to_owned(), "Ember.js".to_owned()],
         summary:                       "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?".to_owned(),
-        headline:                      "Amazing C and Unity developer".to_owned(),
+        headline:                      "Amazing C and Unity3D developer".to_owned(),
         work_experiences:              vec![],
         contacted_company_ids:         vec![6],
         batch_starts_at:               epoch_from_year!("2008"),
@@ -965,7 +1012,7 @@ mod tests {
       params.assign("keywords", Value::String("\"Unity\"".into())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![5, 4], results.ids());
+      assert_eq!(vec![2], results.ids());
     }
 
     // searching for a single word that's supposed to be split
