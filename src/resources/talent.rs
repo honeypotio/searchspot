@@ -371,17 +371,40 @@ impl Resource for Talent {
                                           .with_pre_tags(vec![String::new()])
                                           .with_post_tags(vec![String::new()])
                                           .to_owned();
+
       let settings = Setting::new().with_type(SettingTypes::Plain)
                                    .with_term_vector(TermVector::WithPositionsOffsets)
                                    .with_fragment_size(1)
                                    .to_owned();
 
-      highlight.add_setting("skills".to_owned(),  settings.clone());
-      highlight.add_setting("summary".to_owned(), settings.clone());
-      highlight.add_setting("headline".to_owned(), settings.clone());
-      highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
-      highlight.add_setting("work_experiences".to_owned(), settings.clone());
-      highlight.add_setting("educations".to_owned(), settings);
+      match params.get("keywords") {
+        Some(&Value::String(ref keywords)) => {
+          if keywords.contains("\"") {
+            highlight.add_setting("skills.raw".to_owned(), settings.clone());
+            highlight.add_setting("summary.raw".to_owned(), settings.clone());
+            highlight.add_setting("headline.raw".to_owned(), settings.clone());
+            highlight.add_setting("desired_work_roles.raw".to_owned(), settings.clone());
+            highlight.add_setting("work_experiences.raw".to_owned(), settings.clone());
+            highlight.add_setting("educations.raw".to_owned(), settings.clone());
+          }
+          else {
+            highlight.add_setting("skills".to_owned(), settings.clone());
+            highlight.add_setting("summary".to_owned(), settings.clone());
+            highlight.add_setting("headline".to_owned(), settings.clone());
+            highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
+            highlight.add_setting("work_experiences".to_owned(), settings.clone());
+            highlight.add_setting("educations".to_owned(), settings);
+          }
+        },
+        _ => {
+          highlight.add_setting("skills".to_owned(), settings.clone());
+          highlight.add_setting("summary".to_owned(), settings.clone());
+          highlight.add_setting("headline".to_owned(), settings.clone());
+          highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
+          highlight.add_setting("work_experiences".to_owned(), settings.clone());
+          highlight.add_setting("educations".to_owned(), settings);
+        }
+      }
 
       es.search_query()
         .with_indexes(&*index)
