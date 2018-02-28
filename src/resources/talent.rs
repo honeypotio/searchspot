@@ -8,7 +8,6 @@ use super::rs_es::operations::search::{Sort, SortField, Order, SearchHitsHitsRes
 use super::rs_es::operations::bulk::{BulkResult, Action};
 use super::rs_es::operations::delete::DeleteResult;
 use super::rs_es::operations::mapping::*;
-use super::rs_es::query::full_text::MatchQueryType;
 use super::rs_es::error::EsError;
 use super::rs_es::operations::search::highlight::*;
 
@@ -110,7 +109,6 @@ pub struct Talent {
   pub id:                            u32,
   pub accepted:                      bool,
   pub desired_work_roles:            Vec<String>,
-  pub desired_work_roles_vanilla:    Option<Vec<String>>, // not processed by ES
   pub desired_work_roles_experience: Vec<String>, // experience in the desired work roles
   pub professional_experience:       String, // i.e. 2..6
   pub work_locations:                Vec<String>, // wants to work in
@@ -129,7 +127,8 @@ pub struct Talent {
   pub avatar_url:                    String,
   pub salary_expectations:           Vec<SalaryExpectations>,
   pub latest_position:               String, // the very last experience_entries#position
-  pub languages:                     Vec<String>
+  pub languages:                     Vec<String>,
+  pub educations:                    Vec<String>
 }
 
 impl Talent {
@@ -224,7 +223,7 @@ impl Talent {
                       .build()],
 
                <Query as VectorOfTerms<String>>::build_terms(
-                 "desired_work_roles_vanilla", &vec_from_params!(params, "desired_work_roles")),
+                 "desired_work_roles.raw", &vec_from_params!(params, "desired_work_roles")),
 
                <Query as VectorOfTerms<String>>::build_terms(
                  "professional_experience", &vec_from_params!(params, "professional_experience")),
@@ -273,17 +272,38 @@ impl Talent {
           return None;
         }
 
-        Some(Query::build_multi_match(
-                vec![
-                  "skills".to_owned(),
-                  "summary".to_owned(),
-                  "headline".to_owned(),
-                  "desired_work_roles".to_owned(),
-                  "work_experiences".to_owned()
-                ], keywords.to_owned())
-            .with_type(MatchQueryType::CrossFields)
-            .with_tie_breaker(0.0)
-            .build())
+        // TODO: refactor me
+        // This is a very bad approach but ATM I don't know
+        // how to do exact matching on ngrams. My temptative
+        // with build_bool().with_should() failed.
+        if keywords.contains("\"") {
+          Some(
+            Query::build_query_string(keywords.to_owned())
+              .with_fields(vec![
+                "skills.raw".to_owned(),
+                "summary.raw".to_owned(),
+                "headline.raw".to_owned(),
+                "desired_work_roles.raw".to_owned(),
+                "work_experiences.raw".to_owned(),
+                "educations.raw".to_owned()
+              ])
+              .build()
+          )
+        }
+        else {
+          Some(
+            Query::build_query_string(keywords.to_owned())
+              .with_fields(vec![
+                "skills".to_owned(),
+                "summary".to_owned(),
+                "headline".to_owned(),
+                "desired_work_roles".to_owned(),
+                "work_experiences".to_owned(),
+                "educations".to_owned()
+              ])
+              .build()
+          )
+        }
       },
       _ => None
     }
@@ -306,9 +326,8 @@ impl Resource for Talent {
   /// Populate the ElasticSearch index with `Vec<Talent>`
   fn index(es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
     es.bulk(&resources.into_iter()
-                      .map(|mut r| {
+                      .map(|r| {
                           let id = r.id.to_string();
-                          r.desired_work_roles_vanilla = Some(r.desired_work_roles.to_owned());
                           Action::index(r).with_id(id)
                       })
                       .collect::<Vec<Action<Talent>>>())
@@ -355,15 +374,40 @@ impl Resource for Talent {
                                           .with_pre_tags(vec![String::new()])
                                           .with_post_tags(vec![String::new()])
                                           .to_owned();
+
       let settings = Setting::new().with_type(SettingTypes::Plain)
                                    .with_term_vector(TermVector::WithPositionsOffsets)
                                    .with_fragment_size(1)
                                    .to_owned();
-      highlight.add_setting("skills".to_owned(),  settings.clone());
-      highlight.add_setting("summary".to_owned(), settings.clone());
-      highlight.add_setting("headline".to_owned(), settings.clone());
-      highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
-      highlight.add_setting("work_experiences".to_owned(), settings);
+
+      match params.get("keywords") {
+        Some(&Value::String(ref keywords)) => {
+          if keywords.contains("\"") {
+            highlight.add_setting("skills.raw".to_owned(), settings.clone());
+            highlight.add_setting("summary.raw".to_owned(), settings.clone());
+            highlight.add_setting("headline.raw".to_owned(), settings.clone());
+            highlight.add_setting("desired_work_roles.raw".to_owned(), settings.clone());
+            highlight.add_setting("work_experiences.raw".to_owned(), settings.clone());
+            highlight.add_setting("educations.raw".to_owned(), settings.clone());
+          }
+          else {
+            highlight.add_setting("skills".to_owned(), settings.clone());
+            highlight.add_setting("summary".to_owned(), settings.clone());
+            highlight.add_setting("headline".to_owned(), settings.clone());
+            highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
+            highlight.add_setting("work_experiences".to_owned(), settings.clone());
+            highlight.add_setting("educations".to_owned(), settings);
+          }
+        },
+        _ => {
+          highlight.add_setting("skills".to_owned(), settings.clone());
+          highlight.add_setting("summary".to_owned(), settings.clone());
+          highlight.add_setting("headline".to_owned(), settings.clone());
+          highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
+          highlight.add_setting("work_experiences".to_owned(), settings.clone());
+          highlight.add_setting("educations".to_owned(), settings);
+        }
+      }
 
       es.search_query()
         .with_indexes(&*index)
@@ -415,132 +459,168 @@ impl Resource for Talent {
   /// will be created again. The map that will be used is hardcoded.
   #[allow(unused_must_use)]
   fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
-    let mapping = hashmap! {
-      ES_TYPE => hashmap! {
-        "id" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+    let mappings = json!({
+      ES_TYPE: {
+        "properties": {
+          "id": {
+            "type":  "integer",
+            "index": "not_analyzed"
+          },
 
-        "desired_work_roles" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words"
-        },
+          "desired_work_roles": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words",
+            "fields": {
+              "raw": {
+                "type": "string",
+                "index": "not_analyzed"
+              }
+            }
+          },
 
-        "desired_work_roles_vanilla" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "desired_work_roles_experience": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "desired_work_roles_experience" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "professional_experience": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "professional_experience" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "work_locations": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "work_locations" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "educations": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words",
+            "fields": {
+              "raw": {
+                "type": "string"
+              }
+            }
+          },
 
-        "languages" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "languages": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "current_location" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "current_location": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "work_authorization" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "work_authorization": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        "skills" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words"
-        },
+          "skills": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words",
+            "fields": {
+              "raw": {
+                "type": "string"
+              }
+            }
+          },
 
-        "summary" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words",
-          "boost"           => "2.0",
-        },
+          "summary": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words",
+            "boost":           "2.0",
+            "fields": {
+              "raw": {
+                "type": "string",
+                "index": "not_analyzed"
+              }
+            }
+          },
 
-        "headline" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words",
-          "boost"           => "2.0"
-        },
+          "headline": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words",
+            "boost":           "2.0",
+            "fields": {
+              "raw": {
+                "type": "string"
+              }
+            }
+          },
 
-        "work_experiences" => hashmap! {
-          "type"            => "string",
-          "analyzer"        => "trigrams",
-          "search_analyzer" => "words"
-        },
+          "work_experiences": {
+            "type":            "string",
+            "analyzer":        "trigrams",
+            "search_analyzer": "words",
+            "fields": {
+              "raw": {
+                "type": "string",
+                "index": "not_analyzed"
+              }
+            }
+          },
 
-        "contacted_company_ids" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+          "contacted_company_ids": {
+            "type":  "integer",
+            "index": "not_analyzed"
+          },
 
-        "accepted" => hashmap! {
-          "type"  => "boolean",
-          "index" => "not_analyzed"
-        },
+          "accepted": {
+            "type":  "boolean",
+            "index": "not_analyzed"
+          },
 
-        "batch_starts_at" => hashmap! {
-          "type"   => "date",
-          "format" => "dateOptionalTime",
-          "index"  => "not_analyzed"
-        },
+          "batch_starts_at": {
+            "type":   "date",
+            "format": "dateOptionalTime",
+            "index":  "not_analyzed"
+          },
 
-        "batch_ends_at" => hashmap! {
-          "type"   => "date",
-          "format" => "dateOptionalTime",
-          "index"  => "not_analyzed"
-        },
+          "batch_ends_at": {
+            "type":   "date",
+            "format": "dateOptionalTime",
+            "index":  "not_analyzed"
+          },
 
-        "added_to_batch_at" => hashmap! {
-          "type"   => "date",
-          "format" => "dateOptionalTime",
-          "index"  => "not_analyzed"
-        },
+          "added_to_batch_at": {
+            "type":   "date",
+            "format": "dateOptionalTime",
+            "index":  "not_analyzed"
+          },
 
-        "weight" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+          "weight": {
+            "type":  "integer",
+            "index": "not_analyzed"
+          },
 
-        "blocked_companies" => hashmap! {
-          "type"  => "integer",
-          "index" => "not_analyzed"
-        },
+          "blocked_companies": {
+            "type":  "integer",
+            "index": "not_analyzed"
+          },
 
-        "avatar_url" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
-        },
+          "avatar_url": {
+            "type":  "string",
+            "index": "not_analyzed"
+          },
 
-        // salary_expectations should be inferred by
-        // ES as we lack of multi-field mapping right now
+          // salary_expectations should be inferred by
+          // ES as we lack of multi-field mapping right now
 
-        "latest_position" => hashmap! {
-          "type"  => "string",
-          "index" => "not_analyzed"
+          "latest_position": {
+            "type":  "string",
+            "index": "not_analyzed"
+          }
         }
       }
-    };
+    });
 
     let settings = Settings {
       number_of_shards: 1,
@@ -548,40 +628,40 @@ impl Resource for Talent {
       analysis: Analysis {
         filter: json!({
           "trigrams_filter": {
-            "type": "ngram",
+            "type":     "ngram",
             "min_gram": 2,
             "max_gram": 20
           },
 
           "words_splitter": {
-            "type": "word_delimiter",
+            "type":              "word_delimiter",
             "preserve_original": true,
-            "catenate_all": true
+            "catenate_all":      true
           },
 
           "english_words_filter": {
-            "type": "stop",
+            "type":      "stop",
             "stopwords": "_english_"
           },
 
           "tech_words_filter": {
-            "type": "stop",
+            "type":      "stop",
             "stopwords": ["js"]
           }
         }).as_object().unwrap().to_owned(),
         analyzer: json!({
           "trigrams": { // index time
-            "type": "custom",
+            "type":      "custom",
             "tokenizer": "whitespace",
-            "filter": ["lowercase", "words_splitter", "trigrams_filter",
-                       "english_words_filter", "tech_words_filter"]
+            "filter":    ["lowercase", "words_splitter", "trigrams_filter",
+                           "english_words_filter", "tech_words_filter"]
           },
 
           "words": { // query time
-            "type": "custom",
+            "type":      "custom",
             "tokenizer": "keyword",
-            "filter": ["lowercase", "words_splitter", "english_words_filter",
-                       "tech_words_filter"]
+            "filter":    ["lowercase", "words_splitter", "english_words_filter",
+                           "tech_words_filter"]
           }
         }).as_object().unwrap().to_owned()
       }
@@ -590,7 +670,7 @@ impl Resource for Talent {
     es.delete_index(index);
 
     MappingOperation::new(&mut es, index)
-      .with_mapping(&mapping)
+      .with_mappings(&mappings)
       .with_settings(&settings)
       .send()
   }
@@ -654,10 +734,10 @@ mod tests {
         id:                            1,
         accepted:                      true,
         desired_work_roles:            vec![],
-        desired_work_roles_vanilla:    None,
         desired_work_roles_experience: vec![],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        educations:                    vec!["Computer science".to_owned()],
         current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec!["Rust".to_owned(), "HTML5".to_owned(), "HTML".to_owned()],
@@ -680,13 +760,13 @@ mod tests {
         id:                            2,
         accepted:                      true,
         desired_work_roles:            vec![],
-        desired_work_roles_vanilla:    None,
         desired_work_roles_experience: vec![],
         professional_experience:       "8+".to_owned(),
         work_locations:                vec!["Rome".to_owned(),"Berlin".to_owned()],
+        educations:                    vec!["Computer science".to_owned()],
         current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
-        skills:                        vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned()],
+        skills:                        vec!["Rust".to_owned(), "HTML5".to_owned(), "Java".to_owned(), "Unity".to_owned()],
         summary:                       "I'm a java dev with some tricks up my sleeves".to_owned(),
         headline:                      "Senior Java engineer".to_owned(),
         work_experiences:              vec![],
@@ -706,10 +786,10 @@ mod tests {
         id:                            3,
         accepted:                      false,
         desired_work_roles:            vec![],
-        desired_work_roles_vanilla:    None,
         desired_work_roles_experience: vec![],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        educations:                    vec!["Computer science".to_owned()],
         current_location:              "Berlin".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec![],
@@ -732,15 +812,15 @@ mod tests {
         id:                            4,
         accepted:                      true,
         desired_work_roles:            vec!["Fullstack".to_owned(), "DevOps".to_owned()],
-        desired_work_roles_vanilla:    None,
         desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        educations:                    vec!["Computer science".to_owned(), "Europe community".to_owned()],
         current_location:              "Berlin".to_owned(),
         work_authorization:            "no".to_owned(),
         skills:                        vec!["ClojureScript".to_owned(), "C++".to_owned(), "React.js".to_owned()],
         summary:                       "ClojureScript right now, previously C++".to_owned(),
-        headline:                      "Senior fullstack developer with sysadmin skills".to_owned(),
+        headline:                      "Senior fullstack developer with sysadmin skills.".to_owned(),
         work_experiences:              vec!["Backend Engineer".to_owned(), "Database Administrator".to_owned()],
         contacted_company_ids:         vec![6],
         batch_starts_at:               epoch_from_year!("2008"),
@@ -758,15 +838,15 @@ mod tests {
         id:                            5,
         accepted:                      true,
         desired_work_roles:            vec!["Fullstack".to_owned(), "DevOps".to_owned()],
-        desired_work_roles_vanilla:    None,
         desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
         professional_experience:       "1..2".to_owned(),
         work_locations:                vec!["Berlin".to_owned()],
+        educations:                    vec![],
         current_location:              "Naples".to_owned(),
         work_authorization:            "yes".to_owned(),
         skills:                        vec!["JavaScript".to_owned(), "C++".to_owned(), "Ember.js".to_owned()],
         summary:                       "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?".to_owned(),
-        headline:                      "Amazing C developer".to_owned(),
+        headline:                      "Amazing C and Unity3D developer".to_owned(),
         work_experiences:              vec![],
         contacted_company_ids:         vec![6],
         batch_starts_at:               epoch_from_year!("2008"),
@@ -789,9 +869,7 @@ mod tests {
     let mut client = make_client();
     let     index  = format!("{}_{}", config.es.index, "talent");
 
-    if let Err(_) = Talent::reset_index(&mut client, &*index) {
-      let _ = Talent::reset_index(&mut client, &*index);
-    }
+    Talent::reset_index(&mut client, &*index).unwrap();
 
     refresh_index(&mut client, &*index);
 
@@ -918,6 +996,15 @@ mod tests {
       assert_eq!(vec![1, 2, 5], results.ids());
     }
 
+    // searching for a keyword for education entries
+    {
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("computer science".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![1, 2, 4], results.ids());
+    }
+
     // searching for a single, differently cased and incomplete keyword
     {
       let mut params = Map::new();
@@ -932,6 +1019,23 @@ mod tests {
       let mut params = Map::new();
       params.assign("keywords", Value::String("Rust, HTML5 and HTML".into())).unwrap();
       params.assign("work_locations[]", Value::String("Rome".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![2], results.ids());
+    }
+
+    // conditional search
+    {
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("C++ and Ember.js AND NOT React.js".into())).unwrap();
+
+      let results = Talent::search(&mut client, &*index, &params);
+      assert_eq!(vec![5], results.ids());
+    }
+
+    {
+      let mut params = Map::new();
+      params.assign("keywords", Value::String("\"Unity\"".into())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
       assert_eq!(vec![2], results.ids());
@@ -1047,7 +1151,7 @@ mod tests {
       params.assign("keywords", Value::String("senior".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![2, 4, 1], results.ids());
+      assert_eq!(vec![1, 2, 4], results.ids());
     }
 
     // Searching for ideal work roles
@@ -1065,7 +1169,7 @@ mod tests {
       params.assign("keywords", Value::String("database admin".to_owned())).unwrap();
 
       let results = Talent::search(&mut client, &*index, &params);
-      assert_eq!(vec![1, 4], results.ids());
+      assert_eq!(vec![4, 1], results.ids());
     }
 
     // Ignoring some talents
@@ -1160,6 +1264,7 @@ mod tests {
       \"work_languages\":[\"C++\"],
       \"professional_experience\":\"8+\",
       \"work_locations\":[\"Berlin\"],
+      \"educations\":[\"CS\"],
       \"current_location\":\"Berlin\",
       \"work_authorization\":\"yes\",
       \"skills\":[\"Rust\"],
