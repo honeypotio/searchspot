@@ -92,7 +92,7 @@ impl From<Box<Talent>> for FoundTalent {
     FoundTalent {
       id:                  talent.id,
       headline:            talent.headline.to_owned(),
-      avatar_url:          talent.avatar_url.to_owned(),
+      avatar_url:          talent.masked_avatar_url.to_owned(),
       work_locations:      talent.work_locations.to_owned(),
       current_location:    talent.current_location.to_owned(),
       salary_expectations: talent.salary_expectations.to_owned(),
@@ -124,7 +124,7 @@ pub struct Talent {
   pub weight:                        i32,
   pub blocked_companies:             Vec<u32>,
   pub work_experiences:              Vec<String>, // past work experiences (i.e. ["Frontend developer", "SysAdmin"])
-  pub avatar_url:                    String,
+  pub masked_avatar_url:             String,
   pub salary_expectations:           Vec<SalaryExpectations>,
   pub latest_position:               String, // the very last experience_entries#position
   pub languages:                     Vec<String>,
@@ -606,7 +606,7 @@ impl Resource for Talent {
             "index": "not_analyzed"
           },
 
-          "avatar_url": {
+          "masked_avatar_url": {
             "type":  "string",
             "index": "not_analyzed"
           },
@@ -750,7 +750,7 @@ mod tests {
         added_to_batch_at:             epoch_from_year!("2006"),
         weight:                        -5,
         blocked_companies:             vec![],
-        avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
+        masked_avatar_url:             "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![SalaryExpectations::new(40_000, 50_000, "EUR", "Berlin")],
         latest_position:               "Developer".to_owned(),
         languages:                     vec!["Italian".to_owned()]
@@ -776,7 +776,7 @@ mod tests {
         added_to_batch_at:             epoch_from_year!("2006"),
         weight:                        6,
         blocked_companies:             vec![22],
-        avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
+        masked_avatar_url:             "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
         latest_position:               String::new(),
         languages:                     vec!["German".to_owned(), "English".to_owned()]
@@ -802,7 +802,7 @@ mod tests {
         added_to_batch_at:             epoch_from_year!("2011"),
         weight:                        6,
         blocked_companies:             vec![],
-        avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
+        masked_avatar_url:             "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
         latest_position:               String::new(),
         languages:                     vec!["English".to_owned()]
@@ -828,7 +828,7 @@ mod tests {
         added_to_batch_at:             epoch_from_year!("2011"),
         weight:                        0,
         blocked_companies:             vec![],
-        avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
+        masked_avatar_url:             "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
         latest_position:               String::new(),
         languages:                     vec!["English".to_owned()]
@@ -854,7 +854,7 @@ mod tests {
         added_to_batch_at:             epoch_from_year!("2011"),
         weight:                        0,
         blocked_companies:             vec![],
-        avatar_url:                    "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
+        masked_avatar_url:             "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250".to_owned(),
         salary_expectations:           vec![],
         latest_position:               String::new(),
         languages:                     vec!["English".to_owned()]
