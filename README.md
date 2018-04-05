@@ -1,6 +1,6 @@
 Searchspot
 ==========
-[![Build Status](https://travis-ci.org/honeypotio/searchspot.svg)](https://travis-ci.org/honeypotio/searchspot)
+[![Build Status](https://api.travis-ci.org/honeypotio/searchspot.svg?branch=master)](https://travis-ci.org/honeypotio/searchspot)
 [![](https://meritbadge.herokuapp.com/searchspot)](https://crates.io/crates/searchspot)
 
 This service is responsible for Honeypot's ElasticSearch data and is mainly powered by [rs-es](https://github.com/benashford/rs-es) and [iron](https://github.com/iron/iron).
