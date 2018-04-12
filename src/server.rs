@@ -58,7 +58,7 @@ macro_rules! try_or_422 {
 macro_rules! unauthorized {
   () => ({
     return Ok(Response::with(
-      (status::Unauthorized)
+      status::Unauthorized
     ))
   })
 }
