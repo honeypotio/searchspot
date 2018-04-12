@@ -1,7 +1,3 @@
-extern crate chrono;
-extern crate rs_es;
-extern crate params;
-
 mod talent;
 pub use self::talent::Talent;
 
@@ -11,8 +7,7 @@ pub use self::score::Score;
 #[allow(non_upper_case_globals)]
 #[cfg(test)]
 mod tests {
-  extern crate rs_es;
-  use self::rs_es::Client;
+  use rs_es::Client;
 
   use config::Config;
 

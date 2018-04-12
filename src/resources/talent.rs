@@ -1,15 +1,15 @@
-use super::chrono::prelude::*;
+use chrono::prelude::*;
 
-use super::params::{FromValue, Map, Value};
+use params::{FromValue, Map, Value};
 
-use super::rs_es::Client;
-use super::rs_es::query::Query;
-use super::rs_es::operations::search::{Sort, SortField, Order, SearchHitsHitsResult};
-use super::rs_es::operations::bulk::{BulkResult, Action};
-use super::rs_es::operations::delete::DeleteResult;
-use super::rs_es::operations::mapping::{Analysis, Settings, MappingOperation, MappingResult};
-use super::rs_es::error::EsError;
-use super::rs_es::operations::search::highlight::{SettingTypes, TermVector, Encoders, Highlight, Setting, HighlightResult};
+use rs_es::Client;
+use rs_es::query::Query;
+use rs_es::operations::search::{Sort, SortField, Order, SearchHitsHitsResult};
+use rs_es::operations::bulk::{BulkResult, Action};
+use rs_es::operations::delete::DeleteResult;
+use rs_es::operations::mapping::{Analysis, Settings, MappingOperation, MappingResult};
+use rs_es::error::EsError;
+use rs_es::operations::search::highlight::{SettingTypes, TermVector, Encoders, Highlight, Setting, HighlightResult};
 
 use terms::VectorOfTerms;
 use resource::Resource;
@@ -678,17 +678,13 @@ impl Resource for Talent {
 
 #[cfg(test)]
 mod tests {
-  extern crate serde_json;
+  use serde_json;
+  use chrono::prelude::*;
 
-  extern crate chrono;
-  use self::chrono::prelude::*;
+  use rs_es::Client;
+  use rs_es::operations::search::highlight::HighlightResult;
 
-  extern crate rs_es;
-  use self::rs_es::Client;
-  use self::rs_es::operations::search::highlight::HighlightResult;
-
-  extern crate params;
-  use self::params::{Value, Map};
+  use params::{Value, Map};
 
   use resource::Resource;
 

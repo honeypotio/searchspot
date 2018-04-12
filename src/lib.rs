@@ -4,6 +4,7 @@ extern crate serde;
 #[macro_use] extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 
+extern crate chrono;
 extern crate iron;
 extern crate logger as http_logger;
 extern crate router;

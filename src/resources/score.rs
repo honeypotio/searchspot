@@ -1,12 +1,12 @@
-use super::params::Map;
+use params::Map;
 
-use super::rs_es::Client;
-use super::rs_es::query::Query;
-use super::rs_es::operations::search::SearchHitsHitsResult;
-use super::rs_es::operations::bulk::{BulkResult, Action};
-use super::rs_es::operations::delete::DeleteResult;
-use super::rs_es::operations::mapping::MappingResult;
-use super::rs_es::error::EsError;
+use rs_es::Client;
+use rs_es::query::Query;
+use rs_es::operations::search::SearchHitsHitsResult;
+use rs_es::operations::bulk::{BulkResult, Action};
+use rs_es::operations::delete::DeleteResult;
+use rs_es::operations::mapping::MappingResult;
+use rs_es::error::EsError;
 
 use resource::Resource;
 
@@ -151,8 +151,7 @@ impl Resource for Score {
 
 #[cfg(test)]
 mod tests {
-  extern crate rs_es;
-  use self::rs_es::Client;
+  use rs_es::Client;
 
   use resource::Resource;
 
