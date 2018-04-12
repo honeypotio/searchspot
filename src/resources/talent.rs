@@ -447,7 +447,6 @@ impl Resource for Talent {
 
   /// Reset the given index. All the data will be destroyed and then the index
   /// will be created again. The map that will be used is hardcoded.
-  #[allow(unused_must_use)]
   fn reset_index(mut es: &mut Client, index: &str) -> Result<MappingResult, EsError> {
     let mappings = json!({
       ES_TYPE: {
@@ -657,7 +656,9 @@ impl Resource for Talent {
       }
     };
 
-    es.delete_index(index);
+    if let Err(_) = es.delete_index(index) {
+      // FIXME: If this fails then it could cause sync issues, we should log.
+    }
 
     MappingOperation::new(&mut es, index)
       .with_mappings(&mappings)
@@ -680,7 +681,7 @@ mod tests {
 
   use resources::Talent;
   use resources::talent::{SalaryExpectations, SearchResults};
-  use resources::tests::{refresh_index, config, make_client};
+  use resources::tests::{refresh_index, CONFIG, make_client};
 
   macro_rules! epoch_from_year {
     ($year:expr) => {
@@ -853,7 +854,7 @@ mod tests {
   #[test]
   fn test_search() {
     let mut client = make_client();
-    let     index  = format!("{}_{}", config.es.index, "talent");
+    let     index  = format!("{}_{}", CONFIG.es.index, "talent");
 
     Talent::reset_index(&mut client, &*index).unwrap();
 

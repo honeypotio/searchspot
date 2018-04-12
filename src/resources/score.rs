@@ -143,7 +143,6 @@ impl Resource for Score {
   }
 
   /// We leave ES to create the mapping by inferring it from the input.
-  #[allow(unused_must_use)]
   fn reset_index(_es: &mut Client, _index: &str) -> Result<MappingResult, EsError> {
     unimplemented!();
   }
@@ -157,7 +156,7 @@ mod tests {
 
   use resources::{Score, Talent};
   use resources::score::{SearchBuilder, SearchResults};
-  use resources::tests::{make_client, config, refresh_index};
+  use resources::tests::{make_client, CONFIG, refresh_index};
 
   pub fn populate_index(mut client: &mut Client, index: &str) -> bool {
     let scores = vec![
@@ -194,7 +193,7 @@ mod tests {
   #[test]
   fn test_search() {
     let mut client = make_client();
-    let     index  = format!("{}_{}", config.es.index, "score");
+    let     index  = format!("{}_{}", CONFIG.es.index, "score");
 
     if let Err(_) = Talent::reset_index(&mut client, &*index) {
       let _ = Talent::reset_index(&mut client, &*index);

@@ -1,4 +1,3 @@
-#![allow(non_upper_case_globals)]
 use serde_json;
 
 use rs_es::Client;

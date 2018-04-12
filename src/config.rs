@@ -197,11 +197,10 @@ impl fmt::Display for Config {
 }
 
 #[cfg(test)]
-#[allow(non_upper_case_globals)]
 mod tests {
   use config::Config;
 
-  const sample_config: &'static str = r#"
+  const SAMPLE_CONFIG: &'static str = r#"
     [es]
     url  = "https://123.0.123.0:9200"
     index = "save_meguka"
@@ -230,7 +229,7 @@ mod tests {
   #[test]
   fn test_parse() {
     // returns a Config fill with given TOML configuration file
-    let config = Config::parse(&sample_config);
+    let config = Config::parse(&SAMPLE_CONFIG);
     assert_eq!(config.es.url,    "https://123.0.123.0:9200".to_owned());
     assert_eq!(config.auth.read, "yxxz7oap7rsf67zl".to_owned());
     assert!(config.auth.enabled);

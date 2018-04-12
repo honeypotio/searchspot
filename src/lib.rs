@@ -1,3 +1,4 @@
+#![deny(bad_style)]
 #![recursion_limit="128"]
 
 extern crate serde;
@@ -21,8 +22,8 @@ extern crate backtrace;
 
 // this macro is needed by resources/talent.rs
 // but moving it to resources/mod raises E0468
-#[allow(unused_imports)]
-#[macro_use]
+#[cfg_attr(test, macro_use)]
+#[cfg(test)]
 extern crate lazy_static;
 
 #[macro_use] pub mod macros;
