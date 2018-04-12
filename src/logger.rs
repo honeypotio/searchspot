@@ -32,7 +32,7 @@ impl<T: Monitor> Log for Logger<T> {
     if self.enabled(record.metadata()) {
       let error_message = format!("{} - {}", record.level(), record.args());
 
-      if self.monitor.is_real() && record.level() == LogLevel::Error {
+      if record.level() == LogLevel::Error {
         self.monitor.send(&error_message, record.location());
       }
 

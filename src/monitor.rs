@@ -25,7 +25,6 @@ pub trait Monitor: Send + Sync {
   fn from_config(config: &MonitorConfig) -> Self::MonitorType;
   fn send(&self, error_message: &String, location: &LogLocation);
   fn send_panic(&self, panic_info: &PanicInfo, backtrace: &Backtrace) -> JoinHandle<Self::ResponseType>;
-  fn is_real(&self) -> bool;
 }
 
 mod null_monitor {
@@ -42,15 +41,11 @@ mod null_monitor {
     }
 
     fn send(&self, _: &String, _: &LogLocation) {
-      unimplemented!()
+      /* noop */
     }
 
     fn send_panic(&self, _: &PanicInfo, _: &Backtrace) -> JoinHandle<Self::ResponseType> {
       unimplemented!()
-    }
-
-    fn is_real(&self) -> bool {
-      false
     }
   }
 }
@@ -88,10 +83,6 @@ mod rollbar {
           .from_panic(&panic_info)
           .with_backtrace(&backtrace)
           .send()
-    }
-
-    fn is_real(&self) -> bool {
-      true
     }
   }
 }
