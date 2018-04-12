@@ -276,34 +276,24 @@ impl Talent {
         // This is a very bad approach but ATM I don't know
         // how to do exact matching on ngrams. My temptative
         // with build_bool().with_should() failed.
-        if keywords.contains("\"") {
-          Some(
-            Query::build_query_string(keywords.to_owned())
-              .with_fields(vec![
-                "skills.raw".to_owned(),
-                "summary.raw".to_owned(),
-                "headline.raw".to_owned(),
-                "desired_work_roles.raw".to_owned(),
-                "work_experiences.raw".to_owned(),
-                "educations.raw".to_owned()
-              ])
-              .build()
-          )
+        let raw_query = keywords.contains('\"');
+        macro_rules! maybe_raw {
+          ($field:expr) => {
+            format!("{}{}", $field, if raw_query { ".raw" } else { "" })
+          };
         }
-        else {
-          Some(
-            Query::build_query_string(keywords.to_owned())
-              .with_fields(vec![
-                "skills".to_owned(),
-                "summary".to_owned(),
-                "headline".to_owned(),
-                "desired_work_roles".to_owned(),
-                "work_experiences".to_owned(),
-                "educations".to_owned()
-              ])
-              .build()
-          )
-        }
+        let query = Query::build_query_string(keywords.to_owned())
+          .with_fields(vec![
+            maybe_raw!("skills"),
+            maybe_raw!("summary"),
+            maybe_raw!("headline"),
+            maybe_raw!("desired_work_roles"),
+            maybe_raw!("work_experiences"),
+            maybe_raw!("educations"),
+          ])
+          .build();
+
+        Some(query)
       },
       _ => None
     }
