@@ -1,18 +1,18 @@
 use super::chrono::prelude::*;
 
-use super::params::*;
+use super::params::{FromValue, Map, Value};
 
 use super::rs_es::Client;
 use super::rs_es::query::Query;
 use super::rs_es::operations::search::{Sort, SortField, Order, SearchHitsHitsResult};
 use super::rs_es::operations::bulk::{BulkResult, Action};
 use super::rs_es::operations::delete::DeleteResult;
-use super::rs_es::operations::mapping::*;
+use super::rs_es::operations::mapping::{Analysis, Settings, MappingOperation, MappingResult};
 use super::rs_es::error::EsError;
-use super::rs_es::operations::search::highlight::*;
+use super::rs_es::operations::search::highlight::{SettingTypes, TermVector, Encoders, Highlight, Setting, HighlightResult};
 
 use terms::VectorOfTerms;
-use resource::*;
+use resource::Resource;
 
 /// The type that we use in ElasticSearch for defining a `Talent`.
 const ES_TYPE: &'static str = "talent";
@@ -688,13 +688,13 @@ mod tests {
   use self::rs_es::operations::search::highlight::HighlightResult;
 
   extern crate params;
-  use self::params::*;
+  use self::params::{Value, Map};
 
-  use resource::*;
+  use resource::Resource;
 
   use resources::Talent;
   use resources::talent::{SalaryExpectations, SearchResults};
-  use resources::tests::*;
+  use resources::tests::{refresh_index, config, make_client};
 
   macro_rules! epoch_from_year {
     ($year:expr) => {

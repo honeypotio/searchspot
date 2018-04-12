@@ -1,14 +1,14 @@
-use super::params::*;
+use super::params::Map;
 
 use super::rs_es::Client;
 use super::rs_es::query::Query;
 use super::rs_es::operations::search::SearchHitsHitsResult;
 use super::rs_es::operations::bulk::{BulkResult, Action};
 use super::rs_es::operations::delete::DeleteResult;
-use super::rs_es::operations::mapping::*;
+use super::rs_es::operations::mapping::MappingResult;
 use super::rs_es::error::EsError;
 
-use resource::*;
+use resource::Resource;
 
 /// The type that we use in ElasticSearch for defining a `Score`.
 const ES_TYPE: &'static str = "score";
@@ -154,11 +154,11 @@ mod tests {
   extern crate rs_es;
   use self::rs_es::Client;
 
-  use resource::*;
+  use resource::Resource;
 
   use resources::{Score, Talent};
   use resources::score::{SearchBuilder, SearchResults};
-  use resources::tests::*;
+  use resources::tests::{make_client, config, refresh_index};
 
   pub fn populate_index(mut client: &mut Client, index: &str) -> bool {
     let scores = vec![

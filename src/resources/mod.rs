@@ -14,7 +14,7 @@ mod tests {
   extern crate rs_es;
   use self::rs_es::Client;
 
-  use config::*;
+  use config::Config;
 
   const CONFIG_FILE: &'static str = "examples/tests.toml";
 

@@ -7,7 +7,7 @@ use rs_es::operations::delete::DeleteResult;
 use rs_es::operations::mapping::MappingResult;
 use rs_es::error::EsError;
 
-use params::*;
+use params::Map;
 
 use std::any::Any;
 use std::fmt::Debug;

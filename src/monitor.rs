@@ -52,7 +52,7 @@ mod null_monitor {
 
 mod rollbar {
   use super::{PanicInfo, Backtrace, LogLocation, Monitor, MonitorConfig, JoinHandle};
-  use rollbar::*;
+  use rollbar::{ResponseStatus, Client, FrameBuilder};
 
   pub struct Rollbar {
     client: Client

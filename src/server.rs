@@ -9,7 +9,7 @@ use iron::mime::Mime;
 use iron::typemap::Key;
 use iron::headers;
 use iron::middleware::AfterMiddleware;
-use iron::method::Method::*;
+use iron::method::Method::{Get, Post, Put, Delete};
 use unicase::UniCase;
 
 use persistent::Write;
@@ -18,7 +18,7 @@ use http_logger::Logger as HTTPLogger;
 
 use router::Router;
 
-use params::*;
+use params::Params;
 
 use oath::{totp_raw_now, HashType};
 
@@ -296,7 +296,7 @@ impl Server {
 mod tests {
   use resource::Resource;
 
-  use params::*;
+  use params::Map;
 
   use rs_es::Client;
   use rs_es::operations::bulk::{BulkResult, Action};

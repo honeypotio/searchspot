@@ -41,7 +41,7 @@ build_vector_of_terms_impl!(i32);
 
 #[cfg(test)]
 mod tests {
-  use terms::*;
+  use super::*;
   use rs_es::query::Query;
   use serde_json;
 

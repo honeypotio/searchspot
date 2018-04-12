@@ -29,7 +29,7 @@ impl VectorOfMatches<String> for Query {
 
 #[cfg(test)]
 mod tests {
-  use matches::*;
+  use super::*;
   use rs_es::query::Query;
   use rs_es::query::full_text::MatchType;
   use serde_json;

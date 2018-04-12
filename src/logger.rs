@@ -1,9 +1,9 @@
-use log::*;
+use log::{self, LogRecord, LogMetadata, Log, SetLoggerError, LogLevel, LogLevelFilter};
 use config::Config;
-use monitor::*;
+use monitor::{Monitor, MonitorProvider};
 
 pub fn start_logging(config: &Config) -> Result<(), SetLoggerError> {
-  set_logger(|max_log_level| {
+  log::set_logger(|max_log_level| {
     max_log_level.set(LogLevelFilter::Info);
 
     if let Some(monitor) = config.monitor.to_owned() {

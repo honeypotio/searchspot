@@ -199,7 +199,7 @@ impl fmt::Display for Config {
 #[cfg(test)]
 #[allow(non_upper_case_globals)]
 mod tests {
-  use config::*;
+  use config::Config;
 
   const sample_config: &'static str = r#"
     [es]

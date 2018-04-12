@@ -4,9 +4,10 @@ extern crate backtrace;
 
 use std::{env, panic};
 use searchspot::resources::{Talent, Score};
-use searchspot::server::*;
+use searchspot::server::Server;
+use searchspot::server::{IndexableHandler, DeletableHandler, ResettableHandler, SearchableHandler};
 use searchspot::config::Config;
-use searchspot::monitor::*;
+use searchspot::monitor::{Monitor, MonitorProvider};
 use backtrace::Backtrace;
 
 fn main() {
