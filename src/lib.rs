@@ -1,4 +1,3 @@
-#![feature(conservative_impl_trait, iterator_for_each)]
 #![recursion_limit="128"]
 
 extern crate serde;

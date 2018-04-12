@@ -6,7 +6,7 @@ use std::thread::JoinHandle;
 
 pub struct MonitorProvider;
 impl MonitorProvider {
-  pub fn find_with_config(monitor: &str, config: &MonitorConfig) -> Option<impl Monitor> {
+  pub fn find_with_config(monitor: &str, config: &MonitorConfig) -> Option<rollbar::Rollbar> {
     match monitor {
       "rollbar" => Some(rollbar::Rollbar::from_config(&config)),
       _         => None
