@@ -78,7 +78,7 @@ is currently planned to be released.
 
 License
 -------
-Copyright © 2016 [Honeypot GmbH](https://www.honeypot.io/?utm_source=searchspot).
+Copyright © 2018 [Honeypot GmbH](https://www.honeypot.io/?utm_source=searchspot).
 It is free software, and may be redistributed under the terms specified in the [LICENSE](/LICENSE) file.
 
 About Honeypot
