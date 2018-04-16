@@ -23,8 +23,6 @@ extern crate toml;
 #[macro_use]
 extern crate log;
 
-// this macro is needed by resources/talent.rs
-// but moving it to resources/mod raises E0468
 #[cfg_attr(test, macro_use)]
 #[cfg(test)]
 extern crate lazy_static;

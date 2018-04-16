@@ -692,8 +692,8 @@ impl Resource for Talent {
             },
         };
 
-        if let Err(_) = es.delete_index(index) {
-            // FIXME: If this fails then it could cause sync issues, we should log.
+        if let Err(error) = es.delete_index(index) {
+            error!("{}", error);
         }
 
         MappingOperation::new(&mut es, index)
