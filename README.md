@@ -9,10 +9,6 @@ Companies on [Honeypot](https://www.honeypot.io/pages/how_does_it_work?utm_sourc
 We hope that it will be useful to anyone who needs a search engine with a more-or-less complex system of data filtering
 (including strings, dates and booleans querying and full text search).
 
-Things that are missing
------------------------
-- Proper indentation
-
 Dependencies
 ------------
 * Rust Nightly
