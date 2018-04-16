@@ -41,12 +41,12 @@
 /// ```
 #[macro_export]
 macro_rules! vec_from_params {
-  ($params:expr, $param:expr) => {
-    match $params.get($param) {
-      Some(val) => Vec::from_value(val).unwrap_or(vec![]),
-      None      => vec![]
-    }
-  }
+    ($params:expr, $param:expr) => {
+        match $params.get($param) {
+            Some(val) => Vec::from_value(val).unwrap_or(vec![]),
+            None => vec![],
+        }
+    };
 }
 
 /// Like `vec_from_params`, but expects `$t` (instead of `Vec<$t>`)
@@ -54,101 +54,117 @@ macro_rules! vec_from_params {
 /// casted to `$t` are discarded.
 #[macro_export]
 macro_rules! type_vec_from_params {
-  ($t:ident, $params:expr, $param:expr) => {
-    match $params.get($param) {
-      Some(val) => $t::from_value(val).map(|id| vec![id])
-                                      .unwrap_or(vec![]),
-      None => vec![]
-    }
-  }
+    ($t:ident, $params:expr, $param:expr) => {
+        match $params.get($param) {
+            Some(val) => $t::from_value(val).map(|id| vec![id]).unwrap_or(vec![]),
+            None => vec![],
+        }
+    };
 }
 
 /// Sugar for `type_vec_from_params` where `$t` is `String`.
 #[macro_export]
 macro_rules! string_vec_from_params {
-  ($params:expr, $param:expr) => { type_vec_from_params!(String, $params, $param) }
+    ($params:expr, $param:expr) => {
+        type_vec_from_params!(String, $params, $param)
+    };
 }
 
 /// Sugar for `type_vec_from_params` where `$t` is `i32`.
 #[macro_export]
 macro_rules! i32_vec_from_params {
-  ($params:expr, $param:expr) => { type_vec_from_params!(i32, $params, $param) }
+    ($params:expr, $param:expr) => {
+        type_vec_from_params!(i32, $params, $param)
+    };
 }
 
 #[cfg(test)]
 mod tests {
-  extern crate params;
-  use self::params::*;
+    use params::{FromValue, Map, Value};
 
-  #[test]
-  fn test_vec_from_params() {
-    // given to strings, it returns a vector containing given strings
-    {
-      let mut params = Map::new();
-      params.assign("work_roles[]", Value::String("Fullstack".into())).unwrap();
-      params.assign("work_roles[]", Value::String("DevOps".into())).unwrap();
+    #[test]
+    fn test_vec_from_params() {
+        // given to strings, it returns a vector containing given strings
+        {
+            let mut params = Map::new();
+            params
+                .assign("work_roles[]", Value::String("Fullstack".into()))
+                .unwrap();
+            params
+                .assign("work_roles[]", Value::String("DevOps".into()))
+                .unwrap();
 
-      let work_roles: Vec<String> = vec_from_params!(params, "work_roles");
-      assert_eq!(work_roles, vec!["Fullstack", "DevOps"]);
+            let work_roles: Vec<String> = vec_from_params!(params, "work_roles");
+            assert_eq!(work_roles, vec!["Fullstack", "DevOps"]);
+        }
+
+        // given an empty string, it returns a vector containing an empty strings
+        {
+            let mut params = Map::new();
+            params
+                .assign("work_roles[]", Value::String("".into()))
+                .unwrap();
+
+            let work_roles: Vec<String> = vec_from_params!(params, "work_roles");
+            assert_eq!(work_roles, vec![""]); // TODO: `vec![]`?
+        }
+
+        // given nothing, it returns an empty vector
+        {
+            let work_roles: Vec<String> = vec_from_params!(Map::new(), "work_roles");
+            assert_eq!(work_roles, Vec::<String>::new());
+        }
     }
 
-    // given an empty string, it returns a vector containing an empty strings
-    {
-      let mut params = Map::new();
-      params.assign("work_roles[]", Value::String("".into())).unwrap();
+    #[test]
+    fn test_i32_vec_from_params() {
+        // given a number casted to String, it returns a vector containing that string casted to i32
+        {
+            let mut params = Map::new();
+            params
+                .assign("company_id", Value::String("4".into()))
+                .unwrap();
 
-      let work_roles: Vec<String> = vec_from_params!(params, "work_roles");
-      assert_eq!(work_roles, vec![""]); // TODO: `vec![]`?
+            let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
+            assert_eq!(company_ids, vec![4]);
+        }
+
+        // given an empty string, it returns an empty vector
+        {
+            let mut params = Map::new();
+            params
+                .assign("company_id", Value::String("".into()))
+                .unwrap();
+
+            let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
+            assert!(company_ids.is_empty());
+        }
+
+        // given a non-number string, it returns an empty vector
+        {
+            let mut params = Map::new();
+            params
+                .assign("company_id", Value::String("madukapls".into()))
+                .unwrap();
+
+            let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
+            assert!(company_ids.is_empty());
+        }
+
+        {
+            let mut params = Map::new();
+            params
+                .assign("company_id[]", Value::String("madukapls".into()))
+                .unwrap();
+
+            let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
+            assert!(company_ids.is_empty());
+        }
+
+        // given nothing, it returns an empty vector
+        {
+            let company_ids: Vec<i32> = i32_vec_from_params!(Map::new(), "company_id");
+            assert!(company_ids.is_empty());
+        }
     }
-
-    // given nothing, it returns an empty vector
-    {
-      let work_roles: Vec<String> = vec_from_params!(Map::new(), "work_roles");
-      assert_eq!(work_roles, Vec::<String>::new());
-    }
-  }
-
-  #[test]
-  fn test_i32_vec_from_params() {
-    // given a number casted to String, it returns a vector containing that string casted to i32
-    {
-      let mut params = Map::new();
-      params.assign("company_id", Value::String("4".into())).unwrap();
-
-      let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
-      assert_eq!(company_ids, vec![4]);
-    }
-
-    // given an empty string, it returns an empty vector
-    {
-      let mut params = Map::new();
-      params.assign("company_id", Value::String("".into())).unwrap();
-
-      let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
-      assert!(company_ids.is_empty());
-    }
-
-    // given a non-number string, it returns an empty vector
-    {
-      let mut params = Map::new();
-      params.assign("company_id", Value::String("madukapls".into())).unwrap();
-
-      let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
-      assert!(company_ids.is_empty());
-    }
-
-    {
-      let mut params = Map::new();
-      params.assign("company_id[]", Value::String("madukapls".into())).unwrap();
-
-      let company_ids: Vec<i32> = i32_vec_from_params!(params, "company_id");
-      assert!(company_ids.is_empty());
-    }
-
-    // given nothing, it returns an empty vector
-    {
-      let company_ids: Vec<i32> = i32_vec_from_params!(Map::new(), "company_id");
-      assert!(company_ids.is_empty());
-    }
-  }
 }
