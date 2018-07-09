@@ -45,7 +45,6 @@ impl From<SearchHitsHitsResult<Talent>> for SearchResult {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SalaryExpectations {
     pub minimum: Option<u64>,
-    pub maximum: Option<u64>,
     pub currency: String,
     pub city: String,
 }
@@ -192,6 +191,47 @@ impl Talent {
         }
     }
 
+    pub fn salary_expectations_filters(params: &Map) -> Vec<Query> {
+        if let Some(&Value::U64(max_salary)) = params.get("maximum_salary") {
+            let mut salary_query =
+                Query::build_nested(
+                    "salary_expectations",
+                    Query::build_range("salary_expectations.minimum")
+                    .with_lte(max_salary)
+                    .build()
+                )
+                .build();
+
+            if !params.contains_key("work_locations") {
+                return vec![salary_query];
+            }
+            let mut salary_location_query_terms = vec![];
+
+            let work_locations: Vec<String> = vec_from_params!(params, "work_locations");
+            for location in work_locations {
+                salary_location_query_terms.push(
+                    Query::build_nested(
+                        "salary_expectations",
+                        Query::build_bool()
+                            .with_must(vec![
+                                Query::build_range("salary_expectations.minimum")
+                                    .with_lte(max_salary)
+                                    .build(),
+                            ])
+                            .with_filter(Query::build_term("salary_expectations.city", location)
+                                    .build())
+                            .build()
+                    )
+                    .build()
+                )
+            }
+
+            salary_location_query_terms
+        } else {
+            vec![]
+        }
+    }
+
     /// Given parameters inside the query string mapped inside a `Map`,
     /// and the `epoch` (defined as UNIX time in seconds) for batches,
     /// return a `Query` for ElasticSearch.
@@ -253,6 +293,7 @@ impl Talent {
                         i32_vec_from_params!(params, "presented_talents"),
                         date_filter_present,
                     ),
+                   Talent::salary_expectations_filters(params),
                 ].into_iter()
                     .flat_map(|x| x)
                     .collect::<Vec<Query>>(),
@@ -632,8 +673,14 @@ impl Resource for Talent {
             "index": "not_analyzed"
           },
 
-          // salary_expectations should be inferred by
-          // ES as we lack of multi-field mapping right now
+          "salary_expectations": {
+            "type":  "nested",
+            "properties": {
+                "minimum": { "type": "long", "index": "not_analyzed" },
+                "city": { "type": "string", "index": "not_analyzed" },
+                "currency": { "type": "string", "index": "not_analyzed" }
+            }
+          },
 
           "latest_position": {
             "type":  "string",
@@ -742,10 +789,9 @@ mod tests {
     }
 
     impl SalaryExpectations {
-        fn new(minimum: u64, maximum: u64, currency: &str, city: &str) -> SalaryExpectations {
+        fn new(minimum: u64, currency: &str, city: &str) -> SalaryExpectations {
             SalaryExpectations {
                 minimum: Some(minimum),
-                maximum: Some(maximum),
                 currency: currency.to_owned(),
                 city: city.to_owned(),
             }
@@ -777,7 +823,7 @@ mod tests {
                 avatar_url:
                     "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250"
                         .to_owned(),
-                salary_expectations: vec![SalaryExpectations::new(40_000, 50_000, "EUR", "Berlin")],
+                salary_expectations: vec![SalaryExpectations::new(40_000, "EUR", "Berlin")],
                 latest_position: "Developer".to_owned(),
                 languages: vec!["Italian".to_owned()],
             },
@@ -809,7 +855,7 @@ mod tests {
                 avatar_url:
                     "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250"
                         .to_owned(),
-                salary_expectations: vec![],
+                salary_expectations: vec![SalaryExpectations::new(30_000, "EUR", "Berlin")],
                 latest_position: String::new(),
                 languages: vec!["German".to_owned(), "English".to_owned()],
             },
@@ -836,7 +882,7 @@ mod tests {
                 avatar_url:
                     "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250"
                         .to_owned(),
-                salary_expectations: vec![],
+                salary_expectations: vec![SalaryExpectations::new(25_000, "EUR", "Berlin")],
                 latest_position: String::new(),
                 languages: vec!["English".to_owned()],
             },
@@ -870,7 +916,7 @@ mod tests {
                 avatar_url:
                     "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250"
                         .to_owned(),
-                salary_expectations: vec![],
+                salary_expectations: vec![SalaryExpectations::new(40_000, "EUR", "Berlin")],
                 latest_position: String::new(),
                 languages: vec!["English".to_owned()],
             },
@@ -880,7 +926,7 @@ mod tests {
                 desired_work_roles: vec!["Fullstack".to_owned(), "DevOps".to_owned()],
                 desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
                 professional_experience: "1..2".to_owned(),
-                work_locations: vec!["Berlin".to_owned()],
+                work_locations: vec!["Berlin".to_owned(), "Amsterdam".to_owned()],
                 educations: vec![],
                 current_location: "Naples".to_owned(),
                 work_authorization: "yes".to_owned(),
@@ -902,7 +948,7 @@ mod tests {
                 avatar_url:
                     "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250"
                         .to_owned(),
-                salary_expectations: vec![],
+                salary_expectations: vec![SalaryExpectations::new(10_000, "EUR", "Amsterdam")],
                 latest_position: String::new(),
                 languages: vec!["English".to_owned()],
             },
@@ -1261,7 +1307,7 @@ mod tests {
                 .unwrap();
 
             let results = Talent::search(&mut client, &*index, &params);
-            assert_eq!(vec![1, 2, 4], results.ids());
+            assert_eq!(vec![2, 1, 4], results.ids());
         }
 
         // Searching for ideal work roles
@@ -1398,6 +1444,39 @@ mod tests {
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5, 1], results.ids());
         }
+
+        // search by maximum salary
+        {
+            let mut params = Map::new();
+            params.assign("maximum_salary", Value::U64(30_000)).unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            // ignores talent 3 due to accepted == false
+            println!("{:#?}", results);
+            assert_eq!(vec![5, 2], results.ids());
+        }
+
+        // maximum salary searches should be scoped by location
+        {
+            let mut params = Map::new();
+            params.assign("maximum_salary", Value::U64(30_000)).unwrap();
+            params
+                .assign("work_locations[]", Value::String("Berlin".into()))
+                .unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![2], results.ids());
+
+            let mut params = Map::new();
+            params.assign("maximum_salary", Value::U64(30_000)).unwrap();
+            params
+                .assign("work_locations[]", Value::String("Amsterdam".into()))
+                .unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![5], results.ids());
+        }
+
     }
 
     #[test]
@@ -1424,7 +1503,10 @@ mod tests {
       \"blocked_companies\":[99],
       \"work_experiences\":[\"Frontend developer\", \"SysAdmin\"],
       \"avatar_url\":\"https://secure.gravatar.com/avatar/47ac43379aa70038a9adc8ec88a1241d?s=250&d=https%3A%2F%2Fsecure.gravatar.com%2Favatar%2Fa0b9ad63fb35d210a218c317e0a6284e%3Fs%3D250\",
-      \"salary_expectations\": [{\"minimum\": 40000, \"maximum\": 50000, \"currency\": \"EUR\", \"city\": \"Berlin\"}],
+      \"salary_expectations\": [
+          {\"minimum\": 40000, \"maximum\": 50000, \"currency\": \"EUR\", \"city\": \"Berlin\"},
+          {\"minimum\": 20000, \"maximum\": null, \"currency\": \"EUR\", \"city\": \"Amsterdam\"}
+       ],
       \"latest_position\":\"Developer\",
       \"languages\":[\"English\"]
     }".to_owned();
