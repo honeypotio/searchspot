@@ -1509,14 +1509,15 @@ mod tests {
       \"avatar_url\":\"https://secure.gravatar.com/avatar/47ac43379aa70038a9adc8ec88a1241d?s=250&d=https%3A%2F%2Fsecure.gravatar.com%2Favatar%2Fa0b9ad63fb35d210a218c317e0a6284e%3Fs%3D250\",
       \"salary_expectations\": [
           {\"minimum\": 40000, \"maximum\": 50000, \"currency\": \"EUR\", \"city\": \"Berlin\"},
-          {\"minimum\": 20000, \"maximum\": null, \"currency\": \"EUR\", \"city\": \"Amsterdam\"}
+          {\"minimum\": 20000, \"maximum\": null, \"currency\": \"EUR\", \"city\": \"Amsterdam\"},
+          [30000, \"EUR\", \"Frankfurt\"]
        ],
       \"latest_position\":\"Developer\",
       \"languages\":[\"English\"]
     }".to_owned();
 
         let resource: Result<Talent, _> = serde_json::from_str(&payload);
-        assert!(resource.is_ok());
-        assert_eq!(resource.unwrap().desired_work_roles, vec!["C/C++ Engineer"]);
+        let resource = resource.unwrap();
+        assert_eq!(resource.desired_work_roles, vec!["C/C++ Engineer"]);
     }
 }
