@@ -34,7 +34,12 @@
     }
   },
   "addons": [
-    "bonsai"
+    {
+      "plan": "bonsai",
+      "options": {
+        "version": "2.4"
+      }
+    }
   ],
   "buildpacks": [
     {
