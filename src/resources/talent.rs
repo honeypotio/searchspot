@@ -192,7 +192,12 @@ impl Talent {
     }
 
     pub fn salary_expectations_filters(params: &Map) -> Vec<Query> {
-        if let Some(&Value::U64(max_salary)) = params.get("maximum_salary") {
+        if let Some(&Value::String(ref max_salary)) = params.get("maximum_salary") {
+            let max_salary: u64 = match max_salary.parse().ok() {
+                Some(max_salary) => max_salary,
+                None => return vec![],
+            };
+
             let mut salary_query =
                 Query::build_nested(
                     "salary_expectations",
@@ -1448,7 +1453,7 @@ mod tests {
         // search by maximum salary
         {
             let mut params = Map::new();
-            params.assign("maximum_salary", Value::U64(30_000)).unwrap();
+            params.assign("maximum_salary", Value::String("30000".into())).unwrap();
 
             let results = Talent::search(&mut client, &*index, &params);
             // ignores talent 3 due to accepted == false
@@ -1459,7 +1464,7 @@ mod tests {
         // maximum salary searches should be scoped by location
         {
             let mut params = Map::new();
-            params.assign("maximum_salary", Value::U64(30_000)).unwrap();
+            params.assign("maximum_salary", Value::String("30000".into())).unwrap();
             params
                 .assign("work_locations[]", Value::String("Berlin".into()))
                 .unwrap();
@@ -1468,7 +1473,7 @@ mod tests {
             assert_eq!(vec![2], results.ids());
 
             let mut params = Map::new();
-            params.assign("maximum_salary", Value::U64(30_000)).unwrap();
+            params.assign("maximum_salary", Value::String("30000".into())).unwrap();
             params
                 .assign("work_locations[]", Value::String("Amsterdam".into()))
                 .unwrap();
@@ -1476,7 +1481,6 @@ mod tests {
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![5], results.ids());
         }
-
     }
 
     #[test]
