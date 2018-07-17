@@ -222,9 +222,9 @@ impl Talent {
                                 Query::build_range("salary_expectations.minimum")
                                     .with_lte(max_salary)
                                     .build(),
+                                Query::build_term("salary_expectations.city", location)
+                                .build()
                             ])
-                            .with_filter(Query::build_term("salary_expectations.city", location)
-                                    .build())
                             .build()
                     )
                     .build()
@@ -298,10 +298,14 @@ impl Talent {
                         i32_vec_from_params!(params, "presented_talents"),
                         date_filter_present,
                     ),
-                   Talent::salary_expectations_filters(params),
                 ].into_iter()
                     .flat_map(|x| x)
                     .collect::<Vec<Query>>(),
+            )
+            .with_filter(
+                Query::build_bool()
+                    .with_should(Talent::salary_expectations_filters(params))
+                    .build()
             )
             .with_must_not(
                 vec![
@@ -1457,7 +1461,6 @@ mod tests {
 
             let results = Talent::search(&mut client, &*index, &params);
             // ignores talent 3 due to accepted == false
-            println!("{:#?}", results);
             assert_eq!(vec![5, 2], results.ids());
         }
 
@@ -1480,6 +1483,15 @@ mod tests {
 
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![5], results.ids());
+
+            // Ensure that work_locations are additive
+            let mut params = Map::new();
+            params.assign("maximum_salary", Value::String("30000".into())).unwrap();
+            params.assign("work_locations[]", Value::String("Amsterdam".into())).unwrap();
+            params.assign("work_locations[]", Value::String("Berlin".into())).unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![5, 2], results.ids());
         }
     }
 
