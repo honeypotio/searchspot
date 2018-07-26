@@ -112,6 +112,12 @@ pub struct Config {
     #[serde(default)]
     pub tokens: Tokens,
     pub monitor: Option<Monitor>,
+    #[serde(default = "default_server_threads_multiplier")]
+    pub server_threads_multiplier: usize,
+}
+
+fn default_server_threads_multiplier() -> usize {
+    32
 }
 
 impl Config {
@@ -166,6 +172,11 @@ impl Config {
             },
         };
 
+        let server_threads_multiplier =
+            env::var("SERVER_THREADS_MULTIPLIER")
+                .map(|t| t.parse().unwrap())
+                .unwrap_or(default_server_threads_multiplier());
+
         let monitor = if let Ok(enabled) = env::var("MONITOR_ENABLED") {
             Some(Monitor {
                 provider: env::var("MONITOR_PROVIDER").unwrap().to_owned(),
@@ -183,6 +194,7 @@ impl Config {
             auth: auth,
             tokens: tokens,
             monitor: monitor,
+            server_threads_multiplier: server_threads_multiplier,
         }
     }
 
