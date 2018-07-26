@@ -2,6 +2,7 @@ use serde_json;
 
 use rs_es::Client;
 
+use iron;
 use iron::headers;
 use iron::method::Method::{Delete, Get, Post, Put};
 use iron::middleware::AfterMiddleware;
@@ -320,7 +321,16 @@ impl Server {
         chain.link(Write::<SharedClient>::both(client));
         chain.link(HTTPLogger::new(None));
         chain.link_after(CorsMiddleware);
-        Iron::new(chain).http(&*host).unwrap();
+
+        let thread_multiplier = self.config.server_threads_multiplier;
+        let threads =  thread_multiplier * ::num_cpus::get();
+        let server = Iron {
+            handler: chain,
+            timeouts: iron::Timeouts::default(),
+            threads: threads,
+        };
+
+        server.http(&*host).unwrap();
     }
 }
 

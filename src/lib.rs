@@ -23,6 +23,8 @@ extern crate toml;
 #[macro_use]
 extern crate log;
 
+extern crate num_cpus;
+
 #[cfg_attr(test, macro_use)]
 #[cfg(test)]
 extern crate lazy_static;
