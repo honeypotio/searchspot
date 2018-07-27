@@ -323,7 +323,12 @@ impl Server {
         chain.link_after(CorsMiddleware);
 
         let thread_multiplier = self.config.server_threads_multiplier;
-        let threads =  thread_multiplier * ::num_cpus::get();
+        let mut threads = thread_multiplier * ::num_cpus::get();
+
+        if let Some(limit) = self.config.server_max_threads {
+            threads = ::std::cmp::min(threads, limit);
+        }
+
         let server = Iron {
             handler: chain,
             timeouts: iron::Timeouts::default(),
