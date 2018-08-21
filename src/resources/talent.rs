@@ -64,7 +64,7 @@ pub struct FoundTalent {
 }
 
 /// A struct that joins `desired_work_roles` and `desired_work_roles_experience`.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct RolesExperience {
     pub role: String,
     pub experience: String,
@@ -110,6 +110,8 @@ pub struct Talent {
     pub accepted: bool,
     pub desired_work_roles: Vec<String>,
     pub desired_work_roles_experience: Vec<String>, // experience in the desired work roles
+    #[serde(default)]
+    pub desired_roles: Vec<RolesExperience>,
     pub professional_experience: String,            // i.e. 2..6
     pub work_locations: Vec<String>,                // wants to work in
     pub current_location: String,                   // where the talent is based in
@@ -129,6 +131,55 @@ pub struct Talent {
     pub latest_position: String, // the very last experience_entries#position
     pub languages: Vec<String>,
     pub educations: Vec<String>,
+}
+
+#[derive(Debug, PartialEq)]
+struct DesiredRoleFilter<'a> {
+    role: &'a str,
+    minimum: Option<u8>,
+    maximum: Option<u8>,
+}
+
+fn parse_desired_role_filter(input: &str) -> Option<DesiredRoleFilter> {
+    let input = input.trim();
+    if input.is_empty() {
+        return None
+    }
+
+    let mut parts = input.split(":");
+
+    parts.next().map(|role| {
+        let minimum = parts.next().unwrap_or("").parse().ok();
+
+        let maximum = minimum.and_then(|min| {
+            parts.next()
+                .unwrap_or("")
+                .parse().ok()
+                .filter(|&max| max >= min)
+        });
+
+        DesiredRoleFilter { role, minimum, maximum }
+    })
+}
+
+fn mapped_experience_ranges(minimum: u8) -> Vec<&'static str> {
+    static WORK_EXPERIENCE_MAPPING: &'static [&'static str] = &[
+        "0..1",
+        "0..1",
+        "1..2",
+        "2..4",
+        "2..4",
+        "4..6",
+        "4..6",
+        "6..8",
+        "6..8",
+        "8+"
+    ];
+
+    let min_idx = ::std::cmp::min(minimum, 9) as usize;
+    let mut mappings = WORK_EXPERIENCE_MAPPING[min_idx..].to_vec();
+    mappings.dedup();
+    mappings
 }
 
 impl Talent {
@@ -237,6 +288,46 @@ impl Talent {
         }
     }
 
+    pub fn desired_roles_filters(params: &Map) -> Vec<Query> {
+        let mut terms = vec![];
+        let mut basic_roles = vec![];
+
+        let query_params: Vec<String> = vec_from_params!(params, "desired_work_roles");
+        for filter in query_params.iter().map(AsRef::as_ref).filter_map(parse_desired_role_filter) {
+            if let Some(minimum) = filter.minimum {
+                terms.extend(
+                    mapped_experience_ranges(minimum).into_iter().map(|mapped_range| {
+                        Query::build_nested(
+                            "desired_roles",
+                            Query::build_bool()
+                                .with_must(vec![
+                                    Query::build_term("desired_roles.role", filter.role)
+                                        .build(),
+                                    Query::build_term("desired_roles.experience", mapped_range)
+                                        .build()
+                                ])
+                                .build()
+                        )
+                        .build()
+                    })
+                );
+            }  else {
+                basic_roles.push(filter.role.into());
+            }
+        }
+
+        if !basic_roles.is_empty() {
+            terms.extend(
+                <Query as VectorOfTerms<String>>::build_terms(
+                    "desired_work_roles.raw",
+                    &basic_roles
+                )
+            )
+        }
+
+        terms
+    }
+
     /// Given parameters inside the query string mapped inside a `Map`,
     /// and the `epoch` (defined as UNIX time in seconds) for batches,
     /// return a `Query` for ElasticSearch.
@@ -270,10 +361,6 @@ impl Talent {
                             .build(),
                     ],
                     <Query as VectorOfTerms<String>>::build_terms(
-                        "desired_work_roles.raw",
-                        &vec_from_params!(params, "desired_work_roles"),
-                    ),
-                    <Query as VectorOfTerms<String>>::build_terms(
                         "professional_experience",
                         &vec_from_params!(params, "professional_experience"),
                     ),
@@ -304,7 +391,16 @@ impl Talent {
             )
             .with_filter(
                 Query::build_bool()
-                    .with_should(Talent::salary_expectations_filters(params))
+                    .with_must(
+                        vec![
+                            Query::build_bool()
+                                .with_should(Talent::salary_expectations_filters(params))
+                                .build(),
+                            Query::build_bool()
+                                .with_should(Talent::desired_roles_filters(params))
+                                .build(),
+                        ]
+                    )
                     .build()
             )
             .with_must_not(
@@ -555,6 +651,14 @@ impl Resource for Talent {
             "index": "not_analyzed"
           },
 
+          "desired_roles": {
+            "type":  "nested",
+            "properties": {
+                "role": { "type": "string", "index": "not_analyzed" },
+                "experience": { "type": "string", "index": "not_analyzed" }
+            }
+          },
+
           "professional_experience": {
             "type":  "string",
             "index": "not_analyzed"
@@ -761,6 +865,7 @@ impl Resource for Talent {
 
 #[cfg(test)]
 mod tests {
+    use super::{parse_desired_role_filter, mapped_experience_ranges, DesiredRoleFilter, RolesExperience};
     use chrono::prelude::*;
     use serde_json;
 
@@ -814,6 +919,7 @@ mod tests {
                 accepted: true,
                 desired_work_roles: vec![],
                 desired_work_roles_experience: vec![],
+                desired_roles: vec![],
                 professional_experience: "1..2".to_owned(),
                 work_locations: vec!["Berlin".to_owned()],
                 educations: vec!["Computer science".to_owned()],
@@ -841,6 +947,7 @@ mod tests {
                 accepted: true,
                 desired_work_roles: vec![],
                 desired_work_roles_experience: vec![],
+                desired_roles: vec![],
                 professional_experience: "8+".to_owned(),
                 work_locations: vec!["Rome".to_owned(), "Berlin".to_owned()],
                 educations: vec!["Computer science".to_owned()],
@@ -873,6 +980,7 @@ mod tests {
                 accepted: false,
                 desired_work_roles: vec![],
                 desired_work_roles_experience: vec![],
+                desired_roles: vec![],
                 professional_experience: "1..2".to_owned(),
                 work_locations: vec!["Berlin".to_owned()],
                 educations: vec!["Computer science".to_owned()],
@@ -899,7 +1007,11 @@ mod tests {
                 id: 4,
                 accepted: true,
                 desired_work_roles: vec!["Fullstack".to_owned(), "DevOps".to_owned()],
-                desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
+                desired_work_roles_experience: vec!["2..4".to_owned(), "4..6".to_owned()],
+                desired_roles: vec![
+                    RolesExperience { role: "Fullstack".into(), experience: "2..4".into() },
+                    RolesExperience { role: "DevOps".into(), experience: "4..6".into() },
+                ],
                 professional_experience: "1..2".to_owned(),
                 work_locations: vec!["Berlin".to_owned()],
                 educations: vec!["Computer science".to_owned(), "Europe community".to_owned()],
@@ -933,7 +1045,11 @@ mod tests {
                 id: 5,
                 accepted: true,
                 desired_work_roles: vec!["Fullstack".to_owned(), "DevOps".to_owned()],
-                desired_work_roles_experience: vec!["2..3".to_owned(), "5".to_owned()],
+                desired_work_roles_experience: vec!["0..1".to_owned(), "8+".to_owned()],
+                desired_roles: vec![
+                    RolesExperience { role: "Fullstack".into(), experience: "0..1".into() },
+                    RolesExperience { role: "DevOps".into(), experience: "8+".into() },
+                ],
                 professional_experience: "1..2".to_owned(),
                 work_locations: vec!["Berlin".to_owned(), "Amsterdam".to_owned()],
                 educations: vec![],
@@ -1058,6 +1174,49 @@ mod tests {
 
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5], results.ids());
+        }
+
+        // searching for work roles with experience ranges
+        {
+            let mut params = Map::new();
+            params
+                .assign("desired_work_roles[]", Value::String("Fullstack:2".into()))
+                .unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![4], results.ids());
+
+            // Works as an OR filter
+            let mut params = Map::new();
+            params
+                .assign("desired_work_roles[]", Value::String("Fullstack:2".into()))
+                .unwrap();
+
+            params
+                .assign("desired_work_roles[]", Value::String("DevOps:0".into()))
+                .unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![4, 5], results.ids());
+
+            // Ensure it still works with salary range filter
+            let mut params = Map::new();
+            params
+                .assign("desired_work_roles[]", Value::String("Fullstack:2".into()))
+                .unwrap();
+
+            params
+                .assign("desired_work_roles[]", Value::String("DevOps:0".into()))
+                .unwrap();
+
+            params
+                .assign("maximum_salary", Value::String("30000".into()))
+                .unwrap();
+            params
+                .assign("work_locations[]", Value::String("Amsterdam".into()))
+                .unwrap();
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![5], results.ids());
         }
 
         // searching for work experience
@@ -1496,6 +1655,54 @@ mod tests {
     }
 
     #[test]
+    fn parsing_desired_roles() {
+        fn check<'a>(input: u8, expected: &[&str]) {
+            assert_eq!(mapped_experience_ranges(input), expected)
+        }
+
+        vec![
+            (30, vec!["8+"]),
+            (9, vec!["8+"]),
+            (8, vec!["6..8", "8+"]),
+            (7, vec!["6..8", "8+"]),
+            (6, vec!["4..6", "6..8", "8+"]),
+            (5, vec!["4..6", "6..8", "8+"]),
+            (4, vec!["2..4", "4..6", "6..8", "8+"]),
+            (3, vec!["2..4", "4..6", "6..8", "8+"]),
+            (2, vec!["1..2", "2..4", "4..6", "6..8", "8+"]),
+            (1, vec!["0..1", "1..2", "2..4", "4..6", "6..8", "8+"]),
+            (0, vec!["0..1", "1..2", "2..4", "4..6", "6..8", "8+"]),
+        ].into_iter()
+        .for_each(|(input, expected)| check(input, &expected))
+    }
+
+    #[test]
+    fn experience_range_mapping() {
+        fn check<'a>(input: &'a str, expected: DesiredRoleFilter<'a>) {
+            assert_eq!(parse_desired_role_filter(input), Some(expected))
+        }
+
+        vec![
+            ("foobar", ("foobar", None, None)),
+            ("ruby:5", ("ruby", Some(5), None)),
+            ("ruby:five", ("ruby", None, None)),
+            ("ruby:5:10", ("ruby", Some(5), Some(10))),
+            ("ruby:5:ten", ("ruby", Some(5), None)),
+            ("ruby:five:10", ("ruby", None, None)),
+            ("ruby:5:2", ("ruby", Some(5), None)),
+            ("ruby:5:5", ("ruby", Some(5), Some(5))),
+        ].into_iter()
+        .map(|(s, (role, minimum, maximum))| (s, DesiredRoleFilter { role, minimum, maximum }))
+        .for_each(|(input, expected)| check(input, expected))
+    }
+
+    #[test]
+    fn parsing_empty_desired_roles() {
+        assert_eq!(parse_desired_role_filter(""), None);
+        assert_eq!(parse_desired_role_filter("   "), None);
+    }
+
+    #[test]
     fn test_json_decode() {
         let payload = "{
       \"id\":13,
@@ -1531,5 +1738,53 @@ mod tests {
         let resource: Result<Talent, _> = serde_json::from_str(&payload);
         let resource = resource.unwrap();
         assert_eq!(resource.desired_work_roles, vec!["C/C++ Engineer"]);
+    }
+
+    #[test]
+    fn test_json_decode_with_structured_desired_work_roles() {
+        let payload = r##"{
+      "id":13,
+      "desired_work_roles":["C/C++ Engineer"],
+      "desired_work_roles_experience":["2..4"],
+      "desired_roles": [
+          { "role": "C/C++ Engineer", "experience": "2..4" },
+          { "role": "DevOps", "experience": "8+" }
+      ],
+      "work_languages":["C++"],
+      "professional_experience":"8+",
+      "work_locations":["Berlin"],
+      "educations":["CS"],
+      "current_location":"Berlin",
+      "work_authorization":"yes",
+      "skills":["Rust"],
+      "summary":"Blabla",
+      "headline":"I see things, I do stuff",
+      "contacted_company_ids":[1],
+      "accepted":true,
+      "batch_starts_at":"2016-03-04T12:24:00+01:00",
+      "batch_ends_at":"2016-04-11T12:24:00+02:00",
+      "added_to_batch_at":"2016-03-11T12:24:37+01:00",
+      "weight":0,
+      "blocked_companies":[99],
+      "work_experiences":["Frontend developer", "SysAdmin"],
+      "avatar_url":"https://secure.gravatar.com/avatar/47ac43379aa70038a9adc8ec88a1241d?s=250&d=https%3A%2F%2Fsecure.gravatar.com%2Favatar%2Fa0b9ad63fb35d210a218c317e0a6284e%3Fs%3D250",
+      "salary_expectations": [
+          {"minimum": 40000, "maximum": 50000, "currency": "EUR", "city": "Berlin"},
+          {"minimum": 20000, "maximum": null, "currency": "EUR", "city": "Amsterdam"},
+          [30000, "EUR", "Frankfurt"]
+       ],
+      "latest_position":"Developer",
+      "languages":["English"]
+    }"##.to_owned();
+
+        let resource: Result<Talent, _> = serde_json::from_str(&payload);
+        let resource = resource.unwrap();
+        assert_eq!(
+            resource.desired_roles,
+            vec![
+                RolesExperience { role: "C/C++ Engineer".into(), experience: "2..4".into() },
+                RolesExperience { role: "DevOps".into(), experience: "8+".into() }
+            ]
+        );
     }
 }
