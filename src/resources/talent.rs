@@ -71,10 +71,10 @@ pub struct RolesExperience {
 }
 
 impl RolesExperience {
-    fn new(role: &str, experience: Option<&String>) -> RolesExperience {
+    fn new<S: AsRef<str>>(role: &str, experience: Option<S>) -> RolesExperience {
         RolesExperience {
             role: role.to_owned(),
-            experience: experience.map(|e| e.to_owned()).unwrap_or(String::new()),
+            experience: experience.map(|e| e.as_ref().into()).unwrap_or(String::new()),
         }
     }
 }
@@ -108,7 +108,9 @@ impl From<Box<Talent>> for FoundTalent {
 pub struct Talent {
     pub id: u32,
     pub accepted: bool,
+    #[serde(default)]
     pub desired_work_roles: Vec<String>,
+    #[serde(default)]
     pub desired_work_roles_experience: Vec<String>, // experience in the desired work roles
     #[serde(default)]
     pub desired_roles: Vec<RolesExperience>,
@@ -480,10 +482,30 @@ impl Resource for Talent {
 
     /// Populate the ElasticSearch index with `Vec<Talent>`
     fn index(es: &mut Client, index: &str, resources: Vec<Self>) -> Result<BulkResult, EsError> {
+        fn sync_desired_work_roles(r: &mut Talent) {
+            // Handle the future upgrade to only sending `desired_roles`
+            if !r.desired_roles.is_empty() {
+                r.desired_work_roles.clear();
+                r.desired_work_roles_experience.clear();
+
+                for role in r.desired_roles.iter() {
+                    r.desired_work_roles.push(role.role.clone());
+                    r.desired_work_roles_experience.push(role.experience.clone());
+                }
+            } else {
+                let mut desired_roles = vec![];
+                for (role, exp) in r.desired_work_roles.iter().zip(r.desired_work_roles_experience.iter()) {
+                    desired_roles.push(RolesExperience::new(role, Some(exp)))
+                }
+                r.desired_roles = desired_roles;
+            }
+        }
+
         es.bulk(&resources
             .into_iter()
-            .map(|r| {
+            .map(|mut r| {
                 let id = r.id.to_string();
+                sync_desired_work_roles(&mut r);
                 Action::index(r).with_id(id)
             })
             .collect::<Vec<Action<Talent>>>())
@@ -1006,8 +1028,8 @@ mod tests {
             Talent {
                 id: 4,
                 accepted: true,
-                desired_work_roles: vec!["Fullstack".to_owned(), "DevOps".to_owned()],
-                desired_work_roles_experience: vec!["2..4".to_owned(), "4..6".to_owned()],
+                desired_work_roles: vec![],
+                desired_work_roles_experience: vec![],
                 desired_roles: vec![
                     RolesExperience { role: "Fullstack".into(), experience: "2..4".into() },
                     RolesExperience { role: "DevOps".into(), experience: "4..6".into() },
@@ -1746,6 +1768,52 @@ mod tests {
       "id":13,
       "desired_work_roles":["C/C++ Engineer"],
       "desired_work_roles_experience":["2..4"],
+      "desired_roles": [
+          { "role": "C/C++ Engineer", "experience": "2..4" },
+          { "role": "DevOps", "experience": "8+" }
+      ],
+      "work_languages":["C++"],
+      "professional_experience":"8+",
+      "work_locations":["Berlin"],
+      "educations":["CS"],
+      "current_location":"Berlin",
+      "work_authorization":"yes",
+      "skills":["Rust"],
+      "summary":"Blabla",
+      "headline":"I see things, I do stuff",
+      "contacted_company_ids":[1],
+      "accepted":true,
+      "batch_starts_at":"2016-03-04T12:24:00+01:00",
+      "batch_ends_at":"2016-04-11T12:24:00+02:00",
+      "added_to_batch_at":"2016-03-11T12:24:37+01:00",
+      "weight":0,
+      "blocked_companies":[99],
+      "work_experiences":["Frontend developer", "SysAdmin"],
+      "avatar_url":"https://secure.gravatar.com/avatar/47ac43379aa70038a9adc8ec88a1241d?s=250&d=https%3A%2F%2Fsecure.gravatar.com%2Favatar%2Fa0b9ad63fb35d210a218c317e0a6284e%3Fs%3D250",
+      "salary_expectations": [
+          {"minimum": 40000, "maximum": 50000, "currency": "EUR", "city": "Berlin"},
+          {"minimum": 20000, "maximum": null, "currency": "EUR", "city": "Amsterdam"},
+          [30000, "EUR", "Frankfurt"]
+       ],
+      "latest_position":"Developer",
+      "languages":["English"]
+    }"##.to_owned();
+
+        let resource: Result<Talent, _> = serde_json::from_str(&payload);
+        let resource = resource.unwrap();
+        assert_eq!(
+            resource.desired_roles,
+            vec![
+                RolesExperience { role: "C/C++ Engineer".into(), experience: "2..4".into() },
+                RolesExperience { role: "DevOps".into(), experience: "8+".into() }
+            ]
+        );
+    }
+
+    #[test]
+    fn test_json_decode_without_old_desired_work_roles() {
+        let payload = r##"{
+      "id":13,
       "desired_roles": [
           { "role": "C/C++ Engineer", "experience": "2..4" },
           { "role": "DevOps", "experience": "8+" }
