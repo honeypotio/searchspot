@@ -380,7 +380,7 @@ impl Talent {
                     ),
                     <Query as VectorOfTerms<i32>>::build_terms(
                         "id",
-                        &vec_from_params!(params, "bookmarked_talents"),
+                        &vec_from_maybe_csv_params!(params, "bookmarked_talents"),
                     ),
                     Talent::visibility_filters(
                         epoch,
@@ -414,11 +414,11 @@ impl Talent {
                     <Query as VectorOfTerms<i32>>::build_terms("blocked_companies", &company_id),
                     <Query as VectorOfTerms<i32>>::build_terms(
                         "id",
-                        &vec_from_params!(params, "contacted_talents"),
+                        &vec_from_maybe_csv_params!(params, "contacted_talents"),
                     ),
                     <Query as VectorOfTerms<i32>>::build_terms(
                         "id",
-                        &vec_from_params!(params, "ignored_talents"),
+                        &vec_from_maybe_csv_params!(params, "ignored_talents"),
                     ),
                 ].into_iter()
                     .flat_map(|x| x)
@@ -1534,6 +1534,27 @@ mod tests {
             assert_eq!(vec![4], results.ids());
         }
 
+        // Ignoring some talents, csv parsing
+        {
+            let mut params = Map::new();
+            params
+                .assign("keywords", Value::String("database admin".to_owned()))
+                .unwrap();
+            params.assign("ignored_talents[]", Value::String("1".into())).unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![4], results.ids());
+
+            let mut params = Map::new();
+            params
+                .assign("keywords", Value::String("database admin".to_owned()))
+                .unwrap();
+            params.assign("ignored_talents", Value::String("1, 4".into())).unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(Vec::<u32>::new(), results.ids());
+        }
+
         // highlight
         {
             let mut params = Map::new();
@@ -1591,6 +1612,39 @@ mod tests {
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5, 2, 1], results.ids());
             assert_eq!(4, results.total);
+
+            let mut params = Map::new();
+            params
+                .assign("bookmarked_talents[]", Value::U64(2))
+                .unwrap();
+            params
+                .assign("bookmarked_talents[]", Value::U64(4))
+                .unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![4, 2], results.ids());
+            assert_eq!(2, results.total);
+        }
+
+        // filtering for given bookmarks (ids) with csv parsing
+        {
+            let mut params = Map::new();
+            params
+                .assign("bookmarked_talents", Value::String("2,4,1,3,5,6,7,8".into()))
+                .unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![4, 5, 2, 1], results.ids());
+            assert_eq!(4, results.total);
+
+            let mut params = Map::new();
+            params
+                .assign("bookmarked_talents", Value::String("2,4".into()))
+                .unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![4, 2], results.ids());
+            assert_eq!(2, results.total);
         }
 
         // filtering for current_location
@@ -1624,6 +1678,25 @@ mod tests {
 
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5, 1], results.ids());
+        }
+
+        // ignoring contacted talents - csv parsing
+        {
+            let mut params = Map::new();
+            params
+                .assign("contacted_talents", Value::String("2,4".into()))
+                .unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![5, 1], results.ids());
+
+            let mut params = Map::new();
+            params
+                .assign("contacted_talents", Value::String("2,5,4".into()))
+                .unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![1], results.ids());
         }
 
         // ignoring blocked companies
