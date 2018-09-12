@@ -49,6 +49,17 @@ macro_rules! vec_from_params {
     };
 }
 
+#[macro_export]
+macro_rules! vec_from_maybe_csv_params {
+    ($params:expr, $param:expr) => {
+        match $params.get($param) {
+            Some(val @ Value::Array(_)) => Vec::from_value(val).unwrap_or(vec![]),
+            Some(Value::String(csv)) => csv.split(',').flat_map(|v| v.trim().parse().ok()).collect::<Vec<_>>(),
+            _ => vec![],
+        }
+    };
+}
+
 /// Like `vec_from_params`, but expects `$t` (instead of `Vec<$t>`)
 /// and return `Vec<$t>`. Elements that cannot be actually
 /// casted to `$t` are discarded.
