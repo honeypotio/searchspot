@@ -31,7 +31,7 @@ serde_derive = "1.0"
 
 num_cpus = "1.8"
 
-rs-es = { git = "https://github.com/RoxasShadow/rs-es.git", branch = "one-request-mapping" }
+rs-es = { git = "https://github.com/honeypotio/rs-es.git", branch = "dev" }
 
 [lib]
 name = "searchspot"

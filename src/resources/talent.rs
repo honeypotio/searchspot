@@ -19,10 +19,11 @@ use terms::VectorOfTerms;
 const ES_TYPE: &'static str = "talent";
 
 /// A collection of `SearchResult`s.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SearchResults {
     pub total: u64,
     pub talents: Vec<SearchResult>,
+    raw_es_query: Option<String>,
 }
 
 /// A single search result returned by ElasticSearch.
@@ -547,6 +548,14 @@ impl Resource for Talent {
             _ => 10,
         };
 
+        let debug_es_query: bool = match params.get("debug_es_query") {
+            Some(&Value::String(ref boolean)) => boolean == "true",
+            _ => false,
+        };
+
+        let mut raw_es_query = None;
+        let search_filters = &Talent::search_filters(params, &*epoch);
+
         let result = if keywords_present {
             let mut highlight = Highlight::new()
                 .with_encoder(Encoders::HTML)
@@ -589,23 +598,34 @@ impl Resource for Talent {
                 }
             }
 
-            es.search_query()
-                .with_indexes(&*index)
-                .with_query(&Talent::search_filters(params, &*epoch))
-                .with_highlight(&highlight)
-                .with_from(offset)
-                .with_size(per_page)
-                .with_min_score(0.56)
-                .with_track_scores(true)
-                .send::<Talent>()
+            let mut query = es.search_query();
+
+            let mut final_query = query.with_indexes(&*index)
+                    .with_query(search_filters)
+                    .with_highlight(&highlight)
+                    .with_from(offset)
+                    .with_size(per_page)
+                    .with_min_score(0.56)
+                    .with_track_scores(true);
+
+            if debug_es_query {
+                raw_es_query = final_query.es_query().ok();
+            }
+            final_query.send::<Talent>()
         } else {
-            es.search_query()
-                .with_indexes(&*index)
-                .with_query(&Talent::search_filters(params, &*epoch))
-                .with_sort(&Talent::sorting_criteria())
-                .with_from(offset)
-                .with_size(per_page)
-                .send::<Talent>()
+            let sorting_criteria = &Talent::sorting_criteria();
+            let mut query = es.search_query();
+
+            let mut final_query = query.with_indexes(&*index)
+                    .with_query(search_filters)
+                    .with_sort(sorting_criteria)
+                    .with_from(offset)
+                    .with_size(per_page);
+
+            if debug_es_query {
+                raw_es_query = final_query.es_query().ok();
+            }
+            final_query.send::<Talent>()
         };
 
         match result {
@@ -614,9 +634,9 @@ impl Resource for Talent {
 
                 if total == 0 {
                     return SearchResults {
-                        total: 0,
-                        talents: vec![],
-                    };
+                        raw_es_query: raw_es_query,
+                        .. SearchResults::default()
+                    }
                 }
 
                 let mut results: Vec<SearchResult> = result
@@ -628,14 +648,12 @@ impl Resource for Talent {
                 SearchResults {
                     total: total,
                     talents: results,
+                    raw_es_query: raw_es_query,
                 }
             }
             Err(err) => {
                 error!("{:?}", err);
-                SearchResults {
-                    total: 0,
-                    talents: vec![],
-                }
+                SearchResults::default()
             }
         }
     }
@@ -1239,6 +1257,21 @@ mod tests {
                 .unwrap();
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![5], results.ids());
+
+            assert_eq!(results.raw_es_query, None);
+
+            params
+                .assign("debug_es_query", Value::String("true".into()))
+                .unwrap();
+
+            let results = Talent::search(&mut client, &*index, &params);
+            assert_eq!(vec![5], results.ids());
+            assert!(
+                results.raw_es_query.as_ref().unwrap()
+                    .contains("POST /sample_index_talent/_search"),
+                "actual: {:?}",
+                results.raw_es_query
+            );
         }
 
         // searching for work experience
