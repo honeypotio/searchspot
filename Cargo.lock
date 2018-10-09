@@ -660,7 +660,7 @@ dependencies = [
 [[package]]
 name = "rs-es"
 version = "0.10.0"
-source = "git+https://github.com/RoxasShadow/rs-es.git?branch=one-request-mapping#aabd7077752f585ebaa65b483442456a03964d82"
+source = "git+https://github.com/honeypotio/rs-es.git?branch=dev#577c6dc0cd9acaba477adf30449393aa8066a23d"
 dependencies = [
  "hyper 0.10.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper-openssl 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -708,7 +708,7 @@ dependencies = [
  "persistent 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rollbar 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "router 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rs-es 0.10.0 (git+https://github.com/RoxasShadow/rs-es.git?branch=one-request-mapping)",
+ "rs-es 0.10.0 (git+https://github.com/honeypotio/rs-es.git?branch=dev)",
  "serde 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1070,7 +1070,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum rollbar 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "522ab603155450643fdd19be07dc7c36e822a9ac3b8fef0b82631d7a0f75d938"
 "checksum route-recognizer 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "cf3255338088df8146ba63d60a9b8e3556f1146ce2973bc05a75181a42ce2256"
 "checksum router 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "dc63b6f3b8895b0d04e816b2b1aa58fdba2d5acca3cbb8f0ab8e017347d57397"
-"checksum rs-es 0.10.0 (git+https://github.com/RoxasShadow/rs-es.git?branch=one-request-mapping)" = "<none>"
+"checksum rs-es 0.10.0 (git+https://github.com/honeypotio/rs-es.git?branch=dev)" = "<none>"
 "checksum rustc-demangle 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "76d7ba1feafada44f2d38eed812bd2489a03c0f5abb975799251518b68848649"
 "checksum rustc-hex 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0ceb8ce7a5e520de349e1fa172baeba4a9e8d5ef06c47471863530bc4972ee1e"
 "checksum rustc-serialize 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)" = "dcf128d1287d2ea9d80910b5f1120d0b8eede3fbf1abe91c40d39ea7d51e6fda"
