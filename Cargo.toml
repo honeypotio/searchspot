@@ -48,3 +48,7 @@ path = "src/lib.rs"
 name = "searchspot"
 path = "src/main.rs"
 doc  = false
+
+[[test]]
+name = "smoke"
+path = "tests/smoke.rs"
