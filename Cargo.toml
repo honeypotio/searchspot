@@ -33,6 +33,13 @@ num_cpus = "1.8"
 
 rs-es = { git = "https://github.com/honeypotio/rs-es.git", branch = "dev" }
 
+[patch.crates-io]
+urlencoded = { git = 'https://github.com/ryman/urlencoded' }
+
+[dev-dependencies]
+urlencoded = "0.6"
+url = "1.7"
+
 [lib]
 name = "searchspot"
 path = "src/lib.rs"

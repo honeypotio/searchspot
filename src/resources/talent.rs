@@ -912,12 +912,12 @@ mod tests {
     use rs_es::operations::search::highlight::HighlightResult;
     use rs_es::Client;
 
-    use params::{Map, Value};
+    use params::Value;
 
     use resource::Resource;
 
     use resources::talent::{SalaryExpectations, SearchResults};
-    use resources::tests::{make_client, refresh_index, CONFIG};
+    use resources::tests::{make_client, refresh_index, CONFIG, parse_query};
     use resources::Talent;
 
     macro_rules! epoch_from_year {
@@ -1134,9 +1134,11 @@ mod tests {
         assert!(populate_index(&mut client, &*index));
         refresh_index(&mut client, &*index);
 
+        let empty_params = &parse_query("");
+
         // no parameters are given
         {
-            let results = Talent::search(&mut client, &*index, &Map::new());
+            let results = Talent::search(&mut client, &*index, empty_params);
             assert_eq!(vec![4, 5, 2, 1], results.ids());
             assert_eq!(4, results.total);
             assert!(results.highlights().iter().all(|r| r.is_none()));
@@ -1147,7 +1149,7 @@ mod tests {
             assert!(Talent::delete(&mut client, "4", &*index).is_ok());
             refresh_index(&mut client, &*index);
 
-            let results = Talent::search(&mut client, &*index, &Map::new());
+            let results = Talent::search(&mut client, &*index, empty_params);
             assert_eq!(vec![5, 2], results.ids());
 
             assert!(populate_index(&mut client, &*index));
@@ -1156,43 +1158,28 @@ mod tests {
 
         // a non existing index is given
         {
-            let mut params = Map::new();
-            params
-                .assign("index", Value::String("lololol".into()))
-                .unwrap();
-
+            let params = parse_query("index=lololol");
             let results = Talent::search(&mut client, &*index, &params);
             assert!(results.is_empty());
         }
 
         // a date that doesn't match given indexes is given
         {
-            let mut params = Map::new();
-            params
-                .assign("epoch", Value::String(epoch_from_year!("2040")))
-                .unwrap();
-
+            let params = parse_query(format!("epoch={}", epoch_from_year!("2040")));
             let results = Talent::search(&mut client, &*index, &params);
             assert!(results.is_empty());
         }
 
         // a date that match only some talents is given
         {
-            let mut params = Map::new();
-            params
-                .assign("epoch", Value::String(epoch_from_year!("2006")))
-                .unwrap();
-
+            let params = parse_query(format!("epoch={}", epoch_from_year!("2006")));
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![2, 1], results.ids());
         }
 
         // page is given
         {
-            let mut params = Map::new();
-            params.assign("per_page", Value::U64(2)).unwrap();
-
-            params.assign("offset", Value::U64(0)).unwrap();
+            let mut params = parse_query("per_page=2&offset=0");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5], results.ids());
 
@@ -1207,63 +1194,35 @@ mod tests {
 
         // searching for work roles
         {
-            let mut params = Map::new();
-            params
-                .assign("desired_work_roles[]", Value::String("Fullstack".into()))
-                .unwrap();
-
+            let params = parse_query("desired_work_roles[]=Fullstack");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5], results.ids());
         }
 
         // searching for work roles with experience ranges
         {
-            let mut params = Map::new();
-            params
-                .assign("desired_work_roles[]", Value::String("Fullstack:2".into()))
-                .unwrap();
-
+            let params = parse_query("desired_work_roles[]=Fullstack:2");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4], results.ids());
 
             // Works as an OR filter
-            let mut params = Map::new();
-            params
-                .assign("desired_work_roles[]", Value::String("Fullstack:2".into()))
-                .unwrap();
-
-            params
-                .assign("desired_work_roles[]", Value::String("DevOps:0".into()))
-                .unwrap();
-
+            let params = parse_query("desired_work_roles[]=Fullstack:2&desired_work_roles[]=DevOps:0");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5], results.ids());
 
             // Ensure it still works with salary range filter
-            let mut params = Map::new();
-            params
-                .assign("desired_work_roles[]", Value::String("Fullstack:2".into()))
-                .unwrap();
-
-            params
-                .assign("desired_work_roles[]", Value::String("DevOps:0".into()))
-                .unwrap();
-
-            params
-                .assign("maximum_salary", Value::String("30000".into()))
-                .unwrap();
-            params
-                .assign("work_locations[]", Value::String("Amsterdam".into()))
-                .unwrap();
+            let params = parse_query("desired_work_roles[]=Fullstack:2&desired_work_roles[]=DevOps:0\
+                                        &maximum_salary=30000&work_locations[]=Amsterdam");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![5], results.ids());
 
             assert_eq!(results.raw_es_query, None);
 
-            params
-                .assign("debug_es_query", Value::String("true".into()))
-                .unwrap();
-
+            let params = parse_query("debug_es_query=true\
+                &desired_work_roles[]=Fullstack:2\
+                &desired_work_roles[]=DevOps:0\
+                &maximum_salary=30000\
+                &work_locations[]=Amsterdam");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![5], results.ids());
             assert!(
@@ -1276,168 +1235,101 @@ mod tests {
 
         // searching for work experience
         {
-            let mut params = Map::new();
-            params
-                .assign("professional_experience[]", Value::String("8+".into()))
-                .unwrap();
-
+            let params = parse_query("professional_experience[]=8+");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![2], results.ids());
         }
 
         // searching for work locations
         {
-            let mut params = Map::new();
-            params
-                .assign("work_locations[]", Value::String("Rome".into()))
-                .unwrap();
-
+            let params = parse_query("work_locations[]=Rome");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![2], results.ids());
         }
 
         // searching for a language
         {
-            let mut params = Map::new();
-            params
-                .assign("languages[]", Value::String("English".into()))
-                .unwrap();
-
+            let params = parse_query("languages[]=English");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5, 2], results.ids());
         }
 
         // searching for languages
         {
-            let mut params = Map::new();
-            params
-                .assign("languages[]", Value::String("English".into()))
-                .unwrap();
-            params
-                .assign("languages[]", Value::String("German".into()))
-                .unwrap();
-
+            let params = parse_query("languages[]=English\
+                &languages[]=German");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![2], results.ids());
         }
 
         // searching for a single keyword
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("HTML5".into()))
-                .unwrap();
-
+            let params = parse_query("keywords=HTML5");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![1, 2, 5], results.ids());
         }
 
         // searching for a keyword for education entries
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("computer science".into()))
-                .unwrap();
-
+            let params = parse_query("keywords=computer science");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![1, 2, 4], results.ids());
         }
 
         // searching for a single, differently cased and incomplete keyword
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("html".into()))
-                .unwrap();
-
+            let params = parse_query("keywords=html");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![1, 2, 5], results.ids());
         }
 
         // searching for keywords and filters
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("Rust, HTML5 and HTML".into()))
-                .unwrap();
-            params
-                .assign("work_locations[]", Value::String("Rome".into()))
-                .unwrap();
-
+            let params = parse_query("keywords=Rust, HTML5 and HTML\
+                &work_locations[]=Rome");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![2], results.ids());
         }
 
         // conditional search
         {
-            let mut params = Map::new();
-            params
-                .assign(
-                    "keywords",
-                    Value::String("C++ and Ember.js AND NOT React.js".into()),
-                )
-                .unwrap();
-
+            let params = parse_query("keywords=C++ and Ember.js AND NOT React.js");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![5], results.ids());
         }
 
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("\"Unity\"".into()))
-                .unwrap();
-
+            let params = parse_query("keywords=\"Unity\"");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![2], results.ids());
         }
 
         // searching for a single word that's supposed to be split
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("reactjs".into()))
-                .unwrap();
-
+            let params = parse_query("keywords=reactjs");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4], results.ids());
         }
 
         // searching for the original dotted string
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("react.js".into()))
-                .unwrap();
-            params
-                .assign("work_locations[]", Value::String("Berlin".into()))
-                .unwrap();
-            params
-                .assign("desired_work_roles[]", Value::String("Fullstack".into()))
-                .unwrap();
-
+            let params = parse_query("keywords=react.js\
+                &work_locations[]=Berlin\
+                &desired_work_roles[]=Fullstack");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4], results.ids());
         }
 
         // searching for a non-matching keyword
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("Criogenesi".into()))
-                .unwrap();
-
+            let params = parse_query("keywords=Criogenesi");
             let results = Talent::search(&mut client, &*index, &params);
             assert!(results.is_empty());
         }
 
         // searching for an empty keyword
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String(String::new()))
-                .unwrap();
-
+            let params = parse_query("keywords=");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5, 2, 1], results.ids());
         }
@@ -1447,33 +1339,21 @@ mod tests {
         {
             // JavaScript, Java
             {
-                let mut params = Map::new();
-                params
-                    .assign("keywords", Value::String("Java".into()))
-                    .unwrap();
-
+                let params =parse_query("keywords=Java");
                 let results = Talent::search(&mut client, &*index, &params);
                 assert_eq!(vec![2, 5], results.ids());
             }
 
             // JavaScript
             {
-                let mut params = Map::new();
-                params
-                    .assign("keywords", Value::String("javascript".into()))
-                    .unwrap();
-
+                let params = parse_query("keywords=javascript");
                 let results = Talent::search(&mut client, &*index, &params);
                 assert_eq!(vec![5], results.ids());
             }
 
             // JavaScript, ClojureScript
             {
-                let mut params = Map::new();
-                params
-                    .assign("keywords", Value::String("script".into()))
-                    .unwrap();
-
+                let params = parse_query("keywords=script");
                 let results = Talent::search(&mut client, &*index, &params);
                 assert_eq!(vec![4, 5], results.ids());
             }
@@ -1482,41 +1362,25 @@ mod tests {
         // Searching for summary
         {
             {
-                let mut params = Map::new();
-                params
-                    .assign("keywords", Value::String("right now".into()))
-                    .unwrap();
-
+                let params = parse_query("keywords=right now");
                 let results = Talent::search(&mut client, &*index, &params);
                 assert_eq!(vec![4], results.ids());
             }
 
             {
-                let mut params = Map::new();
-                params
-                    .assign("keywords", Value::String("C++".into()))
-                    .unwrap();
-
+                let params = parse_query("keywords=C++");
                 let results = Talent::search(&mut client, &*index, &params);
                 assert_eq!(vec![4, 5], results.ids());
             }
 
             {
-                let mut params = Map::new();
-                params
-                    .assign("keywords", Value::String("C#".into()))
-                    .unwrap();
-
+                let params = parse_query("keywords=C#");
                 let results = Talent::search(&mut client, &*index, &params);
                 assert_eq!(vec![5], results.ids());
             }
 
             {
-                let mut params = Map::new();
-                params
-                    .assign("keywords", Value::String("rust and".into()))
-                    .unwrap();
-
+                let params = parse_query("keywords=rust and");
                 let results = Talent::search(&mut client, &*index, &params);
                 assert_eq!(vec![1, 2], results.ids());
             }
@@ -1524,77 +1388,49 @@ mod tests {
 
         // Searching for headline and summary
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("senior".to_owned()))
-                .unwrap();
-
+            let params = parse_query("keywords=senior");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![2, 1, 4], results.ids());
         }
 
         // Searching for ideal work roles
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("Devops".to_owned()))
-                .unwrap();
-
+            let params = parse_query("keywords=Devops");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5], results.ids());
         }
 
         // Searching for previous job title
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("database admin".to_owned()))
-                .unwrap();
-
+            let params = parse_query("keywords=database admin");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 1], results.ids());
         }
 
         // Ignoring some talents
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("database admin".to_owned()))
-                .unwrap();
-            params.assign("ignored_talents[]", Value::U64(1)).unwrap();
-
+            let params = parse_query("keywords=database admin\
+                &ignored_talents[]=1");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4], results.ids());
         }
 
         // Ignoring some talents, csv parsing
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("database admin".to_owned()))
-                .unwrap();
-            params.assign("ignored_talents[]", Value::String("1".into())).unwrap();
-
+            let params = parse_query("keywords=database admin\
+                &ignored_talents[]=1");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4], results.ids());
 
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("database admin".to_owned()))
-                .unwrap();
-            params.assign("ignored_talents", Value::String("1, 4".into())).unwrap();
-
+            let params = parse_query("keywords=database admin\
+                &ignored_talents=1, 4");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(Vec::<u32>::new(), results.ids());
         }
 
         // highlight
         {
-            let mut params = Map::new();
-            params
-                .assign("keywords", Value::String("C#".into()))
-                .unwrap();
-
+            let params = parse_query("keywords=C#");
             let results = Talent::search(&mut client, &*index, &params).talents;
             let highlights = results
                 .into_iter()
@@ -1605,55 +1441,28 @@ mod tests {
 
         // filtering for given company_id (skip contacted talents)
         {
-            let mut params = Map::new();
-            params
-                .assign("company_id", Value::String("6".into()))
-                .unwrap();
-
+            let params = parse_query("company_id=6");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![2, 1], results.ids());
         }
 
         // filtering for given bookmarks (ids)
         {
-            let mut params = Map::new();
-            params
-                .assign("bookmarked_talents[]", Value::U64(2))
-                .unwrap();
-            params
-                .assign("bookmarked_talents[]", Value::U64(4))
-                .unwrap();
-            params
-                .assign("bookmarked_talents[]", Value::U64(1))
-                .unwrap();
-            params
-                .assign("bookmarked_talents[]", Value::U64(3))
-                .unwrap();
-            params
-                .assign("bookmarked_talents[]", Value::U64(5))
-                .unwrap();
-            params
-                .assign("bookmarked_talents[]", Value::U64(6))
-                .unwrap();
-            params
-                .assign("bookmarked_talents[]", Value::U64(7))
-                .unwrap();
-            params
-                .assign("bookmarked_talents[]", Value::U64(8))
-                .unwrap();
+            let params = parse_query("bookmarked_talents[]=2\
+                &bookmarked_talents[]=4\
+                &bookmarked_talents[]=1\
+                &bookmarked_talents[]=3\
+                &bookmarked_talents[]=5\
+                &bookmarked_talents[]=6\
+                &bookmarked_talents[]=7\
+                &bookmarked_talents[]=8");
 
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5, 2, 1], results.ids());
             assert_eq!(4, results.total);
 
-            let mut params = Map::new();
-            params
-                .assign("bookmarked_talents[]", Value::U64(2))
-                .unwrap();
-            params
-                .assign("bookmarked_talents[]", Value::U64(4))
-                .unwrap();
-
+            let params = parse_query("bookmarked_talents[]=2\
+                &bookmarked_talents[]=4");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 2], results.ids());
             assert_eq!(2, results.total);
@@ -1661,19 +1470,12 @@ mod tests {
 
         // filtering for given bookmarks (ids) with csv parsing
         {
-            let mut params = Map::new();
-            params
-                .assign("bookmarked_talents", Value::String("2,4,1,3,5,6,7,8".into()))
-                .unwrap();
-
+            let params = parse_query("bookmarked_talents=2,4,1,3,5,6,7,8");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5, 2, 1], results.ids());
             assert_eq!(4, results.total);
 
-            let mut params = Map::new();
-            params
-                .assign("bookmarked_talents", Value::String("2,4".into()))
-                .unwrap();
+            let params = parse_query("bookmarked_talents=2,4");
 
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 2], results.ids());
@@ -1682,70 +1484,46 @@ mod tests {
 
         // filtering for current_location
         {
-            let mut params = Map::new();
-            params
-                .assign("current_location[]", Value::String("Naples".into()))
-                .unwrap();
-
+            let params = parse_query("current_location[]=Naples");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![5], results.ids());
         }
 
         // filtering for work_authorization
         {
-            let mut params = Map::new();
-            params
-                .assign("work_authorization[]", Value::String("no".into()))
-                .unwrap();
-
+            let params = parse_query("work_authorization[]=no");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4], results.ids());
         }
 
         // ignoring contacted talents
         {
-            let mut params = Map::new();
-            params
-                .assign("contacted_talents[]", Value::String("2".into()))
-                .unwrap();
-
+            let params = parse_query("contacted_talents[]=2");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5, 1], results.ids());
         }
 
         // ignoring contacted talents - csv parsing
         {
-            let mut params = Map::new();
-            params
-                .assign("contacted_talents", Value::String("2,4".into()))
-                .unwrap();
-
+            let params = parse_query("contacted_talents=2,4");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![5, 1], results.ids());
 
-            let mut params = Map::new();
-            params
-                .assign("contacted_talents", Value::String("2,5,4".into()))
-                .unwrap();
-
+            let params = parse_query("contacted_talents=2,5,4");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![1], results.ids());
         }
 
         // ignoring blocked companies
         {
-            let mut params = Map::new();
-            params.assign("company_id", Value::U64(22)).unwrap();
-
+            let params = parse_query("company_id=22");
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![4, 5, 1], results.ids());
         }
 
         // search by maximum salary
         {
-            let mut params = Map::new();
-            params.assign("maximum_salary", Value::String("30000".into())).unwrap();
-
+            let params = parse_query("maximum_salary=30000");
             let results = Talent::search(&mut client, &*index, &params);
             // ignores talent 3 due to accepted == false
             assert_eq!(vec![5, 2], results.ids());
@@ -1753,29 +1531,22 @@ mod tests {
 
         // maximum salary searches should be scoped by location
         {
-            let mut params = Map::new();
-            params.assign("maximum_salary", Value::String("30000".into())).unwrap();
-            params
-                .assign("work_locations[]", Value::String("Berlin".into()))
-                .unwrap();
+            let params = parse_query("maximum_salary=30000\
+                &work_locations[]=Berlin");
 
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![2], results.ids());
 
-            let mut params = Map::new();
-            params.assign("maximum_salary", Value::String("30000".into())).unwrap();
-            params
-                .assign("work_locations[]", Value::String("Amsterdam".into()))
-                .unwrap();
+            let params = parse_query("maximum_salary=30000\
+                &work_locations[]=Amsterdam");
 
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![5], results.ids());
 
             // Ensure that work_locations are additive
-            let mut params = Map::new();
-            params.assign("maximum_salary", Value::String("30000".into())).unwrap();
-            params.assign("work_locations[]", Value::String("Amsterdam".into())).unwrap();
-            params.assign("work_locations[]", Value::String("Berlin".into())).unwrap();
+            let params = parse_query("maximum_salary=30000\
+                &work_locations[]=Amsterdam\
+                &work_locations[]=Berlin");
 
             let results = Talent::search(&mut client, &*index, &params);
             assert_eq!(vec![5, 2], results.ids());

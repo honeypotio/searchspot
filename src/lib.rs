@@ -29,6 +29,12 @@ extern crate num_cpus;
 #[cfg(test)]
 extern crate lazy_static;
 
+#[cfg(test)]
+extern crate urlencoded;
+
+#[cfg(test)]
+extern crate url;
+
 #[macro_use]
 pub mod macros;
 
