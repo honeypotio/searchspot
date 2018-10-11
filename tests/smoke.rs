@@ -8,7 +8,7 @@ extern crate lazy_static;
 extern crate urlencoded;
 extern crate url;
 
-use helpers::{make_client, refresh_index, CONFIG, parse_query};
+use helpers::{make_client, refresh_index, parse_query};
 
 use searchspot::resources::Talent;
 use searchspot::resources::SearchResults;
@@ -165,114 +165,134 @@ macro_rules! index_talents {
     }};
 }
 
-#[test]
-fn test_search() {
-    let (mut client, index, _talents) = index_talents!(
-        backend_rust
-        senior_java
-        rejected
-        sysadmin_with_clojure
-        amsterdam_game_dev
-    );
+macro_rules! index_default_talents {
+    () => {{
+        index_talents!(
+            backend_rust
+            senior_java
+            rejected
+            sysadmin_with_clojure
+            amsterdam_game_dev
+        )
+    }};
+}
 
+#[test]
+fn no_params() {
+    let (mut client, index, _talents) = index_default_talents!();
     let empty_params = &parse_query("");
 
-    // no parameters are given
-    {
-        let results = Talent::search(&mut client, &*index, empty_params);
-        assert_eq!(vec![4, 5, 2, 1], results.ids());
-        assert_eq!(4, results.total);
-        assert!(results.highlights().iter().all(|r| r.is_none()));
-    }
+    let results = Talent::search(&mut client, &*index, empty_params);
+    assert_eq!(vec![4, 5, 2, 1], results.ids());
+    assert_eq!(4, results.total);
+    assert!(results.highlights().iter().all(|r| r.is_none()));
+}
 
-    {
-        assert!(Talent::delete(&mut client, "1", &*index).is_ok());
-        assert!(Talent::delete(&mut client, "4", &*index).is_ok());
-        refresh_index(&mut client, &*index);
+#[test]
+fn deletes_work() {
+    let (mut client, index, _talents) = index_default_talents!();
+    let empty_params = &parse_query("");
 
-        let results = Talent::search(&mut client, &*index, empty_params);
-        assert_eq!(vec![5, 2], results.ids());
+    assert!(Talent::delete(&mut client, "1", &*index).is_ok());
+    assert!(Talent::delete(&mut client, "4", &*index).is_ok());
+    refresh_index(&mut client, &*index);
 
-        populate_index(&mut client, &*index);
-        refresh_index(&mut client, &*index);
-    }
+    let results = Talent::search(&mut client, &*index, empty_params);
+    assert_eq!(vec![5, 2], results.ids());
+}
 
-    // a non existing index is given
-    {
-        let params = parse_query("index=lololol");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert!(results.is_empty());
-    }
+#[test]
+fn non_existing_index() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-    // a date that doesn't match given indexes is given
-    {
-        let params = parse_query(format!("epoch={}", epoch_from_year!("2040")));
-        let results = Talent::search(&mut client, &*index, &params);
-        assert!(results.is_empty());
-    }
+    let params = parse_query("index=lololol");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert!(results.is_empty());
+}
 
-    // a date that match only some talents is given
-    {
-        let params = parse_query(format!("epoch={}", epoch_from_year!("2006")));
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![2, 1], results.ids());
-    }
+#[test]
+fn epoch_not_in_index() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-    // page is given
-    {
-        let mut params = parse_query("per_page=2&offset=0");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 5], results.ids());
+    let params = parse_query(format!("epoch={}", epoch_from_year!("2040")));
+    let results = Talent::search(&mut client, &*index, &params);
+    assert!(results.is_empty());
+}
 
-        params.assign("offset", Value::U64(2)).unwrap();
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![2, 1], results.ids());
+#[test]
+fn epoch_matching_some_talents() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-        params.assign("offset", Value::U64(4)).unwrap();
-        let results = Talent::search(&mut client, &*index, &params);
-        assert!(results.ids().is_empty());
-    }
+    let params = parse_query(format!("epoch={}", epoch_from_year!("2006")));
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2, 1], results.ids());
+}
 
-    // searching for work roles
-    {
-        let params = parse_query("desired_work_roles[]=Fullstack");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 5], results.ids());
-    }
+#[test]
+fn pagination() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-    // searching for work roles with experience ranges
-    {
-        let params = parse_query("desired_work_roles[]=Fullstack:2");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4], results.ids());
+    let mut params = parse_query("per_page=2&offset=0");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 5], results.ids());
 
-        // Works as an OR filter
-        let params = parse_query("desired_work_roles[]=Fullstack:2&desired_work_roles[]=DevOps:0");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 5], results.ids());
+    params.assign("offset", Value::U64(2)).unwrap();
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2, 1], results.ids());
 
-        // Ensure it still works with salary range filter
-        let params = parse_query("desired_work_roles[]=Fullstack:2&desired_work_roles[]=DevOps:0\
-                                    &maximum_salary=30000&work_locations[]=Amsterdam");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![5], results.ids());
+    params.assign("offset", Value::U64(4)).unwrap();
+    let results = Talent::search(&mut client, &*index, &params);
+    assert!(results.ids().is_empty());
+}
 
-        assert_eq!(results.raw_es_query, None);
+#[test]
+fn work_roles() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-        let params = parse_query("debug_es_query=true\
-            &desired_work_roles[]=Fullstack:2\
-            &desired_work_roles[]=DevOps:0\
-            &maximum_salary=30000\
-            &work_locations[]=Amsterdam");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![5], results.ids());
-        assert!(
-            results.raw_es_query.as_ref().unwrap()
-                .contains(&format!("POST /{}/_search", index)),
-            "actual: {:?}",
-            results.raw_es_query
-        );
-    }
+    let params = parse_query("desired_work_roles[]=Fullstack");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 5], results.ids());
+}
+
+#[test]
+fn work_roles_with_experience() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("desired_work_roles[]=Fullstack:2");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4], results.ids());
+
+    // Works as an OR filter
+    let params = parse_query("desired_work_roles[]=Fullstack:2&desired_work_roles[]=DevOps:0");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 5], results.ids());
+
+    // Ensure it still works with salary range filter
+    let params = parse_query("desired_work_roles[]=Fullstack:2&desired_work_roles[]=DevOps:0\
+                                &maximum_salary=30000&work_locations[]=Amsterdam");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![5], results.ids());
+
+    assert_eq!(results.raw_es_query, None);
+
+    let params = parse_query("debug_es_query=true\
+        &desired_work_roles[]=Fullstack:2\
+        &desired_work_roles[]=DevOps:0\
+        &maximum_salary=30000\
+        &work_locations[]=Amsterdam");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![5], results.ids());
+    assert!(
+        results.raw_es_query.as_ref().unwrap()
+            .contains(&format!("POST /{}/_search", index)),
+        "actual: {:?}",
+        results.raw_es_query
+    );
+}
+
+#[test]
+fn test_search() {
+    let (mut client, index, _talents) = index_default_talents!();
 
     // searching for work experience
     {
