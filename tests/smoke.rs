@@ -146,18 +146,34 @@ pub fn populate_index(mut client: &mut Client, index: &str) {
     Talent::index(&mut client, &index, talents).unwrap();
 }
 
+macro_rules! index_talents {
+    ($($talent_file:ident)*) => {{
+        let talents = get_talents!($($talent_file)*);
+        let index = format!(
+            "tests_{}_line_{}",
+            module_path!().replace(":", "_"),
+            line!(),
+        );
+        let mut client = make_client();
+
+        Talent::reset_index(&mut client, &*index).unwrap();
+        refresh_index(&mut client, &*index);
+
+        Talent::index(&mut client, &*index, talents.clone()).unwrap();
+        refresh_index(&mut client, &*index);
+        (client, index, talents)
+    }};
+}
+
 #[test]
 fn test_search() {
-    let mut client = make_client();
-    let index = format!("{}_{}", CONFIG.es.index, "talent");
-
-    Talent::reset_index(&mut client, &*index).unwrap();
-
-    refresh_index(&mut client, &*index);
-
-    println!("populating: {}", index);
-    populate_index(&mut client, &*index);
-    refresh_index(&mut client, &*index);
+    let (mut client, index, _talents) = index_talents!(
+        backend_rust
+        senior_java
+        rejected
+        sysadmin_with_clojure
+        amsterdam_game_dev
+    );
 
     let empty_params = &parse_query("");
 
@@ -252,7 +268,7 @@ fn test_search() {
         assert_eq!(vec![5], results.ids());
         assert!(
             results.raw_es_query.as_ref().unwrap()
-                .contains("POST /sample_index_talent/_search"),
+                .contains(&format!("POST /{}/_search", index)),
             "actual: {:?}",
             results.raw_es_query
         );
