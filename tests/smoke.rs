@@ -451,6 +451,19 @@ fn keyword_partial_keywords() {
 }
 
 #[test]
+fn keyword_rust_trust() {
+    let (mut client, index, _talents) = index_talents!(
+        sysadmin_with_clojure
+        backend_rust
+    );
+
+    let params = parse_query("keywords=rust&features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+
+    assert_eq!(vec![2], results.ids());
+}
+
+#[test]
 fn keyword_summary() {
     let (mut client, index, _talents) = index_default_talents!();
 
@@ -463,7 +476,7 @@ fn keyword_summary() {
     {
         let params = parse_query("keywords=C++");
         let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 5], results.ids());
+        assert_eq!(vec![5, 4], results.ids());
     }
 
     {
@@ -475,7 +488,7 @@ fn keyword_summary() {
     {
         let params = parse_query("keywords=rust and");
         let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![1, 2], results.ids());
+        assert_eq!(vec![1, 4, 2], results.ids());
     }
 }
 

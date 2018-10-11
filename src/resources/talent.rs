@@ -15,6 +15,8 @@ use rs_es::Client;
 use resource::Resource;
 use terms::VectorOfTerms;
 
+use std::collections::{HashSet, HashMap};
+
 /// The type that we use in ElasticSearch for defining a `Talent`.
 const ES_TYPE: &'static str = "talent";
 
@@ -344,51 +346,69 @@ impl Talent {
         let company_id = i32_vec_from_params!(params, "company_id");
         let date_filter_present = params.get("epoch") != None;
 
+        let mut must_filters = vec![
+            vec![
+                Query::build_bool()
+                    .with_must(
+                        vec_from_params!(params, "languages")
+                            .into_iter()
+                            .map(|language: String| {
+                                Query::build_term("languages", language).build()
+                            })
+                            .collect::<Vec<Query>>(),
+                    )
+                    .build(),
+            ],
+            <Query as VectorOfTerms<String>>::build_terms(
+                "professional_experience",
+                &vec_from_params!(params, "professional_experience"),
+            ),
+            <Query as VectorOfTerms<String>>::build_terms(
+                "work_authorization",
+                &vec_from_params!(params, "work_authorization"),
+            ),
+            <Query as VectorOfTerms<String>>::build_terms(
+                "work_locations",
+                &vec_from_params!(params, "work_locations"),
+            ),
+            <Query as VectorOfTerms<String>>::build_terms(
+                "current_location",
+                &vec_from_params!(params, "current_location"),
+            ),
+            <Query as VectorOfTerms<i32>>::build_terms(
+                "id",
+                &vec_from_maybe_csv_params!(params, "bookmarked_talents"),
+            ),
+            Talent::visibility_filters(
+                epoch,
+                i32_vec_from_params!(params, "presented_talents"),
+                date_filter_present,
+            ),
+        ];
+
+        let search_features_param = params
+            .get("features")
+            .unwrap_or(&Value::Null);
+        let search_features: Vec<String> = <_>::from_value(search_features_param).unwrap_or(vec![]);
+        let search_features: HashSet<_> = search_features.into_iter().collect();
+        let no_fulltext_search = search_features.contains("no_fulltext_search");
+
+        let overrides = if no_fulltext_search {
+            vec![("summary", ".keyword")]
+        } else {
+            vec![]
+        }.into_iter().collect();
+
+        must_filters.push(
+            match Talent::full_text_search(params, overrides) {
+                Some(keywords) => vec![keywords],
+                None => vec![],
+            },
+        );
+
         Query::build_bool()
             .with_must(
-                vec![
-                    match Talent::full_text_search(params) {
-                        Some(keywords) => vec![keywords],
-                        None => vec![],
-                    },
-                    vec![
-                        Query::build_bool()
-                            .with_must(
-                                vec_from_params!(params, "languages")
-                                    .into_iter()
-                                    .map(|language: String| {
-                                        Query::build_term("languages", language).build()
-                                    })
-                                    .collect::<Vec<Query>>(),
-                            )
-                            .build(),
-                    ],
-                    <Query as VectorOfTerms<String>>::build_terms(
-                        "professional_experience",
-                        &vec_from_params!(params, "professional_experience"),
-                    ),
-                    <Query as VectorOfTerms<String>>::build_terms(
-                        "work_authorization",
-                        &vec_from_params!(params, "work_authorization"),
-                    ),
-                    <Query as VectorOfTerms<String>>::build_terms(
-                        "work_locations",
-                        &vec_from_params!(params, "work_locations"),
-                    ),
-                    <Query as VectorOfTerms<String>>::build_terms(
-                        "current_location",
-                        &vec_from_params!(params, "current_location"),
-                    ),
-                    <Query as VectorOfTerms<i32>>::build_terms(
-                        "id",
-                        &vec_from_maybe_csv_params!(params, "bookmarked_talents"),
-                    ),
-                    Talent::visibility_filters(
-                        epoch,
-                        i32_vec_from_params!(params, "presented_talents"),
-                        date_filter_present,
-                    ),
-                ].into_iter()
+                must_filters.into_iter()
                     .flat_map(|x| x)
                     .collect::<Vec<Query>>(),
             )
@@ -428,7 +448,7 @@ impl Talent {
             .build()
     }
 
-    pub fn full_text_search(params: &Map) -> Option<Query> {
+    pub fn full_text_search(params: &Map, overrides: HashMap<&str, &str>) -> Option<Query> {
         match params.get("keywords") {
             Some(&Value::String(ref keywords)) => {
                 if keywords.is_empty() {
@@ -441,9 +461,10 @@ impl Talent {
                 // with build_bool().with_should() failed.
                 let raw_query = keywords.contains('\"');
                 macro_rules! maybe_raw {
-                    ($field:expr) => {
-                        format!("{}{}", $field, if raw_query { ".raw" } else { "" })
-                    };
+                    ($field:expr) => {{
+                        let field_modifier = overrides.get($field).unwrap_or(&"");
+                        format!("{}{}{}", $field, field_modifier, if raw_query { ".raw" } else { "" })
+                    }};
                 }
                 let query = Query::build_query_string(keywords.to_owned())
                     .with_fields(vec![
@@ -582,6 +603,7 @@ impl Resource for Talent {
                     } else {
                         highlight.add_setting("skills".to_owned(), settings.clone());
                         highlight.add_setting("summary".to_owned(), settings.clone());
+                        highlight.add_setting("summary.keyword".to_owned(), settings.clone());
                         highlight.add_setting("headline".to_owned(), settings.clone());
                         highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
                         highlight.add_setting("work_experiences".to_owned(), settings.clone());
@@ -591,6 +613,7 @@ impl Resource for Talent {
                 _ => {
                     highlight.add_setting("skills".to_owned(), settings.clone());
                     highlight.add_setting("summary".to_owned(), settings.clone());
+                    highlight.add_setting("summary.keyword".to_owned(), settings.clone());
                     highlight.add_setting("headline".to_owned(), settings.clone());
                     highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
                     highlight.add_setting("work_experiences".to_owned(), settings.clone());
@@ -747,15 +770,24 @@ impl Resource for Talent {
           },
 
           "summary": {
-            "type":            "string",
-            "analyzer":        "trigrams",
-            "search_analyzer": "words",
-            "boost":           "2.0",
+            "type": "multi_field",
             "fields": {
-              "raw": {
-                "type": "string",
-                "index": "not_analyzed"
-              }
+                "summary": {
+                    "type":            "string",
+                    "analyzer":        "trigrams",
+                    "search_analyzer": "words",
+                    "boost":           "2.0",
+                },
+                "keyword": {
+                    "type":            "string",
+                    "analyzer":        "words",
+                    "search_analyzer": "words",
+                    "boost":           "2.0",
+                },
+                "raw": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                }
             }
           },
 
