@@ -7,6 +7,7 @@ authors     = ["Giovanni Capuano <webmaster@giovannicapuano.net>"]
 license     = "BSD-2-Clause"
 description = "The service responsible for Honeypot's ElasticSearch data"
 keywords    = ["elasticsearch"]
+autotests = false
 
 [dependencies]
 chrono       = "0.4"

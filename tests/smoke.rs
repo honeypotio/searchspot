@@ -8,17 +8,44 @@ extern crate lazy_static;
 extern crate urlencoded;
 extern crate url;
 
+use helpers::{make_client, refresh_index, CONFIG, parse_query};
+
 use searchspot::resources::Talent;
 use searchspot::resources::SearchResults;
 use searchspot::resource::Resource;
-use chrono::prelude::*;
 
+use chrono::prelude::*;
 use rs_es::operations::search::highlight::HighlightResult;
 use rs_es::Client;
-
 use params::Value;
 
-use helpers::{make_client, refresh_index, CONFIG, parse_query};
+use std::fs;
+use std::io::Read;
+use std::fmt::Debug;
+use std::path::Path;
+
+pub fn load_talent<P: AsRef<Path> + Debug>(path: P, idx: usize) -> Talent {
+    let path = path.as_ref();
+    let mut file = fs::File::open(path).expect(&format!("Failed to open file: {:?}", path));
+    let mut raw = String::new();
+    file.read_to_string(&mut raw).expect(&format!("Failed to read {:?}", path));
+    let processed = raw.replace("$id", &idx.to_string());
+    serde_json::from_str(&processed).expect(&format!("Failed to deserialize file: {:?}", path))
+}
+
+macro_rules! get_talents {
+    ($($talent_file:ident)*) => {{
+        let mut talents = vec![];
+        let filenames: Vec<&'static str> = vec![$(stringify!($talent_file)),*];
+
+        for (idx, filename) in filenames.into_iter().enumerate() {
+            let path = format!("tests/talents/{}.json", filename);
+            talents.push(load_talent(&path, idx + 1));
+        }
+
+        talents
+    }};
+}
 
 mod helpers {
     use urlencoded;
@@ -108,170 +135,13 @@ impl SearchResultsExt for SearchResults {
 }
 
 pub fn populate_index(mut client: &mut Client, index: &str) {
-    let talents: Vec<Talent> = serde_json::from_str(r#"[
-        {
-            "id": 1,
-            "accepted": true,
-            "desired_work_roles": [],
-            "desired_work_roles_experience": [],
-            "desired_roles": [],
-            "professional_experience": "1..2",
-            "work_locations": ["Berlin"],
-            "educations": ["Computer science"],
-            "current_location": "Berlin",
-            "work_authorization": "yes",
-            "skills": ["Rust", "HTML5", "HTML"],
-            "summary": "I'm a senior Rust developer and sometimes I do also HTML.",
-            "headline": "Backend developer with Rust experience",
-            "work_experiences": ["Database Administrator"],
-            "contacted_company_ids": [],
-            "batch_starts_at": "2006-01-01T12:00:00+00:00",
-            "batch_ends_at": "2020-01-01T12:00:00+00:00",
-            "added_to_batch_at": "2006-01-01T12:00:00+00:00",
-            "weight": -5,
-            "blocked_companies": [],
-            "avatar_url": "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250",
-            "salary_expectations": [
-                [40000, "EUR", "Berlin"]
-            ],
-            "latest_position": "Developer",
-            "languages": ["Italian"]
-        },
-        {
-            "id": 2,
-            "accepted": true,
-            "desired_work_roles": [],
-            "desired_work_roles_experience": [],
-            "desired_roles": [],
-            "professional_experience": "8+",
-            "work_locations": ["Rome", "Berlin"],
-            "educations": ["Computer science"],
-            "current_location": "Berlin",
-            "work_authorization": "yes",
-            "skills": [
-                "Rust",
-                "HTML5",
-                "Java",
-                "Unity"
-            ],
-            "summary": "I'm a java dev with some tricks up my sleeves",
-            "headline": "Senior Java engineer",
-            "work_experiences": [],
-            "contacted_company_ids": [],
-            "batch_starts_at": "2006-01-01T12:00:00+00:00",
-            "batch_ends_at": "2020-01-01T12:00:00+00:00",
-            "added_to_batch_at": "2006-01-01T12:00:00+00:00",
-            "weight": 6,
-            "blocked_companies": [22],
-            "avatar_url": "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250",
-            "salary_expectations": [
-                [30000, "EUR", "Berlin"]
-            ],
-            "latest_position": "",
-            "languages": ["German", "English"]
-        },
-        {
-            "id": 3,
-            "accepted": false,
-            "desired_work_roles": [],
-            "desired_work_roles_experience": [],
-            "desired_roles": [],
-            "professional_experience": "1..2",
-            "work_locations": ["Berlin"],
-            "educations": ["Computer science"],
-            "current_location": "Berlin",
-            "work_authorization": "yes",
-            "skills": [],
-            "summary": "",
-            "headline": "",
-            "work_experiences": [],
-            "contacted_company_ids": [],
-            "batch_starts_at": "2007-01-01T12:00:00+00:00",
-            "batch_ends_at": "2020-01-01T12:00:00+00:00",
-            "added_to_batch_at": "2011-01-01T12:00:00+00:00",
-            "weight": 6,
-            "blocked_companies": [],
-            "avatar_url": "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250",
-            "salary_expectations": [
-                [25000, "EUR", "Berlin"]
-            ],
-            "latest_position": "",
-            "languages": ["English"]
-        },
-        {
-            "id": 4,
-            "accepted": true,
-            "desired_work_roles": [],
-            "desired_work_roles_experience": [],
-            "desired_roles": [
-                { "role": "Fullstack", "experience": "2..4" },
-                { "role": "DevOps", "experience": "4..6" }
-            ],
-            "professional_experience": "1..2",
-            "work_locations": ["Berlin"],
-            "educations": ["Computer science", "Europe community"],
-            "current_location": "Berlin",
-            "work_authorization": "no",
-            "skills": [
-                "ClojureScript",
-                "C++",
-                "React.js"
-            ],
-            "summary": "ClojureScript right now, previously C++",
-            "headline": "Senior fullstack developer with sysadmin skills.",
-            "work_experiences": [
-                "Backend Engineer",
-                "Database Administrator"
-            ],
-            "contacted_company_ids": [6],
-            "batch_starts_at": "2008-01-01T12:00:00+00:00",
-            "batch_ends_at": "2020-01-01T12:00:00+00:00",
-            "added_to_batch_at": "2011-01-01T12:00:00+00:00",
-            "weight": 0,
-            "blocked_companies": [],
-            "avatar_url": "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250",
-            "salary_expectations": [
-                [40000, "EUR", "Berlin"]
-            ],
-            "latest_position": "",
-            "languages": ["English"]
-        },
-        {
-            "id": 5,
-            "accepted": true,
-            "desired_work_roles": ["Fullstack", "DevOps"],
-            "desired_work_roles_experience": ["0..1", "8+"],
-            "desired_roles": [
-                { "role": "Fullstack", "experience": "0..1" },
-                { "role": "DevOps", "experience": "8+" }
-            ],
-            "professional_experience": "1..2",
-            "work_locations": ["Berlin", "Amsterdam"],
-            "educations": [],
-            "current_location": "Naples",
-            "work_authorization": "yes",
-            "skills": [
-                "JavaScript",
-                "C++",
-                "Ember.js"
-            ],
-            "summary": "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?",
-            "headline": "Amazing C and Unity3D developer",
-            "work_experiences": [],
-            "contacted_company_ids": [6],
-            "batch_starts_at": "2008-01-01T12:00:00+00:00",
-            "batch_ends_at": "2020-01-01T12:00:00+00:00",
-            "added_to_batch_at": "2011-01-01T12:00:00+00:00",
-            "weight": 0,
-            "blocked_companies": [],
-            "avatar_url": "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250",
-            "salary_expectations": [
-                [10000, "EUR", "Amsterdam"]
-            ],
-            "latest_position": "",
-            "languages": ["English"]
-        }
-    ]"#).unwrap();
+    let talents = get_talents!(
+        backend_rust
+        senior_java
+        rejected
+        sysadmin_with_clojure
+        amsterdam_game_dev
+    );
 
     Talent::index(&mut client, &index, talents).unwrap();
 }

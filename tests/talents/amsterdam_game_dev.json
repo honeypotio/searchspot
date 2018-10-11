@@ -1,0 +1,58 @@
+{
+    "id": $id,
+    "accepted": true,
+    "desired_work_roles": [
+        "Fullstack",
+        "DevOps"
+    ],
+    "desired_work_roles_experience": [
+        "0..1",
+        "8+"
+    ],
+    "desired_roles": [
+        {
+            "role": "Fullstack",
+            "experience": "0..1"
+        },
+        {
+            "role": "DevOps",
+            "experience": "8+"
+        }
+    ],
+    "professional_experience": "1..2",
+    "work_locations": [
+        "Berlin",
+        "Amsterdam"
+    ],
+    "educations": [],
+    "current_location": "Naples",
+    "work_authorization": "yes",
+    "skills": [
+        "JavaScript",
+        "C++",
+        "Ember.js"
+    ],
+    "summary": "C++ and frontend dev. HTML, C++, JavaScript and C#. Did I say C++?",
+    "headline": "Amazing C and Unity3D developer",
+    "work_experiences": [],
+    "contacted_company_ids": [
+        6
+    ],
+    "batch_starts_at": "2008-01-01T12:00:00+00:00",
+    "batch_ends_at": "2020-01-01T12:00:00+00:00",
+    "added_to_batch_at": "2011-01-01T12:00:00+00:00",
+    "weight": 0,
+    "blocked_companies": [],
+    "avatar_url": "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250",
+    "salary_expectations": [
+        [
+            10000,
+            "EUR",
+            "Amsterdam"
+        ]
+    ],
+    "latest_position": "",
+    "languages": [
+        "English"
+    ]
+}

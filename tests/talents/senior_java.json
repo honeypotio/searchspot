@@ -1,0 +1,47 @@
+{
+    "id": $id,
+    "accepted": true,
+    "desired_work_roles": [],
+    "desired_work_roles_experience": [],
+    "desired_roles": [],
+    "professional_experience": "8+",
+    "work_locations": [
+        "Rome",
+        "Berlin"
+    ],
+    "educations": [
+        "Computer science"
+    ],
+    "current_location": "Berlin",
+    "work_authorization": "yes",
+    "skills": [
+        "Rust",
+        "HTML5",
+        "Java",
+        "Unity"
+    ],
+    "summary": "I'm a java dev with some tricks up my sleeves",
+    "headline": "Senior Java engineer",
+    "work_experiences": [],
+    "contacted_company_ids": [],
+    "batch_starts_at": "2006-01-01T12:00:00+00:00",
+    "batch_ends_at": "2020-01-01T12:00:00+00:00",
+    "added_to_batch_at": "2006-01-01T12:00:00+00:00",
+    "weight": 6,
+    "blocked_companies": [
+        22
+    ],
+    "avatar_url": "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250",
+    "salary_expectations": [
+        [
+            30000,
+            "EUR",
+            "Berlin"
+        ]
+    ],
+    "latest_position": "",
+    "languages": [
+        "German",
+        "English"
+    ]
+}

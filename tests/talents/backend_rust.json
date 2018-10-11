@@ -1,0 +1,28 @@
+{
+    "id": $id,
+    "accepted": true,
+    "desired_work_roles": [],
+    "desired_work_roles_experience": [],
+    "desired_roles": [],
+    "professional_experience": "1..2",
+    "work_locations": ["Berlin"],
+    "educations": ["Computer science"],
+    "current_location": "Berlin",
+    "work_authorization": "yes",
+    "skills": ["Rust", "HTML5", "HTML"],
+    "summary": "I'm a senior Rust developer and sometimes I do also HTML.",
+    "headline": "Backend developer with Rust experience",
+    "work_experiences": ["Database Administrator"],
+    "contacted_company_ids": [],
+    "batch_starts_at": "2006-01-01T12:00:00+00:00",
+    "batch_ends_at": "2020-01-01T12:00:00+00:00",
+    "added_to_batch_at": "2006-01-01T12:00:00+00:00",
+    "weight": -5,
+    "blocked_companies": [],
+    "avatar_url": "https://secure.gravatar.com/avatar/a0b9ad63fb35d210a218c317e0a6284e.jpg?s=250",
+    "salary_expectations": [
+        [40000, "EUR", "Berlin"]
+    ],
+    "latest_position": "Developer",
+    "languages": ["Italian"]
+}
