@@ -291,325 +291,389 @@ fn work_roles_with_experience() {
 }
 
 #[test]
-fn test_search() {
+fn work_experience() {
     let (mut client, index, _talents) = index_default_talents!();
 
-    // searching for work experience
-    {
-        let params = parse_query("professional_experience[]=8+");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![2], results.ids());
-    }
+    let params = parse_query("professional_experience[]=8+");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2], results.ids());
+}
 
-    // searching for work locations
-    {
-        let params = parse_query("work_locations[]=Rome");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![2], results.ids());
-    }
+#[test]
+fn work_locations() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-    // searching for a language
-    {
-        let params = parse_query("languages[]=English");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 5, 2], results.ids());
-    }
+    let params = parse_query("work_locations[]=Rome");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2], results.ids());
+}
 
-    // searching for languages
-    {
-        let params = parse_query("languages[]=English\
-            &languages[]=German");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![2], results.ids());
-    }
+#[test]
+fn single_language() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-    // searching for a single keyword
-    {
-        let params = parse_query("keywords=HTML5");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![1, 2, 5], results.ids());
-    }
+    let params = parse_query("languages[]=English");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 5, 2], results.ids());
+}
 
-    // searching for a keyword for education entries
-    {
-        let params = parse_query("keywords=computer science");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![1, 2, 4], results.ids());
-    }
+#[test]
+fn multiple_languages() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("languages[]=English\
+        &languages[]=German");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2], results.ids());
+}
+
+#[test]
+fn keyword() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=HTML5");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![1, 2, 5], results.ids());
+}
+
+#[test]
+fn keyword_education_entries() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=computer science");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![1, 2, 4], results.ids());
+}
+
+#[test]
+fn keyword_case_insensitive() {
+    let (mut client, index, _talents) = index_default_talents!();
 
     // searching for a single, differently cased and incomplete keyword
+    let params = parse_query("keywords=html");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![1, 2, 5], results.ids());
+}
+
+#[test]
+fn keyword_with_filters() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=Rust, HTML5 and HTML\
+        &work_locations[]=Rome");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2], results.ids());
+}
+
+#[test]
+fn keyword_boolean_search() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=C++ and Ember.js AND NOT React.js");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![5], results.ids());
+}
+
+#[test]
+fn keyword_quotes() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=\"Unity\"");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2], results.ids());
+}
+
+#[test]
+// searching for a single word that's supposed to be split
+fn keyword_expected_split() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=reactjs");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4], results.ids());
+}
+
+#[test]
+fn keyword_dotted() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=react.js\
+        &work_locations[]=Berlin\
+        &desired_work_roles[]=Fullstack");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4], results.ids());
+}
+
+#[test]
+fn keyword_non_matching() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=Criogenesi");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert!(results.is_empty());
+}
+
+#[test]
+fn keyword_empty() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+
+    let params = parse_query("keywords=");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 5, 2, 1], results.ids());
+}
+
+// FIXME: Remove
+#[test]
+fn keyword_partial_keywords() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    // JavaScript, Java
     {
-        let params = parse_query("keywords=html");
+        let params = parse_query("keywords=Java");
         let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![1, 2, 5], results.ids());
+        assert_eq!(vec![2, 5], results.ids());
     }
 
-    // searching for keywords and filters
+    // JavaScript
     {
-        let params = parse_query("keywords=Rust, HTML5 and HTML\
-            &work_locations[]=Rome");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![2], results.ids());
-    }
-
-    // conditional search
-    {
-        let params = parse_query("keywords=C++ and Ember.js AND NOT React.js");
+        let params = parse_query("keywords=javascript");
         let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![5], results.ids());
     }
 
+    // JavaScript, ClojureScript
     {
-        let params = parse_query("keywords=\"Unity\"");
+        let params = parse_query("keywords=script");
         let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![2], results.ids());
+        assert_eq!(vec![4, 5], results.ids());
     }
+}
 
-    // searching for a single word that's supposed to be split
-    {
-        let params = parse_query("keywords=reactjs");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4], results.ids());
-    }
+#[test]
+fn keyword_summary() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-    // searching for the original dotted string
     {
-        let params = parse_query("keywords=react.js\
-            &work_locations[]=Berlin\
-            &desired_work_roles[]=Fullstack");
+        let params = parse_query("keywords=right now");
         let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![4], results.ids());
     }
 
-    // searching for a non-matching keyword
     {
-        let params = parse_query("keywords=Criogenesi");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert!(results.is_empty());
-    }
-
-    // searching for an empty keyword
-    {
-        let params = parse_query("keywords=");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 5, 2, 1], results.ids());
-    }
-
-    // searching for different parts of a single keyword
-    // (Java, JavaScript)
-    {
-        // JavaScript, Java
-        {
-            let params =parse_query("keywords=Java");
-            let results = Talent::search(&mut client, &*index, &params);
-            assert_eq!(vec![2, 5], results.ids());
-        }
-
-        // JavaScript
-        {
-            let params = parse_query("keywords=javascript");
-            let results = Talent::search(&mut client, &*index, &params);
-            assert_eq!(vec![5], results.ids());
-        }
-
-        // JavaScript, ClojureScript
-        {
-            let params = parse_query("keywords=script");
-            let results = Talent::search(&mut client, &*index, &params);
-            assert_eq!(vec![4, 5], results.ids());
-        }
-    }
-
-    // Searching for summary
-    {
-        {
-            let params = parse_query("keywords=right now");
-            let results = Talent::search(&mut client, &*index, &params);
-            assert_eq!(vec![4], results.ids());
-        }
-
-        {
-            let params = parse_query("keywords=C++");
-            let results = Talent::search(&mut client, &*index, &params);
-            assert_eq!(vec![4, 5], results.ids());
-        }
-
-        {
-            let params = parse_query("keywords=C#");
-            let results = Talent::search(&mut client, &*index, &params);
-            assert_eq!(vec![5], results.ids());
-        }
-
-        {
-            let params = parse_query("keywords=rust and");
-            let results = Talent::search(&mut client, &*index, &params);
-            assert_eq!(vec![1, 2], results.ids());
-        }
-    }
-
-    // Searching for headline and summary
-    {
-        let params = parse_query("keywords=senior");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![2, 1, 4], results.ids());
-    }
-
-    // Searching for ideal work roles
-    {
-        let params = parse_query("keywords=Devops");
+        let params = parse_query("keywords=C++");
         let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![4, 5], results.ids());
     }
 
-    // Searching for previous job title
-    {
-        let params = parse_query("keywords=database admin");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 1], results.ids());
-    }
-
-    // Ignoring some talents
-    {
-        let params = parse_query("keywords=database admin\
-            &ignored_talents[]=1");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4], results.ids());
-    }
-
-    // Ignoring some talents, csv parsing
-    {
-        let params = parse_query("keywords=database admin\
-            &ignored_talents[]=1");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4], results.ids());
-
-        let params = parse_query("keywords=database admin\
-            &ignored_talents=1, 4");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(Vec::<u32>::new(), results.ids());
-    }
-
-    // highlight
     {
         let params = parse_query("keywords=C#");
-        let results = Talent::search(&mut client, &*index, &params).talents;
-        let highlights = results
-            .into_iter()
-            .map(|r| r.highlight.unwrap())
-            .collect::<Vec<HighlightResult>>();
-        assert_eq!(Some(&vec![" C#.".to_owned()]), highlights[0].get("summary"));
-    }
-
-    // filtering for given company_id (skip contacted talents)
-    {
-        let params = parse_query("company_id=6");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![2, 1], results.ids());
-    }
-
-    // filtering for given bookmarks (ids)
-    {
-        let params = parse_query("bookmarked_talents[]=2\
-            &bookmarked_talents[]=4\
-            &bookmarked_talents[]=1\
-            &bookmarked_talents[]=3\
-            &bookmarked_talents[]=5\
-            &bookmarked_talents[]=6\
-            &bookmarked_talents[]=7\
-            &bookmarked_talents[]=8");
-
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 5, 2, 1], results.ids());
-        assert_eq!(4, results.total);
-
-        let params = parse_query("bookmarked_talents[]=2\
-            &bookmarked_talents[]=4");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 2], results.ids());
-        assert_eq!(2, results.total);
-    }
-
-    // filtering for given bookmarks (ids) with csv parsing
-    {
-        let params = parse_query("bookmarked_talents=2,4,1,3,5,6,7,8");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 5, 2, 1], results.ids());
-        assert_eq!(4, results.total);
-
-        let params = parse_query("bookmarked_talents=2,4");
-
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 2], results.ids());
-        assert_eq!(2, results.total);
-    }
-
-    // filtering for current_location
-    {
-        let params = parse_query("current_location[]=Naples");
         let results = Talent::search(&mut client, &*index, &params);
         assert_eq!(vec![5], results.ids());
     }
 
-    // filtering for work_authorization
     {
-        let params = parse_query("work_authorization[]=no");
+        let params = parse_query("keywords=rust and");
         let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4], results.ids());
+        assert_eq!(vec![1, 2], results.ids());
     }
+}
 
-    // ignoring contacted talents
-    {
-        let params = parse_query("contacted_talents[]=2");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 5, 1], results.ids());
-    }
+#[test]
+fn keyword_headline_summary() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-    // ignoring contacted talents - csv parsing
-    {
-        let params = parse_query("contacted_talents=2,4");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![5, 1], results.ids());
+    let params = parse_query("keywords=senior");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2, 1, 4], results.ids());
+}
 
-        let params = parse_query("contacted_talents=2,5,4");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![1], results.ids());
-    }
+#[test]
+fn keyword_ideal_work_roles() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-    // ignoring blocked companies
-    {
-        let params = parse_query("company_id=22");
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![4, 5, 1], results.ids());
-    }
+    let params = parse_query("keywords=Devops");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 5], results.ids());
+}
 
-    // search by maximum salary
-    {
-        let params = parse_query("maximum_salary=30000");
-        let results = Talent::search(&mut client, &*index, &params);
-        // ignores talent 3 due to accepted == false
-        assert_eq!(vec![5, 2], results.ids());
-    }
+#[test]
+fn keyword_previous_job_title() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-    // maximum salary searches should be scoped by location
-    {
-        let params = parse_query("maximum_salary=30000\
-            &work_locations[]=Berlin");
+    let params = parse_query("keywords=database admin");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 1], results.ids());
+}
 
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![2], results.ids());
+#[test]
+fn ignored_talents() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-        let params = parse_query("maximum_salary=30000\
-            &work_locations[]=Amsterdam");
+    let params = parse_query("keywords=database admin\
+        &ignored_talents[]=1");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4], results.ids());
+}
 
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![5], results.ids());
+#[test]
+fn ignored_talents_csv() {
+    let (mut client, index, _talents) = index_default_talents!();
 
-        // Ensure that work_locations are additive
-        let params = parse_query("maximum_salary=30000\
-            &work_locations[]=Amsterdam\
-            &work_locations[]=Berlin");
+    let params = parse_query("keywords=database admin\
+        &ignored_talents[]=1");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4], results.ids());
 
-        let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![5, 2], results.ids());
-    }
+    let params = parse_query("keywords=database admin\
+        &ignored_talents=1, 4");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(Vec::<u32>::new(), results.ids());
+}
+
+#[test]
+fn keyword_highlight() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=C#");
+    let results = Talent::search(&mut client, &*index, &params).talents;
+    let highlights = results
+        .into_iter()
+        .map(|r| r.highlight.unwrap())
+        .collect::<Vec<HighlightResult>>();
+    assert_eq!(Some(&vec![" C#.".to_owned()]), highlights[0].get("summary"));
+}
+
+#[test]
+fn contacted_talents_by_company_id() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    // FIXME: confusing test
+    let params = parse_query("company_id=6");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2, 1], results.ids());
+}
+
+#[test]
+fn bookmarked_talents() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("bookmarked_talents[]=2\
+        &bookmarked_talents[]=4\
+        &bookmarked_talents[]=1\
+        &bookmarked_talents[]=3\
+        &bookmarked_talents[]=5\
+        &bookmarked_talents[]=6\
+        &bookmarked_talents[]=7\
+        &bookmarked_talents[]=8");
+
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 5, 2, 1], results.ids());
+    assert_eq!(4, results.total);
+
+    let params = parse_query("bookmarked_talents[]=2\
+        &bookmarked_talents[]=4");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 2], results.ids());
+    assert_eq!(2, results.total);
+}
+
+#[test]
+fn bookmarked_talents_csv() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("bookmarked_talents=2,4,1,3,5,6,7,8");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 5, 2, 1], results.ids());
+    assert_eq!(4, results.total);
+
+    let params = parse_query("bookmarked_talents=2,4");
+
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 2], results.ids());
+    assert_eq!(2, results.total);
+}
+
+#[test]
+fn current_location() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("current_location[]=Naples");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![5], results.ids());
+}
+
+#[test]
+fn work_authorization() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("work_authorization[]=no");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4], results.ids());
+}
+
+#[test]
+fn contacted_talents() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("contacted_talents[]=2");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 5, 1], results.ids());
+}
+
+#[test]
+fn contacted_talents_csv() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("contacted_talents=2,4");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![5, 1], results.ids());
+
+    let params = parse_query("contacted_talents=2,5,4");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![1], results.ids());
+}
+
+#[test]
+fn blocked_companies() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("company_id=22");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 5, 1], results.ids());
+}
+
+#[test]
+fn maximum_salary() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("maximum_salary=30000");
+    let results = Talent::search(&mut client, &*index, &params);
+    // ignores talent 3 due to accepted == false
+    assert_eq!(vec![5, 2], results.ids());
+}
+
+#[test]
+fn maximum_salary_with_location_filters() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("maximum_salary=30000\
+        &work_locations[]=Berlin");
+
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2], results.ids());
+
+    let params = parse_query("maximum_salary=30000\
+        &work_locations[]=Amsterdam");
+
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![5], results.ids());
+
+    // Ensure that work_locations are additive
+    let params = parse_query("maximum_salary=30000\
+        &work_locations[]=Amsterdam\
+        &work_locations[]=Berlin");
+
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![5, 2], results.ids());
 }
