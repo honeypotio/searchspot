@@ -161,6 +161,7 @@ macro_rules! index_talents {
 
         Talent::index(&mut client, &*index, talents.clone()).unwrap();
         refresh_index(&mut client, &*index);
+
         (client, index, talents)
     }};
 }
@@ -366,6 +367,27 @@ fn keyword_with_filters() {
 }
 
 #[test]
+fn keyword_multiple() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=Rust, HTML&features[]=no_fulltext_search");
+
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![1, 2, 5], results.ids());
+}
+
+#[test]
+fn keyword_multiple_with_should_keywords() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=Rust, HTML\
+        &features[]=keywords_should&features[]=no_fulltext_search");
+
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![1, 2, 5, 4], results.ids());
+}
+
+#[test]
 fn keyword_boolean_search() {
     let (mut client, index, _talents) = index_default_talents!();
 
@@ -460,7 +482,27 @@ fn keyword_rust_trust() {
     let params = parse_query("keywords=rust&features[]=no_fulltext_search");
     let results = Talent::search(&mut client, &*index, &params);
 
+    // must filter means we only get 1 result
     assert_eq!(vec![2], results.ids());
+}
+
+#[test]
+fn keyword_rust_trust_should_keywords() {
+    let (mut client, index, _talents) = index_talents!(
+        sysadmin_with_clojure
+        backend_rust
+    );
+
+    let params = parse_query("keywords=rust&features[]=no_fulltext_search&features[]=keywords_should");
+    let results = Talent::search(&mut client, &*index, &params);
+    let highlights = results.talents
+        .iter()
+        .flat_map(|r| r.highlight.clone())
+        .collect::<Vec<HighlightResult>>();
+
+    // expect the backend_rust > sysadmin_with_clojure
+    assert_eq!(vec![2, 1], results.ids());
+    assert_eq!(None, highlights.get(1), "actual: {:?}", highlights[1]);
 }
 
 #[test]

@@ -346,6 +346,13 @@ impl Talent {
         let company_id = i32_vec_from_params!(params, "company_id");
         let date_filter_present = params.get("epoch") != None;
 
+        let search_features_param = params
+            .get("features")
+            .unwrap_or(&Value::Null);
+        let search_features: Vec<String> = <_>::from_value(search_features_param).unwrap_or(vec![]);
+        let search_features: HashSet<_> = search_features.into_iter().collect();
+        println!("search_features: {:?}", search_features);
+
         let mut must_filters = vec![
             vec![
                 Query::build_bool()
@@ -386,11 +393,7 @@ impl Talent {
             ),
         ];
 
-        let search_features_param = params
-            .get("features")
-            .unwrap_or(&Value::Null);
-        let search_features: Vec<String> = <_>::from_value(search_features_param).unwrap_or(vec![]);
-        let search_features: HashSet<_> = search_features.into_iter().collect();
+        let mut should_filters = vec![];
         let no_fulltext_search = search_features.contains("no_fulltext_search");
 
         let overrides = if no_fulltext_search {
@@ -399,14 +402,24 @@ impl Talent {
             vec![]
         }.into_iter().collect();
 
-        must_filters.push(
-            match Talent::full_text_search(params, overrides) {
-                Some(keywords) => vec![keywords],
-                None => vec![],
-            },
-        );
+        let keywords_use_should = search_features.contains("keywords_should");
+        let keyword_filter = match Talent::full_text_search(params, overrides) {
+            Some(keywords) => vec![keywords],
+            None => vec![],
+        };
+
+        if keywords_use_should {
+            should_filters.push(keyword_filter);
+        } else {
+            must_filters.push(keyword_filter);
+        }
 
         Query::build_bool()
+           .with_should(
+                should_filters.into_iter()
+                    .flat_map(|x| x)
+                    .collect::<Vec<Query>>(),
+            )
             .with_must(
                 must_filters.into_iter()
                     .flat_map(|x| x)
@@ -653,6 +666,7 @@ impl Resource for Talent {
 
         match result {
             Ok(result) => {
+                // println!("{:?}", result);
                 let total = result.hits.total;
 
                 if total == 0 {
