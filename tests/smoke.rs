@@ -416,6 +416,28 @@ fn keyword_multiple_with_should_keywords() {
     assert_eq!(vec![1, 2, 5, 4], results.ids());
 }
 
+
+#[test]
+fn keyword_cplusplus() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=C");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert!(results.ids().is_empty());
+
+    let params = parse_query("keywords=C++");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4, 5], results.ids());
+
+    let params = parse_query("keywords=C++ AND NOT C#");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4], results.ids());
+
+    let params = parse_query("keywords=C++ AND C#");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![5], results.ids());
+}
+
 #[test]
 fn keyword_boolean_search() {
     let (mut client, index, _talents) = index_default_talents!();

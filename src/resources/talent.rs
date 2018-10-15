@@ -964,6 +964,13 @@ impl Resource for Talent {
               "replacement": "$1",
           },
 
+          "protect_keywords": {
+              "type": "keyword_marker",
+              "keywords": [
+                  "C++", "C#"
+              ],
+              "ignore_case": true,
+          },
         }).as_object()
                     .unwrap()
                     .to_owned(),
@@ -983,7 +990,8 @@ impl Resource for Talent {
           "keywords": {
             "type":      "custom",
             "tokenizer": "standard",
-            "filter":    ["lowercase", "trim", "english_words_filter", "strip_js"]
+            "filter":    ["lowercase", "protect_keywords", "trim", "english_words_filter",
+                            "strip_js"]
           }
         }).as_object()
                     .unwrap()
