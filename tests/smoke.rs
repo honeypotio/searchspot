@@ -420,6 +420,18 @@ fn keyword_multiple_with_should_keywords() {
 fn keyword_boolean_search() {
     let (mut client, index, _talents) = index_default_talents!();
 
+    let params = parse_query("keywords=C++,React.js");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4], results.ids());
+
+    let params = parse_query("keywords=C++ AND React.js");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4], results.ids());
+
+    let params = parse_query("keywords=C++ AND NOT React.js");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![5], results.ids());
+
     let params = parse_query("keywords=C++ and Ember.js AND NOT React.js");
     let results = Talent::search(&mut client, &*index, &params);
     assert_eq!(vec![5, 1], results.ids());
@@ -428,6 +440,22 @@ fn keyword_boolean_search() {
 #[test]
 fn keyword_boolean_search_no_fts() {
     let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=C++,React.js\
+        &features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+    // FIXME: C++ is becoming C and matching multiple times to boost score.
+    assert_eq!(vec![4, 5], results.ids());
+
+    let params = parse_query("keywords=C++ AND React.js\
+        &features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![4], results.ids());
+
+    let params = parse_query("keywords=C++ AND NOT React.js\
+        &features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![5], results.ids());
 
     let params = parse_query("keywords=C++ and Ember.js AND NOT React.js\
         &features[]=no_fulltext_search");
