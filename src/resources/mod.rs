@@ -1,6 +1,7 @@
 mod talent;
 
 pub use self::talent::Talent;
+pub use self::talent::FoundTalent;
 pub use self::talent::SearchResults;
 
 mod score;

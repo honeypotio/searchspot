@@ -10,8 +10,7 @@ extern crate url;
 
 use helpers::{make_client, refresh_index, parse_query};
 
-use searchspot::resources::Talent;
-use searchspot::resources::SearchResults;
+use searchspot::resources::{Talent, FoundTalent, SearchResults};
 use searchspot::resource::Resource;
 
 use chrono::prelude::*;
@@ -115,12 +114,17 @@ macro_rules! epoch_from_year {
 }
 
 trait SearchResultsExt {
+    fn talents(&self) -> Vec<&FoundTalent>;
     fn ids(&self) -> Vec<u32>;
     fn highlights(&self) -> Vec<Option<HighlightResult>>;
     fn is_empty(&self) -> bool;
 }
 
 impl SearchResultsExt for SearchResults {
+    fn talents(&self) -> Vec<&FoundTalent> {
+        self.talents.iter().map(|r| &r.talent).collect()
+    }
+
     fn ids(&self) -> Vec<u32> {
         self.talents.iter().map(|r| r.talent.id).collect()
     }
@@ -161,6 +165,11 @@ macro_rules! index_talents {
 
         Talent::index(&mut client, &*index, talents.clone()).unwrap();
         refresh_index(&mut client, &*index);
+
+        let talents: ::std::collections::HashMap<_, _> =
+            vec![$(stringify!($talent_file)),*].into_iter()
+                .zip(talents.into_iter())
+                .collect();
 
         (client, index, talents)
     }};
@@ -488,7 +497,7 @@ fn keyword_rust_trust() {
 
 #[test]
 fn keyword_rust_trust_should_keywords() {
-    let (mut client, index, _talents) = index_talents!(
+    let (mut client, index, talents) = index_talents!(
         sysadmin_with_clojure
         backend_rust
     );
@@ -501,6 +510,12 @@ fn keyword_rust_trust_should_keywords() {
         .collect::<Vec<HighlightResult>>();
 
     // expect the backend_rust > sysadmin_with_clojure
+    assert_eq!(
+        vec![
+            &talents["backend_rust"], &talents["sysadmin_with_clojure"]
+        ],
+        results.talents()
+    );
     assert_eq!(vec![2, 1], results.ids());
     assert_eq!(None, highlights.get(1), "actual: {:?}", highlights[1]);
 }

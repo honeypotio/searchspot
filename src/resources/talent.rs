@@ -66,6 +66,18 @@ pub struct FoundTalent {
     pub batch_starts_at: String,
 }
 
+impl PartialEq<Talent> for FoundTalent {
+    fn eq(&self, other: &Talent) -> bool {
+        self.id == other.id
+    }
+}
+
+impl PartialEq<FoundTalent> for Talent {
+    fn eq(&self, other: &FoundTalent) -> bool {
+        self.id == other.id
+    }
+}
+
 /// A struct that joins `desired_work_roles` and `desired_work_roles_experience`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct RolesExperience {
