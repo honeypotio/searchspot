@@ -959,7 +959,8 @@ impl Resource for Talent {
 
           "strip_js": {
               "type": "pattern_replace",
-              "pattern": "(.*)\\.js\\z",
+              // Lazy match on the initial match so the '.' can be captured by the optional \\.?
+              "pattern": "(.*?)\\.?js\\z",
               "replacement": "$1",
           },
 

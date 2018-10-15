@@ -530,6 +530,11 @@ fn keyword_skills_ember_member() {
     let results = Talent::search(&mut client, &*index, &params);
 
     assert_eq!(vec![3, 4], results.ids());
+
+    let params = parse_query("keywords=emberjs&features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+
+    assert_eq!(vec![3, 4], results.ids());
 }
 
 #[test]
@@ -545,6 +550,10 @@ fn keyword_node_js_no_fts() {
     assert_eq!(vec![3, 2], results.ids());
 
     let params = parse_query("keywords=node.js&features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![3, 2], results.ids());
+
+    let params = parse_query("keywords=nodejs&features[]=no_fulltext_search");
     let results = Talent::search(&mut client, &*index, &params);
     assert_eq!(vec![3, 2], results.ids());
 }
