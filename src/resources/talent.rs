@@ -955,7 +955,14 @@ impl Resource for Talent {
           "tech_words_filter": {
             "type":      "stop",
             "stopwords": ["js"]
-          }
+          },
+
+          "strip_js": {
+              "type": "pattern_replace",
+              "pattern": "(.*)\\.js\\z",
+              "replacement": "$1",
+          },
+
         }).as_object()
                     .unwrap()
                     .to_owned(),
@@ -974,8 +981,8 @@ impl Resource for Talent {
           },
           "keywords": {
             "type":      "custom",
-            "tokenizer": "whitespace",
-            "filter":    ["lowercase", "english_words_filter"]
+            "tokenizer": "standard",
+            "filter":    ["lowercase", "trim", "english_words_filter", "strip_js"]
           }
         }).as_object()
                     .unwrap()

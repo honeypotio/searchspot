@@ -357,7 +357,7 @@ fn keyword_no_fts() {
 
     let params = parse_query("keywords=HTML&features[]=no_fulltext_search");
     let results = Talent::search(&mut client, &*index, &params);
-    assert_eq!(vec![1], results.ids());
+    assert_eq!(vec![1, 5], results.ids());
 
     let params = parse_query("keywords=HTML5&features[]=no_fulltext_search");
     let results = Talent::search(&mut client, &*index, &params);
@@ -401,7 +401,7 @@ fn keyword_multiple() {
     let params = parse_query("keywords=Rust, HTML&features[]=no_fulltext_search");
 
     let results = Talent::search(&mut client, &*index, &params);
-    assert_eq!(vec![1], results.ids());
+    assert_eq!(vec![1, 2, 5], results.ids());
 }
 
 #[test]
@@ -412,7 +412,8 @@ fn keyword_multiple_with_should_keywords() {
         &features[]=keywords_should&features[]=no_fulltext_search");
 
     let results = Talent::search(&mut client, &*index, &params);
-    assert_eq!(vec![1, 2, 4, 5], results.ids());
+    println!("{:?}", results);
+    assert_eq!(vec![1, 2, 5, 4], results.ids());
 }
 
 #[test]
@@ -516,18 +517,53 @@ fn keyword_skills_ember_member() {
         sysadmin_with_clojure
         backend_rust
         frontend_ember
+        amsterdam_game_dev
     );
 
     let params = parse_query("keywords=ember");
     let results = Talent::search(&mut client, &*index, &params);
-    // must filter means we only get 1 result
-    assert_eq!(vec![2, 3], results.ids());
+
+    // Results heavily biased by TF/IDF
+    assert_eq!(vec![2, 4, 3], results.ids());
 
     let params = parse_query("keywords=ember&features[]=no_fulltext_search");
     let results = Talent::search(&mut client, &*index, &params);
 
-    // must filter means we only get 1 result
-    assert_eq!(vec![3], results.ids());
+    assert_eq!(vec![3, 4], results.ids());
+}
+
+#[test]
+fn keyword_node_js_no_fts() {
+    let (mut client, index, _talents) = index_talents!(
+        sysadmin_with_clojure
+        backend_rust
+        frontend_ember
+    );
+
+    let params = parse_query("keywords=node.js");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![3, 2], results.ids());
+
+    let params = parse_query("keywords=node.js&features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![3, 2], results.ids());
+}
+
+#[test]
+fn keyword_node_without_js_no_fts() {
+    let (mut client, index, _talents) = index_talents!(
+        sysadmin_with_clojure
+        backend_rust
+        frontend_ember
+    );
+
+    let params = parse_query("keywords=node");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![3, 2], results.ids());
+
+    let params = parse_query("keywords=node&features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![3, 2], results.ids());
 }
 
 #[test]
@@ -605,7 +641,7 @@ fn keyword_headline_summary() {
 
     let params = parse_query("keywords=senior");
     let results = Talent::search(&mut client, &*index, &params);
-    assert_eq!(vec![2, 1, 4], results.ids());
+    assert_eq!(vec![2, 4, 1], results.ids());
 }
 
 #[test]

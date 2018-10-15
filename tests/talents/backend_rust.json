@@ -10,7 +10,7 @@
     "current_location": "Berlin",
     "work_authorization": "yes",
     "skills": ["Rust", "HTML5", "HTML", "Team member"],
-    "summary": "I'm a senior Rust developer and sometimes I do also HTML.",
+    "summary": "I'm a senior Rust developer and sometimes I do also HTML. I used to do Node.",
     "headline": "Backend developer with Rust experience",
     "work_experiences": ["Database Administrator"],
     "contacted_company_ids": [],
