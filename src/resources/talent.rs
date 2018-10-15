@@ -78,6 +78,12 @@ impl PartialEq<FoundTalent> for Talent {
     }
 }
 
+impl<'a> PartialEq<u32> for &'a Talent {
+    fn eq(&self, other: &u32) -> bool {
+        self.id == *other
+    }
+}
+
 /// A struct that joins `desired_work_roles` and `desired_work_roles_experience`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct RolesExperience {

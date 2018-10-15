@@ -1,3 +1,5 @@
+#![allow(non_upper_case_globals)]
+
 extern crate searchspot;
 extern crate rs_es;
 extern crate chrono;
@@ -22,6 +24,7 @@ use std::fs;
 use std::io::Read;
 use std::fmt::Debug;
 use std::path::Path;
+use std::collections::HashMap;
 
 pub fn load_talent<P: AsRef<Path> + Debug>(path: P, idx: usize) -> Talent {
     let path = path.as_ref();
@@ -34,16 +37,42 @@ pub fn load_talent<P: AsRef<Path> + Debug>(path: P, idx: usize) -> Talent {
 
 macro_rules! get_talents {
     ($($talent_file:ident)*) => {{
-        let mut talents = vec![];
-        let filenames: Vec<&'static str> = vec![$(stringify!($talent_file)),*];
-
-        for (idx, filename) in filenames.into_iter().enumerate() {
-            let path = format!("tests/talents/{}.json", filename);
-            talents.push(load_talent(&path, idx + 1));
-        }
-
-        talents
+        vec![$($talent_file.clone()),*]
     }};
+}
+
+macro_rules! preload_talents {
+    ($($talent_file:ident)*) => {
+        lazy_static! {
+            pub static ref PRELOADED_TALENTS: HashMap<&'static str, Talent>  = {
+                let mut talents = vec![];
+                let filenames: Vec<&'static str> = vec![$(stringify!($talent_file)),*];
+
+                for (idx, filename) in filenames.into_iter().enumerate() {
+                    let path = format!("tests/talents/{}.json", filename);
+                    talents.push(load_talent(&path, idx + 1));
+                }
+
+                vec![$(stringify!($talent_file)),*].into_iter()
+                    .zip(talents.into_iter())
+                    .collect()
+            };
+
+            $(
+                pub static ref $talent_file: &'static Talent
+                    = &::PRELOADED_TALENTS[stringify!($talent_file)];
+            )+
+        }
+    };
+}
+
+preload_talents! {
+    backend_rust
+    senior_java
+    rejected
+    sysadmin_with_clojure
+    amsterdam_game_dev
+    frontend_ember
 }
 
 mod helpers {
@@ -194,7 +223,14 @@ fn no_params() {
     let empty_params = &parse_query("");
 
     let results = Talent::search(&mut client, &*index, empty_params);
-    assert_eq!(vec![4, 5, 2, 1], results.ids());
+    assert_eq!(vec![
+            *sysadmin_with_clojure,
+            *amsterdam_game_dev,
+            *senior_java,
+            *backend_rust
+        ],
+        results.ids()
+    );
     assert_eq!(4, results.total);
     assert!(results.highlights().iter().all(|r| r.is_none()));
 }
@@ -574,17 +610,17 @@ fn keyword_skills_ember_member() {
     let results = Talent::search(&mut client, &*index, &params);
 
     // Results heavily biased by TF/IDF
-    assert_eq!(vec![2, 4, 3], results.ids());
+    assert_eq!(vec![*backend_rust, *amsterdam_game_dev, *frontend_ember], results.ids());
 
     let params = parse_query("keywords=ember&features[]=no_fulltext_search");
     let results = Talent::search(&mut client, &*index, &params);
 
-    assert_eq!(vec![3, 4], results.ids());
+    assert_eq!(vec![*frontend_ember, *amsterdam_game_dev], results.ids());
 
     let params = parse_query("keywords=emberjs&features[]=no_fulltext_search");
     let results = Talent::search(&mut client, &*index, &params);
 
-    assert_eq!(vec![3, 4], results.ids());
+    assert_eq!(vec![*frontend_ember, *amsterdam_game_dev], results.ids());
 }
 
 #[test]
@@ -597,15 +633,15 @@ fn keyword_node_js_no_fts() {
 
     let params = parse_query("keywords=node.js");
     let results = Talent::search(&mut client, &*index, &params);
-    assert_eq!(vec![3, 2], results.ids());
+    assert_eq!(vec![*frontend_ember, *backend_rust], results.ids());
 
     let params = parse_query("keywords=node.js&features[]=no_fulltext_search");
     let results = Talent::search(&mut client, &*index, &params);
-    assert_eq!(vec![3, 2], results.ids());
+    assert_eq!(vec![*frontend_ember, *backend_rust], results.ids());
 
     let params = parse_query("keywords=nodejs&features[]=no_fulltext_search");
     let results = Talent::search(&mut client, &*index, &params);
-    assert_eq!(vec![3, 2], results.ids());
+    assert_eq!(vec![*frontend_ember, *backend_rust], results.ids());
 }
 
 #[test]
@@ -618,11 +654,11 @@ fn keyword_node_without_js_no_fts() {
 
     let params = parse_query("keywords=node");
     let results = Talent::search(&mut client, &*index, &params);
-    assert_eq!(vec![3, 2], results.ids());
+    assert_eq!(vec![*frontend_ember, *backend_rust], results.ids());
 
     let params = parse_query("keywords=node&features[]=no_fulltext_search");
     let results = Talent::search(&mut client, &*index, &params);
-    assert_eq!(vec![3, 2], results.ids());
+    assert_eq!(vec![*frontend_ember, *backend_rust], results.ids());
 }
 
 #[test]
@@ -636,7 +672,7 @@ fn keyword_summary_rust_trust() {
     let results = Talent::search(&mut client, &*index, &params);
 
     // must filter means we only get 1 result
-    assert_eq!(vec![2], results.ids());
+    assert_eq!(vec![*backend_rust], results.ids());
 }
 
 #[test]
@@ -660,7 +696,7 @@ fn keyword_summary_rust_trust_should_keywords() {
         ],
         results.talents()
     );
-    assert_eq!(vec![2, 1], results.ids());
+    assert_eq!(vec![*backend_rust, *sysadmin_with_clojure], results.ids());
     assert_eq!(None, highlights.get(1), "actual: {:?}", highlights[1]);
 }
 
