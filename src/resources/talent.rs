@@ -409,7 +409,11 @@ impl Talent {
         let no_fulltext_search = search_features.contains("no_fulltext_search");
 
         let overrides = if no_fulltext_search {
-            vec![("summary", ".keyword")]
+            vec![
+                ("summary", ".keyword"),
+                ("headline", ".keyword"),
+                ("skills", ".keyword"),
+            ]
         } else {
             vec![]
         }.into_iter().collect();
@@ -627,9 +631,11 @@ impl Resource for Talent {
                         highlight.add_setting("educations.raw".to_owned(), settings.clone());
                     } else {
                         highlight.add_setting("skills".to_owned(), settings.clone());
+                        highlight.add_setting("skills.keyword".to_owned(), settings.clone());
                         highlight.add_setting("summary".to_owned(), settings.clone());
                         highlight.add_setting("summary.keyword".to_owned(), settings.clone());
                         highlight.add_setting("headline".to_owned(), settings.clone());
+                        highlight.add_setting("headline.keyword".to_owned(), settings.clone());
                         highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
                         highlight.add_setting("work_experiences".to_owned(), settings.clone());
                         highlight.add_setting("educations".to_owned(), settings);
@@ -637,9 +643,11 @@ impl Resource for Talent {
                 }
                 _ => {
                     highlight.add_setting("skills".to_owned(), settings.clone());
+                    highlight.add_setting("skills.keyword".to_owned(), settings.clone());
                     highlight.add_setting("summary".to_owned(), settings.clone());
                     highlight.add_setting("summary.keyword".to_owned(), settings.clone());
                     highlight.add_setting("headline".to_owned(), settings.clone());
+                    highlight.add_setting("headline.keyword".to_owned(), settings.clone());
                     highlight.add_setting("desired_work_roles".to_owned(), settings.clone());
                     highlight.add_setting("work_experiences".to_owned(), settings.clone());
                     highlight.add_setting("educations".to_owned(), settings);
@@ -785,13 +793,24 @@ impl Resource for Talent {
           },
 
           "skills": {
-            "type":            "string",
-            "analyzer":        "trigrams",
-            "search_analyzer": "words",
+            "type": "multi_field",
             "fields": {
-              "raw": {
-                "type": "string"
-              }
+                "skills": {
+                    "type": "string",
+                    "analyzer":        "trigrams",
+                    "search_analyzer": "words",
+                    "boost":           "2.0",
+                },
+                "keyword": {
+                    "type": "string",
+                    "analyzer":        "keywords",
+                    "search_analyzer": "keywords",
+                    "boost":           "2.0",
+                },
+                "raw": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                }
             }
           },
 
@@ -806,8 +825,8 @@ impl Resource for Talent {
                 },
                 "keyword": {
                     "type":            "string",
-                    "analyzer":        "words",
-                    "search_analyzer": "words",
+                    "analyzer":        "keywords",
+                    "search_analyzer": "keywords",
                     "boost":           "2.0",
                 },
                 "raw": {
@@ -818,14 +837,24 @@ impl Resource for Talent {
           },
 
           "headline": {
-            "type":            "string",
-            "analyzer":        "trigrams",
-            "search_analyzer": "words",
-            "boost":           "2.0",
+            "type": "multi_field",
             "fields": {
-              "raw": {
-                "type": "string"
-              }
+                "headline": {
+                    "type": "string",
+                    "analyzer":        "trigrams",
+                    "search_analyzer": "words",
+                    "boost":           "2.0",
+                },
+                "keyword": {
+                    "type": "string",
+                    "analyzer":        "keywords",
+                    "search_analyzer": "keywords",
+                    "boost":           "2.0",
+                },
+                "raw": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                }
             }
           },
 
@@ -937,12 +966,16 @@ impl Resource for Talent {
             "filter":    ["lowercase", "words_splitter", "trigrams_filter",
                            "english_words_filter", "tech_words_filter"]
           },
-
           "words": { // query time
             "type":      "custom",
             "tokenizer": "keyword",
             "filter":    ["lowercase", "words_splitter", "english_words_filter",
                            "tech_words_filter"]
+          },
+          "keywords": {
+            "type":      "custom",
+            "tokenizer": "whitespace",
+            "filter":    ["lowercase", "english_words_filter"]
           }
         }).as_object()
                     .unwrap()

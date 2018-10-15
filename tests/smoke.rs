@@ -158,6 +158,7 @@ macro_rules! index_talents {
             module_path!().replace(":", "_"),
             line!(),
         );
+        println!("index: {:?}", index);
         let mut client = make_client();
 
         Talent::reset_index(&mut client, &*index).unwrap();
@@ -341,9 +342,27 @@ fn multiple_languages() {
 fn keyword() {
     let (mut client, index, _talents) = index_default_talents!();
 
-    let params = parse_query("keywords=HTML5");
+    let params = parse_query("keywords=HTML");
     let results = Talent::search(&mut client, &*index, &params);
     assert_eq!(vec![1, 2, 5], results.ids());
+
+    let params = parse_query("keywords=HTML5");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2, 1, 5], results.ids());
+}
+
+#[test]
+fn keyword_no_fts() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=HTML&features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![1], results.ids());
+
+    let params = parse_query("keywords=HTML5&features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+    println!("{:?}", results);
+    assert_eq!(vec![2, 1], results.ids());
 }
 
 #[test]
@@ -382,7 +401,7 @@ fn keyword_multiple() {
     let params = parse_query("keywords=Rust, HTML&features[]=no_fulltext_search");
 
     let results = Talent::search(&mut client, &*index, &params);
-    assert_eq!(vec![1, 2, 5], results.ids());
+    assert_eq!(vec![1], results.ids());
 }
 
 #[test]
@@ -393,7 +412,7 @@ fn keyword_multiple_with_should_keywords() {
         &features[]=keywords_should&features[]=no_fulltext_search");
 
     let results = Talent::search(&mut client, &*index, &params);
-    assert_eq!(vec![1, 2, 5, 4], results.ids());
+    assert_eq!(vec![1, 2, 4, 5], results.ids());
 }
 
 #[test]
@@ -401,6 +420,16 @@ fn keyword_boolean_search() {
     let (mut client, index, _talents) = index_default_talents!();
 
     let params = parse_query("keywords=C++ and Ember.js AND NOT React.js");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![5, 1], results.ids());
+}
+
+#[test]
+fn keyword_boolean_search_no_fts() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=C++ and Ember.js AND NOT React.js\
+        &features[]=no_fulltext_search");
     let results = Talent::search(&mut client, &*index, &params);
     assert_eq!(vec![5], results.ids());
 }
@@ -482,7 +511,27 @@ fn keyword_partial_keywords() {
 }
 
 #[test]
-fn keyword_rust_trust() {
+fn keyword_skills_ember_member() {
+    let (mut client, index, _talents) = index_talents!(
+        sysadmin_with_clojure
+        backend_rust
+        frontend_ember
+    );
+
+    let params = parse_query("keywords=ember");
+    let results = Talent::search(&mut client, &*index, &params);
+    // must filter means we only get 1 result
+    assert_eq!(vec![2, 3], results.ids());
+
+    let params = parse_query("keywords=ember&features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+
+    // must filter means we only get 1 result
+    assert_eq!(vec![3], results.ids());
+}
+
+#[test]
+fn keyword_summary_rust_trust() {
     let (mut client, index, _talents) = index_talents!(
         sysadmin_with_clojure
         backend_rust
@@ -496,7 +545,7 @@ fn keyword_rust_trust() {
 }
 
 #[test]
-fn keyword_rust_trust_should_keywords() {
+fn keyword_summary_rust_trust_should_keywords() {
     let (mut client, index, talents) = index_talents!(
         sysadmin_with_clojure
         backend_rust
@@ -533,7 +582,7 @@ fn keyword_summary() {
     {
         let params = parse_query("keywords=C++");
         let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![5, 4], results.ids());
+        assert_eq!(vec![4, 5], results.ids());
     }
 
     {
@@ -545,7 +594,8 @@ fn keyword_summary() {
     {
         let params = parse_query("keywords=rust and");
         let results = Talent::search(&mut client, &*index, &params);
-        assert_eq!(vec![1, 4, 2], results.ids());
+        println!("{:?}", results);
+        assert_eq!(vec![2, 1, 4], results.ids());
     }
 }
 
