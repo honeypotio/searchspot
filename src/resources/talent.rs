@@ -419,6 +419,9 @@ impl Talent {
                 ("summary", ".keyword"),
                 ("headline", ".keyword"),
                 ("skills", ".keyword"),
+                ("desired_work_roles", ".keyword"),
+                ("work_experiences", ".keyword"),
+                ("educations", ".keyword"),
             ]
         } else {
             vec![]
@@ -738,14 +741,23 @@ impl Resource for Talent {
           },
 
           "desired_work_roles": {
-            "type":            "string",
-            "analyzer":        "trigrams",
-            "search_analyzer": "words",
+            "type": "multi_field",
             "fields": {
-              "raw": {
-                "type": "string",
-                "index": "not_analyzed"
-              }
+                "desired_work_roles": {
+                    "type": "string",
+                    "analyzer":        "trigrams",
+                    "search_analyzer": "words",
+                },
+                "keyword": {
+                    "type": "string",
+                    "analyzer":        "keywords",
+                    "search_analyzer": "keywords",
+                    "boost":           "2.0",
+                },
+                "raw": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                }
             }
           },
 
@@ -773,13 +785,23 @@ impl Resource for Talent {
           },
 
           "educations": {
-            "type":            "string",
-            "analyzer":        "trigrams",
-            "search_analyzer": "words",
+            "type": "multi_field",
             "fields": {
-              "raw": {
-                "type": "string"
-              }
+                "educations": {
+                    "type": "string",
+                    "analyzer":        "trigrams",
+                    "search_analyzer": "words",
+                },
+                "keyword": {
+                    "type": "string",
+                    "analyzer":        "keywords",
+                    "search_analyzer": "keywords",
+                    "boost":           "2.0",
+                },
+                "raw": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                }
             }
           },
 
@@ -865,14 +887,23 @@ impl Resource for Talent {
           },
 
           "work_experiences": {
-            "type":            "string",
-            "analyzer":        "trigrams",
-            "search_analyzer": "words",
+            "type": "multi_field",
             "fields": {
-              "raw": {
-                "type": "string",
-                "index": "not_analyzed"
-              }
+                "work_experiences": {
+                    "type": "string",
+                    "analyzer":        "trigrams",
+                    "search_analyzer": "words",
+                },
+                "keyword": {
+                    "type": "string",
+                    "analyzer":        "keywords",
+                    "search_analyzer": "keywords",
+                    "boost":           "2.0",
+                },
+                "raw": {
+                    "type": "string",
+                    "index": "not_analyzed"
+                }
             }
           },
 
