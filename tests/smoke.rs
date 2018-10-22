@@ -531,6 +531,15 @@ fn keyword_quotes() {
 }
 
 #[test]
+fn keyword_quotes_no_fts() {
+    let (mut client, index, _talents) = index_default_talents!();
+
+    let params = parse_query("keywords=\"Unity\"&features[]=no_fulltext_search");
+    let results = Talent::search(&mut client, &*index, &params);
+    assert_eq!(vec![2], results.ids());
+}
+
+#[test]
 // searching for a single word that's supposed to be split
 fn keyword_expected_split() {
     let (mut client, index, _talents) = index_default_talents!();

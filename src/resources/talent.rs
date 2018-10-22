@@ -500,8 +500,10 @@ impl Talent {
                 let raw_query = keywords.contains('\"');
                 macro_rules! maybe_raw {
                     ($field:expr) => {{
-                        let field_modifier = overrides.get($field).unwrap_or(&"");
-                        format!("{}{}{}", $field, field_modifier, if raw_query { ".raw" } else { "" })
+                        let raw_modifier = if raw_query { ".raw" } else { "" };
+                        // the overrides should handle the 'raw' matching enough for now.
+                        let field_modifier = overrides.get($field).unwrap_or(&raw_modifier);
+                        format!("{}{}", $field, field_modifier)
                     }};
                 }
                 let query = Query::build_query_string(keywords.to_owned())
