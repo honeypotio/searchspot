@@ -1,17 +1,10 @@
-FROM liuchong/rustup:nightly
+FROM rust:1.30
 
-# RUN apt-get update && \
-#     apt-get install --no-install-recommends -y \
-#     git \
-#     nano && \
-#     rm -rf /var/lib/apt/lists/*
+RUN mkdir /app
+WORKDIR /app
 
-RUN cargo install searchspot --force
-# RUN git clone https://github.com/honeypotio/searchspot
-# WORKDIR searchspot
+COPY . /app
+
+RUN cargo build
 
 EXPOSE 3001
-
-# RUN cargo build --release
-# CMD ["./target/release/searchspot"]
-CMD ["searchspot"]
